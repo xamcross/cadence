@@ -131,18 +131,37 @@ single-instance deployment within budget.
 
 The production deployment is exactly:
 
-- **1 x Spring Boot JAR** -- the single backend process
-- **1 x MongoDB 7.x instance** -- the single data store
-- **1 x Angular SPA** -- served via CDN or static host
+- **1 x Spring Boot JAR** -- packaged as a Docker image, deployed as a single
+  Fly Machine on **Fly.io** (one region, one instance)
+- **1 x MongoDB Atlas cluster** -- the single managed data store (Atlas M10+
+  single-region; MongoDB 7.x)
+- **1 x Angular SPA** -- built as a static site, served via **Cloudflare Pages**
+
+**Atlas replica set note**: MongoDB Atlas provisions a 3-node replica set by
+default. This is acceptable -- it is a fully managed concern with zero
+operational overhead and does not violate the intent of this principle. The
+prohibition below targets self-managed horizontal scaling, not Atlas's managed
+replication.
+
+**Fly.io note**: Fly.io is not Kubernetes, Docker Swarm, or Nomad. A single
+Fly Machine deployment is the target. Multi-machine or auto-scaling
+configuration MUST NOT be enabled for the MVP.
 
 The following are **prohibited** for the MVP:
 
 - Microservices or any decomposition into separate backend processes
 - Kubernetes, Docker Swarm, Nomad, or any container orchestration platform
 - Message queues or event brokers (Kafka, RabbitMQ, Redis Streams, SQS)
-- Multi-region or multi-availability-zone configuration
+- Multi-region or multi-availability-zone configuration (applies to both
+  Fly.io and Atlas -- single region only)
 - Separate caching tiers as standalone services (Redis, Memcached)
-- MongoDB read replicas, sharding, or distributed clusters
+- Self-managed MongoDB replica sets, sharding, or distributed clusters
+- Fly.io auto-scaling or multi-machine deployment
+
+**Secrets management**: All runtime secrets (Atlas connection string, email
+provider API key, OAuth client credentials, JWT signing key) MUST be stored
+as **Fly.io secrets** (`fly secrets set`), not in source code or committed
+configuration files.
 
 **Async work rule**: If a background/scheduled operation is required (e.g.
 sending SLA-breach reminders, dispatching confirmation emails), it MUST be
@@ -413,4 +432,4 @@ completed. A failing gate MUST be resolved -- either by adjusting the feature
 scope or by filing a constitution amendment -- before any implementation task is
 started. A failing gate discovered during PR review MUST block merge.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-13 | **Last Amended**: 2026-06-13
+**Version**: 1.1.1 | **Ratified**: 2026-06-13 | **Last Amended**: 2026-06-13
