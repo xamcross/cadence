@@ -19,7 +19,9 @@ primary_region = "iad"
     path = "/actuator/health"
     interval = "10s"
     timeout = "5s"
-    grace_period = "60s"
+    # 180s: cold start on Atlas M0 across regions can take 80s+ (Spring context + Mongock).
+    # Lower this back toward 60s once the Fly machine and the Atlas cluster are co-located.
+    grace_period = "180s"
 
 [build]
   # Build context is the project root (Fly default). `build-context` is NOT a valid fly.toml
