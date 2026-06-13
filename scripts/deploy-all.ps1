@@ -9,11 +9,13 @@
 #
 # Usage:
 #   .\scripts\deploy-all.ps1
+#   .\scripts\deploy-all.ps1 -AppName cadence-x    # override the target Fly app name
 #   .\scripts\deploy-all.ps1 -LocalBuild           # build backend image with local Docker
 #   .\scripts\deploy-all.ps1 -SkipFrontend         # backend only
 #   .\scripts\deploy-all.ps1 -SkipDb               # skip Atlas connectivity check
 
 param(
+    [string]$AppName,
     [switch]$LocalBuild,
     [switch]$SkipFrontend,
     [switch]$SkipDb
@@ -45,6 +47,7 @@ if (-not $SkipDb) {
 Write-Host ""
 Write-Host "--- Step 2/3: Backend deploy ---" -ForegroundColor Magenta
 $BackendArgs = @()
+if ($AppName) { $BackendArgs += @("-AppName", $AppName) }
 if ($LocalBuild) { $BackendArgs += "-LocalBuild" }
 & "$ScriptsDir\deploy-backend.ps1" @BackendArgs
 if ($LASTEXITCODE -ne 0) {

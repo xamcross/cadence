@@ -10,10 +10,12 @@
 #   (-LocalBuild only) a running local Docker daemon
 #
 # Usage:
-#   .\scripts\deploy-backend.ps1                 # remote build on Fly.io (default)
-#   .\scripts\deploy-backend.ps1 -LocalBuild     # build the image with local Docker
+#   .\scripts\deploy-backend.ps1                       # remote build; app from fly.toml
+#   .\scripts\deploy-backend.ps1 -AppName cadence-x    # override the target Fly app name
+#   .\scripts\deploy-backend.ps1 -LocalBuild           # build the image with local Docker
 
 param(
+    [string]$AppName,
     [switch]$LocalBuild
 )
 
@@ -42,7 +44,11 @@ if (-not (Test-Path $FlyConfig)) {
 # Docker daemon); -LocalBuild builds with the local Docker daemon instead.
 # Mongock changelog runs on startup - no separate migration step needed.
 Write-Host "Deploying to Fly.io (image built from backend/Dockerfile)..." -ForegroundColor Yellow
+# When -AppName is omitted, fly uses the `app` field in fly.toml.
 $FlyArgs = @("deploy", "--config", $FlyConfig)
+if ($AppName) {
+    $FlyArgs += @("--app", $AppName)
+}
 if (-not $LocalBuild) {
     $FlyArgs += "--remote-only"
 }
@@ -63,7 +69,11 @@ for ($i = 1; $i -le $MaxAttempts; $i++) {
     Write-Host "Health poll attempt $i/$MaxAttempts..."
     $ProxyJob = $null
     try {
-        $ProxyJob = Start-Job -ScriptBlock { & fly proxy 8081:8081 2>$null }
+        $ProxyJob = Start-Job -ScriptBlock {
+            param($App)
+            if ($App) { & fly proxy 8081:8081 --app $App 2>$null }
+            else { & fly proxy 8081:8081 2>$null }
+        } -ArgumentList $AppName
         Start-Sleep -Seconds 3
         $Response = Invoke-WebRequest -Uri "http://localhost:8081/actuator/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
         if ($Response.StatusCode -eq 200) {
