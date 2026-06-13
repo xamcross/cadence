@@ -383,6 +383,7 @@ cadence/
    | C4 | Does it add a dependency outside the fixed stack? | STOP -- amend stack first |
    | C5 | Do any new/modified Windows scripts contain non-ASCII characters? | Fix encoding before marking done |
    | C6 | Is the multi-role sub-agent review (>=3 roles) scheduled for task close? | Add review step to task plan |
+   | C7 | Does implementation download any build tool, runtime, or CLI distribution? | STOP — use highest already-installed version; never download tools |
 
 4. **Definition of Done** for a feature increment:
 
@@ -440,6 +441,31 @@ cadence/
    startup inside `deploy-backend.ps1`. No separate migration step is needed
    unless verifying Atlas connectivity first with `db-migrate.ps1`.
 
+### X. Zero-Download Implementation Rule
+
+**This principle is NON-NEGOTIABLE.**
+
+During implementation, **no build tool, runtime, SDK distribution, or CLI installer may be downloaded**. This prohibition covers any automated fetch triggered by agent actions, including but not limited to:
+
+- Gradle wrapper auto-downloading a new Gradle distribution (via `gradlew` / `gradlew.bat`)
+- `npm install -g` or `npx` fetching CLI tools not already on the system
+- `Invoke-WebRequest`, `curl`, or `wget` fetching runtimes or build tools
+- Package manager bootstrappers fetching themselves (Scoop, Chocolatey, winget, etc.)
+- Any other mechanism that transfers tool binaries over the network during a coding session
+
+**Required behavior before using any build tool or wrapper**:
+
+1. **Discover what is already installed.** Check the local cache and PATH before referencing any version:
+   - Gradle: inspect `~/.gradle/wrapper/dists/` — use the highest version already present
+   - Node / npm: run `node --version` and `npm --version`
+   - Java: run `java -version`; check `JAVA_HOME`
+   - Angular CLI: check npm global cache
+2. **Use the highest already-available version.** Never hardcode a version number from training data; always confirm the actual installed version on this machine.
+3. **If a required tool is genuinely absent**: STOP. Inform the user which tool is missing and the exact command to install it. Do NOT install it yourself.
+4. **Wrapper config must match cached distributions.** When writing `gradle-wrapper.properties` or equivalent config, set `distributionUrl` (or equivalent) to the highest already-cached distribution to guarantee zero downloads on first wrapper invocation.
+
+**Rationale**: Two simultaneous 125 MB+ Gradle downloads were triggered mid-session by automated wrapper invocations, blocking all work, consuming bandwidth, and causing user-facing disruption. The system always has the required tools installed; the agent's job is to find and use them, not to provision them.
+
 ## Governance
 
 This constitution supersedes all other practices, README instructions, and
@@ -468,4 +494,4 @@ completed. A failing gate MUST be resolved -- either by adjusting the feature
 scope or by filing a constitution amendment -- before any implementation task is
 started. A failing gate discovered during PR review MUST block merge.
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-13 | **Last Amended**: 2026-06-13
+**Version**: 1.3.0 | **Ratified**: 2026-06-13 | **Last Amended**: 2026-06-13

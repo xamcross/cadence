@@ -1,0 +1,30 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/cadence}
+  application:
+    name: cadence-backend
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    mongo:
+      enabled: true
+
+mongock:
+  migration-scan-package: com.cadence.config.migration

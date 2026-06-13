@@ -66,5 +66,38 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "Backend deployed." -ForegroundColor Green
+Write-Host "Backend deployed. Polling /actuator/health..." -ForegroundColor Yellow
+
+$MaxAttempts = 30
+$SleepSeconds = 10
+$Healthy = $false
+
+for ($i = 1; $i -le $MaxAttempts; $i++) {
+    Write-Host "Health poll attempt $i/$MaxAttempts..."
+    $ProxyJob = $null
+    try {
+        $ProxyJob = Start-Job -ScriptBlock { & fly proxy 8081:8081 2>$null }
+        Start-Sleep -Seconds 3
+        $Response = Invoke-WebRequest -Uri "http://localhost:8081/actuator/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+        if ($Response.StatusCode -eq 200) {
+            $Healthy = $true
+        }
+    } catch {
+        # Connection refused or timeout - not yet healthy, continue polling
+    } finally {
+        if ($ProxyJob) {
+            Stop-Job $ProxyJob -ErrorAction SilentlyContinue
+            Remove-Job $ProxyJob -ErrorAction SilentlyContinue
+        }
+    }
+    if ($Healthy) { break }
+    Start-Sleep -Seconds $SleepSeconds
+}
+
+if (-not $Healthy) {
+    Write-Error "Deployment failed: backend not healthy after 5 minutes. Run: fly logs"
+    exit 1
+}
+
+Write-Host "Backend deployed and healthy." -ForegroundColor Green
 Write-Host "Mongock migrations applied on startup - check logs with: fly logs" -ForegroundColor Cyan

@@ -1,0 +1,21 @@
+# Backend
+backend/build/
+backend/.gradle/
+backend/src/main/resources/application-local.yml
+backend/logs/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
