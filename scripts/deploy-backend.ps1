@@ -52,7 +52,15 @@ if ($AppName) {
 if (-not $LocalBuild) {
     $FlyArgs += "--remote-only"
 }
-& fly @FlyArgs
+# fly deploy uses the CURRENT directory as the Docker build context. Run it from the repo root
+# so the context matches backend/Dockerfile's repo-root-relative COPY paths (COPY backend/...),
+# regardless of where this script was invoked from. This mirrors how CI runs `flyctl deploy`.
+Push-Location $RepoRoot
+try {
+    & fly @FlyArgs
+} finally {
+    Pop-Location
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Error "fly deploy failed."
     exit 1
