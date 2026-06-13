@@ -404,6 +404,42 @@ cadence/
    table with a written justification. Unapproved complexity discovered in review
    MUST be removed or justified before merge.
 
+6. **Deployment workflow** (run after every completed feature increment):
+
+   All deployment scripts live in `scripts/`. They MUST remain pure ASCII with
+   CRLF line endings (Principle V). After merging a feature to `main`:
+
+   | Step | Script | When to run |
+   |---|---|---|
+   | 1. DB check | `scripts\db-migrate.ps1` | Always -- verify Atlas is reachable before deploying |
+   | 2. Backend | `scripts\deploy-backend.ps1` | Any backend change (Java, config, Mongock migration) |
+   | 3. Frontend | `scripts\deploy-frontend.ps1` | Any Angular change |
+   | All-in-one | `scripts\deploy-all.ps1` | Full release (runs steps 1-3 in order) |
+
+   **Quick reference by feature area**:
+
+   | Feature area | Scripts to run |
+   |---|---|
+   | Backend-only change | `db-migrate.ps1` then `deploy-backend.ps1` |
+   | Frontend-only change | `deploy-frontend.ps1` |
+   | New MongoDB index or Mongock changeset | `db-migrate.ps1` then `deploy-backend.ps1` (Mongock applies on startup) |
+   | Full feature (Angular + Spring Boot + DB) | `deploy-all.ps1` |
+
+   **Secrets**: All credentials (Atlas URI, JWT key, OAuth secrets, email API key)
+   MUST be stored as Fly.io secrets before the first backend deploy:
+
+   ```
+   fly secrets set MONGODB_URI="mongodb+srv://..."
+   fly secrets set JWT_SECRET="..."
+   fly secrets set EMAIL_API_KEY="..."
+   ```
+
+   Never commit secrets to source or `fly.toml`.
+
+   **Migration behaviour**: Mongock changesets apply automatically on Spring Boot
+   startup inside `deploy-backend.ps1`. No separate migration step is needed
+   unless verifying Atlas connectivity first with `db-migrate.ps1`.
+
 ## Governance
 
 This constitution supersedes all other practices, README instructions, and
@@ -432,4 +468,4 @@ completed. A failing gate MUST be resolved -- either by adjusting the feature
 scope or by filing a constitution amendment -- before any implementation task is
 started. A failing gate discovered during PR review MUST block merge.
 
-**Version**: 1.1.1 | **Ratified**: 2026-06-13 | **Last Amended**: 2026-06-13
+**Version**: 1.2.0 | **Ratified**: 2026-06-13 | **Last Amended**: 2026-06-13
