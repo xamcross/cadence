@@ -25,25 +25,40 @@ parts that cannot be scripted.
 3. **Cloudflare**: create an account, then `npm install -g wrangler` and `wrangler login`.
 4. **mongosh** (optional, for the `db-migrate.ps1` connectivity check): install from mongodb.com.
 
-## Phase 1 — Provision MongoDB Atlas
+## Phase 1 — Provision MongoDB Atlas (M0 free tier for now)
 
-1. Create a cluster — **M10+, single region** (constitution Principle IV; the M0 free tier
-   works for a smoke test but is not the target).
+> **Tier note:** we are starting on the **M0 free tier**. The constitution (Principle IV)
+> targets **M10+** for production; M0 is a temporary, cost-saving choice for early development
+> and must be upgraded to M10+ before production launch (see "M0 limitations" below). The
+> connection string and application config are identical across tiers, so the upgrade is a
+> no-code change (resize the cluster in the Atlas UI; `MONGODB_URI` stays the same).
+
+1. Create a cluster → choose **M0 (Free Shared)**. Pick a provider/region from the free-tier
+   list that is geographically close to your Fly `primary_region` (Phase 2) to minimise the
+   per-query network hop.
 2. **Database Access** → add a database user (username + strong password). Save them.
-3. **Network Access** → add an allowlist entry. Fly egress IPs are dynamic, so either:
-   - allow `0.0.0.0/0` and rely on user/password auth (simplest; acceptable for MVP), **or**
-   - set up an Atlas private endpoint / Fly static egress IP (more secure, more setup).
-4. Confirm **Encryption at Rest** is on (Atlas default — satisfies Principle VIII).
-5. Copy the **connection string**:
+3. **Network Access** → add an IP allowlist entry. M0 does **not** support VPC peering or
+   private endpoints (those require M10+), and Fly egress IPs are dynamic — so allow
+   `0.0.0.0/0` and rely on user/password auth.
+4. **Encryption at rest**: M0 is encrypted at rest at the infrastructure level by default
+   (satisfies the baseline of Principle VIII). Customer-managed keys / CSFLE require M10+ and
+   are part of the production upgrade.
+5. Copy the **connection string** (Atlas → Connect → Drivers):
    `mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/cadence?retryWrites=true&w=majority`
-   (note the `/cadence` database name).
+   If the copied string omits the database name, insert `/cadence` before the `?`. You set this
+   as the `MONGODB_URI` secret in Phase 2.
+
+**M0 limitations to be aware of:** 512 MB storage, shared CPU/RAM, a ~500 connection cap, no
+automated backups, and no private networking. Fine for the scaffold smoke test and early dev;
+upgrade to M10+ (Principle IV) before handling real candidate data or production traffic.
 
 ## Phase 2 — Create the Fly app & set the secret
 
 1. The app name in `fly.toml` is **`cadence`** and must be globally unique on Fly. If it is
    taken: `fly apps create <your-unique-name>` and change `app = "..."` in `fly.toml`.
    Otherwise: `fly apps create cadence`.
-2. (Optional) change `primary_region = "iad"` in `fly.toml` to a region near your users.
+2. (Optional) change `primary_region = "iad"` in `fly.toml` to a region near your users — and
+   ideally close to the Atlas M0 region you chose in Phase 1, since every query crosses that hop.
 3. Set the **one** runtime secret the app needs now:
 
    ```
