@@ -20,8 +20,10 @@ public class ScheduledTaskExceptionHandler {
 
     @Around("@annotation(org.springframework.scheduling.annotation.Scheduled)")
     public Object handleScheduledTask(ProceedingJoinPoint joinPoint) throws Throwable {
-        String taskName = joinPoint.getSignature().getDeclaringTypeName()
-            + "." + joinPoint.getSignature().getName();
+        // Use the bare method name so dead-letter records key on the same taskName that
+        // SchedulerCheckpointService uses (data-model.md: taskName == bean method name),
+        // keeping checkpoint and dead-letter records correlated for the same logical task.
+        String taskName = joinPoint.getSignature().getName();
         try {
             return joinPoint.proceed();
         } catch (Throwable ex) {

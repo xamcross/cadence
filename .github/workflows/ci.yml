@@ -32,16 +32,31 @@ jobs:
 
       - name: PII scan — check for email addresses in test output
         run: |
-          if grep -P '[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}' test-output.txt \
-              | grep -v 'noreply\.github\.com\|github\.com\|actions\.github'; then
+          # Guard against a vacuous scan: if structured JSON logging regresses and nothing
+          # reaches stdout, the grep below would pass while scanning nothing.
+          if ! grep -q '"@timestamp"' test-output.txt; then
+            echo "ERROR: test output contains no JSON log lines — PII scan would be vacuous."
+            echo "Check the logback-spring.xml 'test' profile console appender."
+            exit 1
+          fi
+          # Extract only the matched email TOKENS (-o), then drop allowed git noreply addresses
+          # anchored to the END of the token. A substring allowlist (the previous approach)
+          # would suppress a crafted address like victim@evil-github.com.attacker.net.
+          leaked=$(grep -oP '[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}' test-output.txt \
+            | grep -vE '@(users\.)?noreply\.github\.com$' || true)
+          if [ -n "$leaked" ]; then
             echo "ERROR: Email address found in test output. Zero PII policy violated."
+            echo "$leaked"
             exit 1
           fi
           echo "PII scan passed — no email addresses found in test output."
 
       - name: Principle V scan — check scripts for non-ASCII characters
         run: |
-          if grep -rP '[\x80-\xFF]' scripts/; then
+          # LC_ALL=C forces byte-accurate matching of raw high bytes (0x80-0xFF). Without it,
+          # grep -P on a UTF-8 locale either errors or matches multibyte sequences instead of
+          # raw bytes, which can miss the encoding bugs Principle V exists to catch.
+          if LC_ALL=C grep -rnP '[\x80-\xFF]' scripts/; then
             echo "ERROR: Non-ASCII characters found in scripts/. Principle V violated."
             exit 1
           fi
@@ -105,7 +120,11 @@ jobs:
         working-directory: frontend
         run: |
           npx serve -s dist/cadence/browser -l 4200 &
-          sleep 5
+          # Poll until the static server answers instead of a fixed sleep (flaky on slow runners).
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4200 > /dev/null; then break; fi
+            sleep 1
+          done
           npx lhci autorun
 
   deploy-backend:

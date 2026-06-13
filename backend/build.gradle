@@ -19,6 +19,8 @@ repositories {
 
 ext {
     mongockVersion = '5.4.4'
+    // Override Spring Boot 3.3.5 managed version (1.19.8) — 1.20.x has Docker Desktop Windows fixes
+    set('testcontainers.version', '1.20.6')
 }
 
 dependencies {
@@ -44,10 +46,18 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:mongodb'
     testImplementation 'org.testcontainers:junit-jupiter'
+    // Gradle 9 no longer injects junit-platform-launcher automatically
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Docker Desktop on Windows requires API >= 1.40, but docker-java (via Testcontainers)
+    // defaults to API 1.32 and rejects with "client version 1.32 is too old".
+    // docker-java reads the JVM system property `api.version` (NOT the DOCKER_API_VERSION
+    // env var, which only the Go CLI honours), so pin it here.
+    systemProperty 'api.version', '1.41'
+    environment 'DOCKER_HOST', 'npipe:////./pipe/docker_engine'
 }
 
 // Disable the plain JAR to prevent wildcard copy ambiguity in Dockerfile

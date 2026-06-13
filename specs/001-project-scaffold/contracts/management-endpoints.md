@@ -11,7 +11,13 @@
 | Port | Health | Metrics | Application traffic |
 |---|---|---|---|
 | Management port (default 8081) | ✅ 200 OK | ✅ 200 OK | ❌ Not routed here |
-| Public application port (default 8080) | ❌ 404 | ❌ 404 | ✅ All /api/** routes |
+| Public application port (default 8080) | ❌ 403 | ❌ 403 | ✅ All /api/** routes |
+
+**Note on the public-port status (verified by `ActuatorPortTest`):** with a separate management
+port, Spring Security's main `authenticated()` chain (`@Order(2)`) denies `/actuator/**` on the
+public port with **403 Forbidden**. This is stronger than a 404 — it does not disclose whether the
+endpoint exists. The essential guarantee is that actuator is never *served* (never 200) on the
+public port.
 
 The management port MUST NOT be mapped to the public Fly.io hostname. It is accessible only from within the Fly private network (for internal health checks) or via `fly proxy`.
 
@@ -57,7 +63,7 @@ Content-Type: application/vnd.spring-boot.actuator.v3+json
 - Response time MUST be < 200 ms under normal load.
 - If MongoDB is unreachable, the health endpoint MUST return 503 (not 200 with a degraded status). Fly.io uses HTTP status to determine whether to route traffic.
 - The `details` field in degraded responses MUST NOT contain connection string values or credentials.
-- The health endpoint MUST return a not-found response (404 or connection refused) when called on the public application port (8080).
+- The health endpoint MUST NOT be served on the public application port (8080). In practice Spring Security's main `authenticated()` chain denies it with 403 (see the access-control note above); a 404 or connection-refused would also satisfy the intent. The hard requirement is that it never returns 200 on the public port.
 
 ### Fly.io Health Check Configuration (`fly.toml`)
 

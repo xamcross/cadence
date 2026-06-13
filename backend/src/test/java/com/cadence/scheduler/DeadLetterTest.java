@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 class DeadLetterTest extends BaseIntegrationTest {
@@ -30,7 +32,10 @@ class DeadLetterTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        mongoTemplate.dropCollection(DeadLetterRecord.class);
+        // Delete documents rather than dropping the collection: the singleton container is
+        // shared across all test classes, so dropping collections would destroy
+        // Mongock-created indexes that other tests rely on. Removing documents is sufficient.
+        mongoTemplate.remove(new Query(), DeadLetterRecord.class);
     }
 
     @Test
@@ -70,6 +75,38 @@ class DeadLetterTest extends BaseIntegrationTest {
             .as("errorSummary must not contain an email address")
             .isFalse();
         assertThat(summary).contains("[REDACTED]");
+    }
+
+    @Test
+    void deadLetterRecordIsPersistedEvenWhenAlertSenderThrows() {
+        // The dead-letter write must never be aborted by an alert-channel failure (T038).
+        doThrow(new RuntimeException("smtp unavailable"))
+            .when(emailSender).sendSystemAlert(anyString(), anyString());
+
+        RuntimeException ex = new RuntimeException("Processing failed");
+        deadLetterService.recordFailure("resilientTask", ex, null);
+
+        List<DeadLetterRecord> records = mongoTemplate.find(
+            Query.query(Criteria.where("taskName").is("resilientTask")), DeadLetterRecord.class);
+        assertThat(records).hasSize(1);
+        // Alert failed, so alertSentAt must remain null — but the record still exists.
+        assertThat(records.get(0).getAlertSentAt()).isNull();
+    }
+
+    @Test
+    void nonObjectIdCandidateIdIsRedacted() {
+        // A caller that mistakenly passes an email (or any non-ObjectId) as the candidate
+        // identifier must not leak it into storage (§VIII zero-PII).
+        RuntimeException ex = new RuntimeException("Processing failed");
+        deadLetterService.recordFailure("redactTask", ex, "john.doe@example.com");
+
+        List<DeadLetterRecord> records = mongoTemplate.find(
+            Query.query(Criteria.where("taskName").is("redactTask")), DeadLetterRecord.class);
+        assertThat(records).hasSize(1);
+
+        String candidateId = records.get(0).getAffectedCandidateId();
+        assertThat(candidateId).isEqualTo("[REDACTED]");
+        assertThat(EMAIL_PATTERN.matcher(candidateId).find()).isFalse();
     }
 
     @Test

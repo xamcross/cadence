@@ -1,12 +1,14 @@
 package com.cadence.migration;
 
 import com.cadence.BaseIntegrationTest;
+import com.cadence.config.migration.ChangeUnit001_BootstrapIndexes;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.mongodb.core.index.IndexInfo;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class IndexBootstrapTest extends BaseIntegrationTest {
 
@@ -18,6 +20,19 @@ class IndexBootstrapTest extends BaseIntegrationTest {
         assertIndexExists("schedulingTokens", "token");
         assertIndexExists("auditLog", "candidateId", "occurredAt");
         assertIndexExists("schedulerCheckpoints", "taskName");
+    }
+
+    @Test
+    void mongockChangesetIsIdempotentOnReRun() {
+        // The changeset already ran at startup. Re-running the exact same index creation must
+        // not throw — createIndex with an identical spec is a no-op in MongoDB. This is the
+        // F00.1 idempotency guarantee: Mongock skips applied changesets, but the underlying
+        // operation must also be safe to repeat (e.g. if a redeploy re-applies it).
+        ChangeUnit001_BootstrapIndexes changeUnit = new ChangeUnit001_BootstrapIndexes();
+        assertThatCode(() -> changeUnit.execute(mongoTemplate)).doesNotThrowAnyException();
+
+        // All six indexes remain present after the second run.
+        allSixIndexesArePresentAfterStartup();
     }
 
     @Test
