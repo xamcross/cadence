@@ -67,7 +67,7 @@ Content-Type: application/vnd.spring-boot.actuator.v3+json
 
 ### Fly.io Health Check Configuration (`fly.toml`)
 
-**IMPORTANT**: The legacy `[[services.http_checks]]` format is for Fly Nomad (v1) apps and is silently ignored on Machines-era apps. Use the Machines-era format below. Using the wrong format means the health check never fires and Fly never gates deployments on application health.
+**IMPORTANT**: The legacy `[[services.http_checks]]` format is for Fly Nomad (v1) apps and is silently ignored on Machines-era apps. Equally important (verified against the current Fly.io fly.toml reference): `[[http_service.checks]]` has **no `port` field** — it only probes the service's `internal_port` (8080), where the actuator endpoints are NOT served (they return 403). To health-check the isolated management port 8081 you MUST use a **top-level `[checks]`** entry, which requires an explicit `port`. Using `[[http_service.checks]]` with a `port` key means the port is ignored, the check hits 8080, and Fly never gates deployments on real application health.
 
 ```toml
 [http_service]
@@ -76,13 +76,16 @@ Content-Type: application/vnd.spring-boot.actuator.v3+json
   auto_stop_machines = false
   auto_start_machines = false
 
-  [[http_service.checks]]
-    grace_period = "60s"
-    interval = "10s"
-    method = "GET"
+# Top-level check — required to target the management port (8081), independent of routing.
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8081                 # management port; top-level checks REQUIRE an explicit port
+    method = "get"
     path = "/actuator/health"
+    interval = "10s"
     timeout = "5s"
-    port = 8081                 # management port for health check
+    grace_period = "60s"
 
 [build]
   dockerfile = "backend/Dockerfile"   # Dockerfile lives inside backend/, not repo root

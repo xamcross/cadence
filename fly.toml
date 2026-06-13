@@ -7,13 +7,19 @@ primary_region = "iad"
   auto_stop_machines = false
   auto_start_machines = false
 
-  [[http_service.checks]]
-    grace_period = "60s"
-    interval = "10s"
-    method = "GET"
-    path = "/actuator/health"
-    timeout = "5s"
+# Health check on the isolated management port (8081). This MUST be a top-level [checks] entry,
+# NOT [[http_service.checks]]: per the Fly.io fly.toml reference, http_service checks have no
+# `port` field and only probe internal_port (8080), where the actuator endpoints are not served
+# (they would return 403). Top-level checks require an explicit `port` and gate machine health.
+[checks]
+  [checks.health]
+    type = "http"
     port = 8081
+    method = "get"
+    path = "/actuator/health"
+    interval = "10s"
+    timeout = "5s"
+    grace_period = "60s"
 
 [build]
   dockerfile = "backend/Dockerfile"
