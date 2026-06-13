@@ -1,0 +1,23 @@
+# The backend image is built with the PROJECT ROOT as the Docker context
+# (see fly.toml [build] and backend/Dockerfile). Only backend/ sources are
+# needed, so exclude everything else to keep the context small and the build fast.
+
+# Version control and CI / meta
+.git
+.github
+.gitattributes
+.gitignore
+
+# Frontend app (large node_modules; not part of the backend image)
+frontend
+
+# Docs, specs, deployment scripts, top-level markdown
+docs
+specs
+scripts
+*.md
+
+# Backend build outputs and local-only dirs (the builder stage regenerates these)
+backend/build
+backend/.gradle
+backend/logs

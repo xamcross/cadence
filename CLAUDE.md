@@ -93,6 +93,7 @@ Critical patterns to follow in future features:
 - **Spring Boot 3.3.x test mocks**: Use `@MockBean` from `org.springframework.boot.test.mock.mockito`. `@MockitoBean` was introduced in Spring Boot 3.4.0 and does NOT exist in 3.3.x.
 - **Gradle**: Cached at `~/.gradle/wrapper/dists/gradle-9.4.0-bin/`. Always invoke the cached binary directly — never trigger a wrapper download.
 - **Dockerfile JAR**: `bootJar { archiveFileName = 'cadence-backend.jar' }` + `jar { enabled = false }` ensures a single predictable JAR name for the multi-stage COPY.
+- **Docker build context = project root**: `fly.toml` has NO `build-context` key (verified against the Fly docs) — `fly deploy` always uses the project root as the Docker context unless you pass `fly deploy <dir>`. So `backend/Dockerfile` MUST use repo-root-relative paths (`COPY backend/gradle gradle`, `COPY backend/src src`, ...), NOT `COPY gradle gradle`. A repo-root `.dockerignore` excludes `frontend/`, `.git`, build outputs, etc. to keep the context small. Both `fly deploy --config fly.toml` and the CI `flyctl deploy` run from the repo root, so this works for both.
 
 ## Recent Changes
 

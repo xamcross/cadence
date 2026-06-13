@@ -89,7 +89,8 @@ Content-Type: application/vnd.spring-boot.actuator.v3+json
 
 [build]
   dockerfile = "backend/Dockerfile"   # Dockerfile lives inside backend/, not repo root
-  build-context = "backend"
+  # NOTE: there is no `build-context` key in fly.toml. The Docker build context is the project
+  # root by default, so backend/Dockerfile uses repo-root-relative COPY paths (COPY backend/...).
 
 kill_timeout = "35s"    # must exceed spring.lifecycle.timeout-per-shutdown-phase=30s
                         # default 5s would SIGKILL mid-drain, defeating graceful shutdown

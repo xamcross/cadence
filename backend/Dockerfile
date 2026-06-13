@@ -1,13 +1,16 @@
+# Build context is the PROJECT ROOT, not backend/. fly.toml has no supported way to set the
+# context to a subdirectory (the `build-context` key does not exist; `fly deploy` always uses
+# the project root unless you pass `fly deploy <dir>`), so COPY paths are relative to repo root.
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /workspace
 
-COPY gradle gradle
-COPY gradlew .
-COPY build.gradle .
-COPY settings.gradle .
+COPY backend/gradle gradle
+COPY backend/gradlew .
+COPY backend/build.gradle .
+COPY backend/settings.gradle .
 RUN chmod +x gradlew
 
-COPY src src
+COPY backend/src src
 RUN ./gradlew bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre-alpine AS runner
