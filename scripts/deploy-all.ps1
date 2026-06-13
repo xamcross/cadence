@@ -4,17 +4,17 @@
 #
 # Order:
 #   1. db-migrate.ps1   - verify Atlas is reachable before touching the backend
-#   2. deploy-backend.ps1 - build JAR + fly deploy (Mongock runs on startup)
+#   2. deploy-backend.ps1 - fly deploy (image built from Dockerfile; Mongock runs on startup)
 #   3. deploy-frontend.ps1 - ng build + wrangler pages deploy
 #
 # Usage:
 #   .\scripts\deploy-all.ps1
-#   .\scripts\deploy-all.ps1 -RemoteBuild          # build Docker image on Fly.io
+#   .\scripts\deploy-all.ps1 -LocalBuild           # build backend image with local Docker
 #   .\scripts\deploy-all.ps1 -SkipFrontend         # backend only
 #   .\scripts\deploy-all.ps1 -SkipDb               # skip Atlas connectivity check
 
 param(
-    [switch]$RemoteBuild,
+    [switch]$LocalBuild,
     [switch]$SkipFrontend,
     [switch]$SkipDb
 )
@@ -45,7 +45,7 @@ if (-not $SkipDb) {
 Write-Host ""
 Write-Host "--- Step 2/3: Backend deploy ---" -ForegroundColor Magenta
 $BackendArgs = @()
-if ($RemoteBuild) { $BackendArgs += "-RemoteBuild" }
+if ($LocalBuild) { $BackendArgs += "-LocalBuild" }
 & "$ScriptsDir\deploy-backend.ps1" @BackendArgs
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Backend deploy failed. Aborting."

@@ -1,25 +1,26 @@
 # deploy-backend.ps1
-# Builds the Spring Boot JAR and deploys to Fly.io (single Machine).
-# MongoDB schema migrations (Mongock) run automatically on application startup.
+# Deploys the Spring Boot backend to Fly.io (single Machine).
+# The Docker image (and the Spring Boot JAR inside it) is built by the Dockerfile
+# builder stage - by default on Fly.io's remote builders, so no local Docker daemon
+# or JDK is required. MongoDB schema migrations (Mongock) run on application startup.
 #
 # Prerequisites:
 #   fly CLI  - https://fly.io/docs/hands-on/install-flyctl/
-#   Java 21  - must be on PATH
 #   Secrets already set via: fly secrets set MONGODB_URI=... JWT_SECRET=... etc.
+#   (-LocalBuild only) a running local Docker daemon
 #
 # Usage:
-#   .\scripts\deploy-backend.ps1
-#   .\scripts\deploy-backend.ps1 -RemoteBuild   # build Docker image on Fly.io infra
+#   .\scripts\deploy-backend.ps1                 # remote build on Fly.io (default)
+#   .\scripts\deploy-backend.ps1 -LocalBuild     # build the image with local Docker
 
 param(
-    [switch]$RemoteBuild
+    [switch]$LocalBuild
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Resolve-Path "$PSScriptRoot\.."
-$BackendDir = Join-Path $RepoRoot "backend"
 $FlyConfig = Join-Path $RepoRoot "fly.toml"
 
 Write-Host "=== Cadence Backend Deploy ===" -ForegroundColor Cyan
@@ -33,30 +34,16 @@ if (-not (Test-Path $FlyConfig)) {
     Write-Error "fly.toml not found at $FlyConfig. Create it with: fly launch"
     exit 1
 }
-if (-not (Test-Path (Join-Path $BackendDir "gradlew.bat"))) {
-    Write-Error "Gradle wrapper not found. Expected: $BackendDir\gradlew.bat"
-    exit 1
-}
 
-# Build the Spring Boot JAR
-Write-Host "[1/2] Building Spring Boot JAR..." -ForegroundColor Yellow
-Push-Location $BackendDir
-try {
-    & .\gradlew.bat clean bootJar
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Gradle build failed."
-        exit 1
-    }
-} finally {
-    Pop-Location
-}
-
-# Deploy to Fly.io
-# fly deploy reads Dockerfile path from fly.toml [build] section.
+# Deploy to Fly.io.
+# fly deploy reads the Dockerfile path from the fly.toml [build] section and builds the
+# image (JAR included) in the Dockerfile builder stage - there is no separate host-side
+# Gradle build to keep in sync. Remote build is the default (matches CI and needs no local
+# Docker daemon); -LocalBuild builds with the local Docker daemon instead.
 # Mongock changelog runs on startup - no separate migration step needed.
-Write-Host "[2/2] Deploying to Fly.io..." -ForegroundColor Yellow
+Write-Host "Deploying to Fly.io (image built from backend/Dockerfile)..." -ForegroundColor Yellow
 $FlyArgs = @("deploy", "--config", $FlyConfig)
-if ($RemoteBuild) {
+if (-not $LocalBuild) {
     $FlyArgs += "--remote-only"
 }
 & fly @FlyArgs
