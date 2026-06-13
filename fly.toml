@@ -1,33 +1,37 @@
-app = "cadence"
-primary_region = "iad"
+# fly.toml app configuration file generated for cadence on 2026-06-13T19:01:09Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'cadence'
+primary_region = 'ams'
+
+[build]
+  dockerfile = 'backend/Dockerfile'
+
+[env]
+  MANAGEMENT_SERVER_PORT = '8081'
+  SERVER_PORT = '8080'
+  SPRING_PROFILES_ACTIVE = 'production'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = 'off'
   auto_start_machines = false
 
-# Health check on the isolated management port (8081). This MUST be a top-level [checks] entry,
-# NOT [[http_service.checks]]: per the Fly.io fly.toml reference, http_service checks have no
-# `port` field and only probe internal_port (8080), where the actuator endpoints are not served
-# (they would return 403). Top-level checks require an explicit `port` and gate machine health.
 [checks]
   [checks.health]
-    type = "http"
     port = 8081
-    method = "get"
-    path = "/actuator/health"
-    interval = "10s"
-    timeout = "5s"
-    grace_period = "60s"
+    type = 'http'
+    interval = '10s'
+    timeout = '5s'
+    grace_period = '1m0s'
+    method = 'get'
+    path = '/actuator/health'
 
-[build]
-  dockerfile = "backend/Dockerfile"
-  build-context = "backend"
-
-kill_timeout = "35s"
-
-[env]
-  SERVER_PORT = "8080"
-  MANAGEMENT_SERVER_PORT = "8081"
-  SPRING_PROFILES_ACTIVE = "production"
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
