@@ -45,7 +45,10 @@ if (-not (Test-Path $FlyConfig)) {
 # Mongock changelog runs on startup - no separate migration step needed.
 Write-Host "Deploying to Fly.io (image built from backend/Dockerfile)..." -ForegroundColor Yellow
 # When -AppName is omitted, fly uses the `app` field in fly.toml.
-$FlyArgs = @("deploy", "--config", $FlyConfig)
+# --ha=false: create exactly ONE machine. Without it, fly deploy provisions a 2-machine
+# high-availability pair by default for apps with an [http_service]. The constitution
+# (Principle IV) mandates a single Fly Machine.
+$FlyArgs = @("deploy", "--config", $FlyConfig, "--ha=false")
 if ($AppName) {
     $FlyArgs += @("--app", $AppName)
 }

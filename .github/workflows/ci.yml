@@ -141,7 +141,9 @@ jobs:
       - name: Deploy backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --config fly.toml
+        # --ha=false: single machine only (Principle IV). Without it, a fresh app with an
+        # [http_service] gets a 2-machine HA pair by default.
+        run: flyctl deploy --remote-only --ha=false --config fly.toml
 
   deploy-frontend:
     name: Deploy Frontend to Cloudflare Pages
