@@ -10,6 +10,53 @@ spring:
       uri: ${MONGODB_URI:mongodb://localhost:27017/cadence}
   application:
     name: cadence-backend
+  security:
+    oauth2:
+      client:
+        registration:
+          cadence-oidc:
+            client-id: ${OIDC_CLIENT_ID:dev-client}
+            client-secret: ${OIDC_CLIENT_SECRET:dev-secret}
+            scope: openid,email,profile
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          cadence-oidc:
+            # Explicit endpoints (NOT issuer-uri): issuer-uri triggers an eager OIDC discovery
+            # fetch at startup, which crashes the whole context when the IdP is unreachable (local
+            # dev / tests). Explicit URIs are stored without any startup network call; jwk-set-uri
+            # is fetched lazily only when an ID token is actually validated. Defaults target a local
+            # Keycloak realm; override per environment via the OIDC_* env vars.
+            authorization-uri: ${OIDC_AUTH_URI:http://localhost:8088/realms/cadence/protocol/openid-connect/auth}
+            token-uri: ${OIDC_TOKEN_URI:http://localhost:8088/realms/cadence/protocol/openid-connect/token}
+            jwk-set-uri: ${OIDC_JWK_URI:http://localhost:8088/realms/cadence/protocol/openid-connect/certs}
+            user-info-uri: ${OIDC_USERINFO_URI:http://localhost:8088/realms/cadence/protocol/openid-connect/userinfo}
+            user-name-attribute: sub
+
+# F01 Authentication & Session Management. Secrets (keys/peppers) come from Fly secrets
+# in prod; the *-dev defaults below are for local development ONLY and MUST NOT be used in prod
+# (AuthSecretsValidator fails fast on the prod profile if a real value is absent).
+auth:
+  spa-base-url: ${SPA_BASE_URL:http://localhost:4200}
+  session:
+    cookie-name: cad_session
+    absolute-ttl: PT8H
+    idle-ttl: PT30M
+    clock-skew: PT60S
+    secret: ${JWT_SECRET:dev-insecure-jwt-signing-key-change-me-0123456789abcdef}
+    previous-secret: ${JWT_SECRET_PREVIOUS:}
+  lockout:
+    max-attempts: 5
+    window: PT15M
+  invitation:
+    ttl: PT72H
+  password-reset:
+    ttl: PT1H
+  crypto:
+    pii-key: ${PII_ENC_KEY:dev-insecure-pii-aes-key-change-me-0123456789abcdef0123}
+    pii-pepper: ${PII_PEPPER:dev-insecure-pii-pepper-change-me}
+    token-pepper: ${TOKEN_PEPPER:dev-insecure-token-pepper-change-me}
+    ip-pepper: ${IP_PEPPER:dev-insecure-ip-pepper-change-me}
 
 management:
   server:

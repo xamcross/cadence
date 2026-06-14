@@ -97,6 +97,8 @@ Structured JSON logging (Logback), `/actuator/health` + `/actuator/metrics` on a
 
 SSO (SAML/OIDC) as the primary login path; email/password as MVP fallback only. JWT tokens issued by the backend, verified on every request. No anonymous access to internal endpoints. Candidate-facing endpoints are whitelisted as public (no auth required).
 
+> **MVP scope decision (2026-06-13, spec 002-authentication)**: SSO for the MVP is **OIDC only**; **SAML 2.0 is deferred to v1.5** (see Deferred table). OIDC satisfies the constitution's "SSO is primary" requirement and matches this entry's only SSO acceptance test (Keycloak/OIDC). The AC below "Token refresh is handled by the `OAuthTokenStore` (see F01.1)" refers to **calendar** OAuth tokens (F01.1), not the member application session; member session handling is owned by F01 itself.
+
 **Constitution gates**: C1 ✅ C2 ✅ C3 ✅ C4 ✅ C5 ✅ C6 ✅
 
 **User stories**:
@@ -608,6 +610,7 @@ Recruiter's primary working view: all candidates colour-coded by SLA/scheduling 
 | Feature | Spec ref | Target phase |
 |---|---|---|
 | Flow A2 — Multi-stage loop solver | §4 Flow A2 | v1.5 |
+| SAML 2.0 SSO (OIDC ships in MVP F01) | §6 Security, F01 | v1.5 |
 | SMS / WhatsApp channel | §5.2 FR-12 | v1.5 |
 | Voice-to-scorecard capture | §5.2 FR-13 | v1.5 |
 | Auto-send SLA policies | §5.2 FR-10 | v1.5 |
