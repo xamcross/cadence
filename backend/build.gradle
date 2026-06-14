@@ -30,6 +30,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
+    // OIDC SSO login (F01). First-party Spring starter — provides oauth2Login (authorization-code
+    // + PKCE) and, transitively via spring-security-oauth2-jose, the Nimbus JwtEncoder/JwtDecoder
+    // used to sign/verify the self-issued session JWT. No separate JWT library (plan C4).
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    // Bean Validation for request DTOs (@Valid). Spring-managed starter.
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // Mongock — idempotent, versioned MongoDB migration runner
     // Correct artifact ID: mongodb-springdata-v4-driver (NOT mongock-mongodb-springdata-v4)
@@ -46,6 +52,11 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:mongodb'
     testImplementation 'org.testcontainers:junit-jupiter'
+    // Spring Security test support — oidcLogin()/csrf() request post-processors (BOM-managed)
+    testImplementation 'org.springframework.security:spring-security-test'
+    // WireMock — stub OIDC JWKS/token endpoints so ID-token validation + IdP-failure paths are
+    // tested deterministically in CI with no live IdP (research D11). Test scope only.
+    testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
     // Gradle 9 no longer injects junit-platform-launcher automatically
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

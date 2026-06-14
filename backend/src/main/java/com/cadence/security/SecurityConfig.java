@@ -1,30 +1,44 @@
 package com.cadence.security;
 
+import com.cadence.service.SessionService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.authentication.Http403ForbiddenEntryPoint;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-// Two ordered filter chains. Defining ANY SecurityFilterChain bean makes Spring Boot's
-// ManagementWebSecurityAutoConfiguration back off — so without an explicit actuator chain,
-// the main `authenticated()` rule below also applies to the management context and returns
-// 403 for /actuator/health (confirmed by ActuatorPortTest). The @Order(1) chain restores
-// open access to the actuator endpoints. The management port (8081) is additionally
-// network-isolated in production (Fly.io internal network); permitAll here is safe.
+/**
+ * Three ordered filter chains (research D7):
+ *   1. /actuator/**            -> permitAll (preserves the F00 management-port contract; unchanged)
+ *   2. /api/public/**,         -> permitAll, CSRF-exempt (login/invite/reset have no session yet)
+ *      /api/candidate/**
+ *   3. everything else (incl.  -> deny-by-default authenticated(); OIDC login; session-cookie filter;
+ *      /oauth2/**, callback)      CSRF via readable cookie; 401 entry point for APIs (no redirect).
+ *
+ * Defining SecurityFilterChain beans makes Boot's ManagementWebSecurityAutoConfiguration back off,
+ * so the @Order(1) actuator chain must stay (CLAUDE.md).
+ */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
     @Order(1)
     SecurityFilterChain actuatorSecurityChain(HttpSecurity http) throws Exception {
-        // Match by path ("/actuator/**") rather than EndpointRequest.toAnyEndpoint(): on the
-        // management port this permits the actuator endpoints (200), and on the public port it
-        // permits the (unmapped) /actuator path so it falls through to a 404 — the behaviour the
-        // management-endpoints contract requires. EndpointRequest matches nothing on the public
-        // port, which would let the main authenticated() chain return 403 instead of 404.
         return http
             .securityMatcher("/actuator/**")
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
@@ -34,11 +48,52 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    SecurityFilterChain applicationSecurityChain(HttpSecurity http) throws Exception {
-        // TODO: configure JWT/OAuth2 resource server when auth feature is implemented (F-auth)
+    SecurityFilterChain publicApiSecurityChain(HttpSecurity http) throws Exception {
+        return http
+            .securityMatcher("/api/public/**", "/api/candidate/**")
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .build();
+    }
+
+    @Bean
+    @Order(3)
+    SecurityFilterChain applicationSecurityChain(
+            HttpSecurity http,
+            SessionService sessionService,
+            SessionCookieFactory cookieFactory,
+            OidcLoginSuccessHandler successHandler,
+            OidcLoginFailureHandler failureHandler) throws Exception {
+
+        CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
+
         return http
             .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-            .csrf(csrf -> csrf.disable())
+            // API clients get 401 (FR-010), never a redirect to the IdP (the SPA initiates SSO
+            // explicitly via /oauth2/authorization/...). Non-API protected resources keep the
+            // default 403 posture (preserves the F00 actuator-on-public-port contract).
+            .exceptionHandling(e -> e
+                .defaultAuthenticationEntryPointFor(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), new AntPathRequestMatcher("/api/**"))
+                .defaultAuthenticationEntryPointFor(
+                    new Http403ForbiddenEntryPoint(), new AntPathRequestMatcher("/**")))
+            .oauth2Login(o -> o
+                .loginPage("/oauth2/authorization/cadence-oidc")
+                .successHandler(successHandler)
+                .failureHandler(failureHandler))
+            // Per-request session-cookie authentication (our own session, not the IdP token).
+            .addFilterBefore(new SessionCookieAuthFilter(sessionService, cookieFactory),
+                UsernamePasswordAuthenticationFilter.class)
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(csrfHandler))
+            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             .build();
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
     }
 }
