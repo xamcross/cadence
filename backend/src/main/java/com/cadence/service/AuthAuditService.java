@@ -66,6 +66,47 @@ public class AuthAuditService {
         repository.save(event);
     }
 
+    /** F03: setup completion — actor + timestamp + the acknowledged retention days (FR-004/SC-003). */
+    public void workspaceConfigured(String workspaceId, String actorMemberId, int acknowledgedRetentionDays) {
+        AuthAuditEvent event = new AuthAuditEvent();
+        event.setEventType(AuthEventType.WORKSPACE_CONFIGURED);
+        event.setWorkspaceId(workspaceId);
+        event.setMemberId(actorMemberId);
+        event.setNewValue(Integer.toString(acknowledgedRetentionDays));
+        event.setOutcome("setup_completed");
+        event.setOccurredAt(Instant.now(clock));
+        repository.save(event);
+    }
+
+    /**
+     * F03: a workspace-configuration change (FR-024). {@code oldValue}/{@code newValue} are non-null
+     * only for the retention-period change (FR-023); pass null for other settings. NEVER pass the
+     * email-provider credential value.
+     */
+    public void configChanged(String workspaceId, String actorMemberId, String settingCode,
+                              String oldValue, String newValue) {
+        AuthAuditEvent event = new AuthAuditEvent();
+        event.setEventType(AuthEventType.WORKSPACE_CONFIG_CHANGED);
+        event.setWorkspaceId(workspaceId);
+        event.setMemberId(actorMemberId);
+        event.setOutcome(settingCode);
+        event.setOldValue(oldValue);
+        event.setNewValue(newValue);
+        event.setOccurredAt(Instant.now(clock));
+        repository.save(event);
+    }
+
+    /** F03: the concurrent-loser / already-configured setup attempt, so both attempts are audited (US1 AS-7). */
+    public void setupConflict(String workspaceId, String actorMemberId) {
+        AuthAuditEvent event = new AuthAuditEvent();
+        event.setEventType(AuthEventType.WORKSPACE_CONFIG_CHANGED);
+        event.setWorkspaceId(workspaceId);
+        event.setMemberId(actorMemberId);
+        event.setOutcome("setup_conflict");
+        event.setOccurredAt(Instant.now(clock));
+        repository.save(event);
+    }
+
     /**
      * F02: record a security-relevant authorization refusal, bounded so probing cannot amplify
      * audit volume (FR-028). Returns true if an audit row was written, false if throttled.

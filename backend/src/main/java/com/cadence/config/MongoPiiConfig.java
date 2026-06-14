@@ -2,6 +2,7 @@ package com.cadence.config;
 
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
+import com.cadence.domain.WorkspaceConfig;
 import com.cadence.security.PiiCrypto;
 import com.cadence.security.PiiStringConverter;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +25,10 @@ public class MongoPiiConfig {
                 registrar.registerConverter(Member.class, "email", converter);
                 registrar.registerConverter(Member.class, "displayName", converter);
                 registrar.registerConverter(Invitation.class, "email", converter);
+                // F03: encrypt the email-provider credential at rest (research D2). This is the
+                // encryption-at-rest control only; never-return is a SEPARATE control (the field is
+                // @JsonIgnore + on no response DTO). Reuse the SAME converter instance; one bean only.
+                registrar.registerConverter(WorkspaceConfig.class, "emailProviderCredential", converter);
             }));
     }
 }

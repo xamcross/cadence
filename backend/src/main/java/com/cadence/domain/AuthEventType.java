@@ -12,5 +12,8 @@ public enum AuthEventType {
     PASSWORD_RESET_COMPLETED,
     // F02 RBAC
     ROLE_CHANGED,
-    AUTHORIZATION_DENIED
+    AUTHORIZATION_DENIED,
+    // F03 Workspace Setup & Configuration
+    WORKSPACE_CONFIGURED,
+    WORKSPACE_CONFIG_CHANGED
 }

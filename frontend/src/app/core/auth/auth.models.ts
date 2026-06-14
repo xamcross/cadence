@@ -6,6 +6,8 @@ export interface MemberSummary {
   role: Role;
   displayName: string;
   email: string;
+  // F03: whether the workspace has completed first-run setup — drives shell routing (D3).
+  workspaceConfigured: boolean;
 }
 
 export interface InvitationView {

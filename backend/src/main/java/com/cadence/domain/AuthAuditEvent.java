@@ -28,6 +28,12 @@ public class AuthAuditEvent {
     private Role oldRole;
     private Role newRole;
 
+    // F03 — non-PII before/after values for a config change; populated only for the retention-period
+    // change (FR-023) and the acknowledged retention on WORKSPACE_CONFIGURED; null otherwise. NEVER
+    // the email-provider credential value (FR-024).
+    private String oldValue;
+    private String newValue;
+
     public AuthAuditEvent() {}
 
     public String getId() { return id; }
@@ -59,4 +65,10 @@ public class AuthAuditEvent {
 
     public Role getNewRole() { return newRole; }
     public void setNewRole(Role newRole) { this.newRole = newRole; }
+
+    public String getOldValue() { return oldValue; }
+    public void setOldValue(String oldValue) { this.oldValue = oldValue; }
+
+    public String getNewValue() { return newValue; }
+    public void setNewValue(String newValue) { this.newValue = newValue; }
 }

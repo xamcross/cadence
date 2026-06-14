@@ -25,6 +25,21 @@ export const routes: Routes = [
       import('./features/admin/members/members.component').then((m) => m.MembersComponent)
   },
   {
+    // First-run workspace setup wizard (F03 US1). Admin-only; non-Admins are never routed here
+    // (the shell shows a neutral "setup pending" panel instead — US6 AS-5).
+    path: 'workspace/setup',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/workspace/workspace-setup-wizard.component').then((m) => m.WorkspaceSetupWizardComponent)
+  },
+  {
+    // Ongoing workspace configuration (F03 US2-US5). Admin-only.
+    path: 'admin/workspace',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/workspace/workspace-settings.component').then((m) => m.WorkspaceSettingsComponent)
+  },
+  {
     path: 'accept-invite',
     loadComponent: () =>
       import('./features/auth/accept-invite/accept-invite.component').then((m) => m.AcceptInviteComponent)

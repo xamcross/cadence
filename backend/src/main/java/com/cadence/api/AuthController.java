@@ -6,6 +6,7 @@ import com.cadence.service.LoginAttemptService;
 import com.cadence.service.MemberService;
 import com.cadence.service.PasswordResetService;
 import com.cadence.service.SessionService;
+import com.cadence.service.WorkspaceConfigService;
 import com.cadence.security.SessionCookieFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -35,16 +36,19 @@ public class AuthController {
     private final SessionService sessions;
     private final SessionCookieFactory cookies;
     private final MemberService members;
+    private final WorkspaceConfigService workspaceConfig;
 
     public AuthController(AuthenticationService authentication, PasswordResetService passwordReset,
                           LoginAttemptService attempts, SessionService sessions,
-                          SessionCookieFactory cookies, MemberService members) {
+                          SessionCookieFactory cookies, MemberService members,
+                          WorkspaceConfigService workspaceConfig) {
         this.authentication = authentication;
         this.passwordReset = passwordReset;
         this.attempts = attempts;
         this.sessions = sessions;
         this.cookies = cookies;
         this.members = members;
+        this.workspaceConfig = workspaceConfig;
     }
 
     @GetMapping("/api/internal/auth/me")
@@ -52,7 +56,8 @@ public class AuthController {
     public ResponseEntity<AuthDtos.MemberSummary> me(@AuthenticationPrincipal SessionService.Principal principal) {
         Member m = members.findById(principal.memberId());
         return ResponseEntity.ok(new AuthDtos.MemberSummary(
-            m.getId(), m.getWorkspaceId(), m.getRole(), m.getDisplayName(), m.getEmail()));
+            m.getId(), m.getWorkspaceId(), m.getRole(), m.getDisplayName(), m.getEmail(),
+            workspaceConfig.isConfigured(m.getWorkspaceId())));
     }
 
     @PostMapping("/api/public/auth/login")
@@ -70,7 +75,8 @@ public class AuthController {
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, cookies.build(issued.jwt(), issued.cookieMaxAge()).toString())
             .body(new AuthDtos.MemberSummary(member.get().getId(), member.get().getWorkspaceId(),
-                member.get().getRole(), member.get().getDisplayName(), member.get().getEmail()));
+                member.get().getRole(), member.get().getDisplayName(), member.get().getEmail(),
+                workspaceConfig.isConfigured(member.get().getWorkspaceId())));
     }
 
     @PostMapping("/api/public/auth/password-reset/request")
