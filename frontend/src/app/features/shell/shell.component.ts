@@ -1,17 +1,21 @@
 import { Component, inject } from '@angular/core';
 import { AsyncPipe } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
 /** Authenticated app shell. Placeholder landing for the workspace; feature views mount here later. */
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [AsyncPipe],
+  imports: [AsyncPipe, RouterLink],
   template: `
     <header class="shell-bar">
       <span i18n="@@shell.brand">Cadence</span>
       @if (auth.member$ | async; as member) {
+        <!-- Nav gating is UX only (role hidden); the server + roleGuard are the real boundary (F02). -->
+        @if (member.role === 'ADMIN') {
+          <a routerLink="/admin/members" i18n="@@shell.members">Members</a>
+        }
         <span class="spacer"></span>
         <span>{{ member.displayName }}</span>
         <button type="button" (click)="logout()" i18n="@@shell.signout">Sign out</button>

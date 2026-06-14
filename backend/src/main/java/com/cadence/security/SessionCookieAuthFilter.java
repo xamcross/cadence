@@ -37,9 +37,12 @@ public class SessionCookieAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         readCookie(request).ifPresent(token -> sessionService.validate(token).ifPresent(v -> {
-            var auth = new UsernamePasswordAuthenticationToken(
-                v.principal(), null,
-                List.of(new SimpleGrantedAuthority("ROLE_" + v.principal().role().name())));
+            // FR-008: a member with a missing/unknown persisted role gets NO role authority (least
+            // privilege) — authenticated but denied every role-gated endpoint, never treated as Admin.
+            List<SimpleGrantedAuthority> authorities = v.principal().role() == null
+                ? List.of()
+                : List.of(new SimpleGrantedAuthority("ROLE_" + v.principal().role().name()));
+            var auth = new UsernamePasswordAuthenticationToken(v.principal(), null, authorities);
             SecurityContextHolder.getContext().setAuthentication(auth);
             if (v.renewed()) {
                 response.addHeader(HttpHeaders.SET_COOKIE,

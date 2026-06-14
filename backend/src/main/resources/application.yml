@@ -52,6 +52,10 @@ auth:
     ttl: PT72H
   password-reset:
     ttl: PT1H
+  rbac:
+    # Bounded refusal-audit throttle: at most one AUTHORIZATION_DENIED audit per (member,event)
+    # per window, so repeated probing cannot amplify audit volume (research D8 / FR-028).
+    denied-audit-window: PT1M
   crypto:
     pii-key: ${PII_ENC_KEY:dev-insecure-pii-aes-key-change-me-0123456789abcdef0123}
     pii-pepper: ${PII_PEPPER:dev-insecure-pii-pepper-change-me}

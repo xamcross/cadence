@@ -82,8 +82,13 @@ public class SessionService {
         }
         boolean renewed = maybeRenew(s, now);
         Duration cookieMaxAge = Duration.between(now, s.getAbsoluteExpiresAt());
+        // F02 (FR-002/FR-007): the authorization role is taken from the PERSISTED member (already
+        // loaded above for the active-status check), NOT from the session snapshot s.getRole() or
+        // the JWT claim. Both of those are diagnostic-only — a stale/forged role claim must never
+        // grant access beyond the current persisted role, and an Admin's role change takes effect on
+        // the member's next request with zero added queries.
         return Optional.of(new Validation(
-            new Principal(s.getMemberId(), s.getWorkspaceId(), s.getRole(), s.getId()),
+            new Principal(s.getMemberId(), s.getWorkspaceId(), member.get().getRole(), s.getId()),
             renewed, cookieMaxAge));
     }
 

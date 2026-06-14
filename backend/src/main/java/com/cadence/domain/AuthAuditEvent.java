@@ -23,6 +23,11 @@ public class AuthAuditEvent {
     private String sourceIpHash; // HMAC, never raw IP
     private String outcome;      // short non-PII code
 
+    // F02 RBAC — set only for ROLE_CHANGED (non-PII internal ids); null otherwise.
+    private String targetMemberId;
+    private Role oldRole;
+    private Role newRole;
+
     public AuthAuditEvent() {}
 
     public String getId() { return id; }
@@ -45,4 +50,13 @@ public class AuthAuditEvent {
 
     public String getOutcome() { return outcome; }
     public void setOutcome(String outcome) { this.outcome = outcome; }
+
+    public String getTargetMemberId() { return targetMemberId; }
+    public void setTargetMemberId(String targetMemberId) { this.targetMemberId = targetMemberId; }
+
+    public Role getOldRole() { return oldRole; }
+    public void setOldRole(Role oldRole) { this.oldRole = oldRole; }
+
+    public Role getNewRole() { return newRole; }
+    public void setNewRole(Role newRole) { this.newRole = newRole; }
 }

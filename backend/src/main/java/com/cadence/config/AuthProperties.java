@@ -14,6 +14,7 @@ public class AuthProperties {
     private final Ttl invitation = new Ttl(Duration.ofHours(72));
     private final Ttl passwordReset = new Ttl(Duration.ofHours(1));
     private final Crypto crypto = new Crypto();
+    private final Rbac rbac = new Rbac();
 
     public String getSpaBaseUrl() { return spaBaseUrl; }
     public void setSpaBaseUrl(String spaBaseUrl) { this.spaBaseUrl = spaBaseUrl; }
@@ -22,6 +23,16 @@ public class AuthProperties {
     public Ttl getInvitation() { return invitation; }
     public Ttl getPasswordReset() { return passwordReset; }
     public Crypto getCrypto() { return crypto; }
+    public Rbac getRbac() { return rbac; }
+
+    /** F02 RBAC settings (research D8). */
+    public static class Rbac {
+        /** Min interval between AUTHORIZATION_DENIED audits for the same (member,event) — anti-amplification. */
+        private Duration deniedAuditWindow = Duration.ofMinutes(1);
+
+        public Duration getDeniedAuditWindow() { return deniedAuditWindow; }
+        public void setDeniedAuditWindow(Duration deniedAuditWindow) { this.deniedAuditWindow = deniedAuditWindow; }
+    }
 
     public static class Session {
         private String cookieName = "cad_session";
