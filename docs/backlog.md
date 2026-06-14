@@ -136,7 +136,7 @@ Five roles: **Admin**, **Recruiter**, **Hiring Manager**, **Interviewer**, **Rea
 **Constitution gates**: C1 ✅ C2 ✅ C3 ✅ C4 ✅ C5 ✅ C6 ✅
 
 **User stories**:
-- US-F02-1: As an Admin, I can assign and revoke roles for workspace members.
+- US-F02-1: As an Admin, I can assign and change roles for workspace members. *(Spec 003-rbac, 2026-06-14: under the MVP "one role per member" model there is no revoke-to-null state; "revoke" is modelled as reassignment/downgrade, e.g. to Read-only. Reworded from "assign and revoke" to avoid implying a revoke-to-no-role workflow.)*
 - US-F02-2: As a Recruiter, I can access scheduling, templates, and dashboard views but NOT workspace-level configuration.
 - US-F02-3: As a Hiring Manager, I can confirm or decline a proposed interview slot sent to me by Cadence so that my availability is captured before the candidate is invited. *(BA SG-1: HM slot-confirmation was missing from original user stories.)*
 - US-F02-4: As a Hiring Manager, I can view interview details and the candidate status page for my own assigned candidates but NOT the full pipeline.

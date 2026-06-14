@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +48,7 @@ public class AuthController {
     }
 
     @GetMapping("/api/internal/auth/me")
+    @PreAuthorize("isAuthenticated()") // authenticated-any-role (F02 deny-by-default inventory, D2)
     public ResponseEntity<AuthDtos.MemberSummary> me(@AuthenticationPrincipal SessionService.Principal principal) {
         Member m = members.findById(principal.memberId());
         return ResponseEntity.ok(new AuthDtos.MemberSummary(
@@ -90,6 +92,7 @@ public class AuthController {
     }
 
     @PostMapping("/api/internal/auth/logout")
+    @PreAuthorize("isAuthenticated()") // authenticated-any-role (F02 deny-by-default inventory, D2)
     public ResponseEntity<Void> logout(@AuthenticationPrincipal SessionService.Principal principal) {
         sessions.revokeOne(principal.sessionId());
         return ResponseEntity.noContent()

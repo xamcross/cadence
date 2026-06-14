@@ -64,7 +64,8 @@ public class SecurityConfig {
             SessionService sessionService,
             SessionCookieFactory cookieFactory,
             OidcLoginSuccessHandler successHandler,
-            OidcLoginFailureHandler failureHandler) throws Exception {
+            OidcLoginFailureHandler failureHandler,
+            RestAccessDeniedHandler accessDeniedHandler) throws Exception {
 
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
 
@@ -77,7 +78,11 @@ public class SecurityConfig {
                 .defaultAuthenticationEntryPointFor(
                     new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), new AntPathRequestMatcher("/api/**"))
                 .defaultAuthenticationEntryPointFor(
-                    new Http403ForbiddenEntryPoint(), new AntPathRequestMatcher("/**")))
+                    new Http403ForbiddenEntryPoint(), new AntPathRequestMatcher("/**"))
+                // F02 (D5): authenticated-but-unauthorized -> JSON {error,message} 403 on this main
+                // chain only. The @Order(1) actuator + @Order(2) public chains are permitAll and never
+                // reach here, so the F00 actuator-404 and F01 /api/** 401 contracts are preserved.
+                .accessDeniedHandler(accessDeniedHandler))
             .oauth2Login(o -> o
                 .loginPage("/oauth2/authorization/cadence-oidc")
                 .successHandler(successHandler)

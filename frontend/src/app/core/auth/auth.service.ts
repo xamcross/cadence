@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { InvitationView, MemberSummary } from './auth.models';
+import { InvitationView, MemberSummary, Role } from './auth.models';
 
 /**
  * Auth API client + session state. The session lives in the HttpOnly cad_session cookie (not
@@ -26,6 +26,16 @@ export class AuthService {
     return this.http
       .get<MemberSummary>(`${this.base}/internal/auth/me`)
       .pipe(tap((m) => this.currentMember$.next(m)));
+  }
+
+  /** Whether the current member holds one of the given roles (F02 — drives nav gating + guards). */
+  hasRole(...roles: Role[]): Observable<boolean> {
+    return this.me().pipe(map((m) => roles.includes(m.role)));
+  }
+
+  /** Drop the cached member so the next me() refetches — used after a 403 (role may have changed). */
+  invalidateMember(): void {
+    this.currentMember$.next(null);
   }
 
   loginWithPassword(workspaceId: string, email: string, password: string): Observable<MemberSummary> {
