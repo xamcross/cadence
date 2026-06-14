@@ -5,6 +5,7 @@ import com.cadence.service.InvitationService;
 import com.cadence.service.LoginAttemptService;
 import com.cadence.service.MemberService;
 import com.cadence.service.SessionService;
+import com.cadence.service.WorkspaceConfigService;
 import com.cadence.security.SessionCookieFactory;
 import com.cadence.domain.Invitation;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,15 +35,17 @@ public class InvitationController {
     private final SessionService sessions;
     private final SessionCookieFactory cookies;
     private final LoginAttemptService attempts;
+    private final WorkspaceConfigService workspaceConfig;
 
     public InvitationController(InvitationService invitations, MemberService members,
                                SessionService sessions, SessionCookieFactory cookies,
-                               LoginAttemptService attempts) {
+                               LoginAttemptService attempts, WorkspaceConfigService workspaceConfig) {
         this.invitations = invitations;
         this.members = members;
         this.sessions = sessions;
         this.cookies = cookies;
         this.attempts = attempts;
+        this.workspaceConfig = workspaceConfig;
     }
 
     @PostMapping("/api/internal/invitations")
@@ -79,6 +82,7 @@ public class InvitationController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .header(HttpHeaders.SET_COOKIE, cookies.build(issued.jwt(), issued.cookieMaxAge()).toString())
             .body(new AuthDtos.MemberSummary(member.getId(), member.getWorkspaceId(), member.getRole(),
-                member.getDisplayName(), member.getEmail()));
+                member.getDisplayName(), member.getEmail(),
+                workspaceConfig.isConfigured(member.getWorkspaceId())));
     }
 }

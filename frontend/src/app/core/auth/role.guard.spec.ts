@@ -44,7 +44,7 @@ describe('roleGuard', () => {
   }
 
   function member(role: Role): MemberSummary {
-    return { memberId: 'm1', workspaceId: 'ws1', role, displayName: 'X', email: 'x@x.com' };
+    return { memberId: 'm1', workspaceId: 'ws1', role, displayName: 'X', email: 'x@x.com', workspaceConfigured: true };
   }
 
   it('lets the permitted role through (true)', async () => {

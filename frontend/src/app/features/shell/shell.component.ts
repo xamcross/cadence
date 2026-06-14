@@ -1,29 +1,42 @@
-import { Component, inject } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
+import { filter, take } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 
-/** Authenticated app shell. Placeholder landing for the workspace; feature views mount here later. */
+/**
+ * Authenticated app shell. Routes a first-run Admin to the setup wizard and shows non-Admins a
+ * neutral "setup pending" state while the workspace is unconfigured (F03 US6). The redirect runs in
+ * an ngOnInit subscription (NOT a template side-effect): it filters out the initial null member$ and
+ * fires once. The server + roleGuard remain the security boundary.
+ */
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [AsyncPipe, RouterLink],
+  imports: [RouterLink],
   template: `
-    <header class="shell-bar">
-      <span i18n="@@shell.brand">Cadence</span>
-      @if (auth.member$ | async; as member) {
-        <!-- Nav gating is UX only (role hidden); the server + roleGuard are the real boundary (F02). -->
-        @if (member.role === 'ADMIN') {
+    @if (member(); as m) {
+      <header class="shell-bar">
+        <span i18n="@@shell.brand">Cadence</span>
+        @if (m.role === 'ADMIN') {
           <a routerLink="/admin/members" i18n="@@shell.members">Members</a>
+          <a routerLink="/admin/workspace" i18n="@@shell.workspace">Workspace settings</a>
         }
         <span class="spacer"></span>
-        <span>{{ member.displayName }}</span>
+        <span>{{ m.displayName }}</span>
         <button type="button" (click)="logout()" i18n="@@shell.signout">Sign out</button>
-      }
-    </header>
-    <main class="shell-main">
-      <h1 i18n="@@shell.welcome">Welcome to Cadence</h1>
-    </main>
+      </header>
+      <main class="shell-main">
+        @if (!m.workspaceConfigured && m.role !== 'ADMIN') {
+          <h1 i18n="@@workspace.setupPending.title">Workspace setup pending</h1>
+          <p i18n="@@workspace.setupPending.body">
+            An administrator needs to finish setting up this workspace before you can continue.
+          </p>
+        } @else {
+          <h1 i18n="@@shell.welcome">Welcome to Cadence</h1>
+        }
+      </main>
+    }
   `,
   styles: [`
     .shell-bar { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border-bottom: 1px solid #ddd; }
@@ -32,12 +45,24 @@ import { AuthService } from '../../core/auth/auth.service';
     .shell-main { padding: 1rem; }
   `]
 })
-export class ShellComponent {
+export class ShellComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  // No me() call here: the authGuard already validated the session and populated member$ via its
-  // me() probe (AuthService.me() caches into member$). Avoids a redundant round-trip (FE-1).
+  // Single subscription to the member stream (one async source, no double CD pass).
+  readonly member = toSignal(this.auth.member$, { initialValue: null });
+
+  ngOnInit(): void {
+    // member$ is populated by the authGuard's me() probe. Wait for the first non-null emission, then
+    // route an unconfigured Admin to the wizard. Non-Admins stay on the shell (neutral panel above).
+    this.auth.member$
+      .pipe(filter((m) => m !== null), take(1))
+      .subscribe((member) => {
+        if (member && !member.workspaceConfigured && member.role === 'ADMIN') {
+          this.router.navigate(['/workspace/setup']);
+        }
+      });
+  }
 
   logout(): void {
     this.auth.logout().subscribe({

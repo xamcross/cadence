@@ -10,6 +10,12 @@ spring:
       uri: ${MONGODB_URI:mongodb://localhost:27017/cadence}
   application:
     name: cadence-backend
+  servlet:
+    multipart:
+      # F03 logo upload. Cap at 2 MB so the in-service 1 MB validateLogo gate is the authoritative
+      # limit and a >1 MB file still reaches the handler to be refused with a clean 400 (FR-012).
+      max-file-size: 2MB
+      max-request-size: 2MB
   security:
     oauth2:
       client:

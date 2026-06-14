@@ -159,7 +159,7 @@ Workspace initial setup wizard and ongoing admin configuration: branding, workin
 **Constitution gates**: C1 ✅ C2 ✅ C3 ✅ C4 ✅ C5 ✅ C6 ✅
 
 **User stories**:
-- US-F03-1: As an Admin, I can complete a workspace setup wizard (name, logo, time zone, working-hours, data-retention period) so that the workspace is ready to use.
+- US-F03-1: As an Admin, I can complete a workspace setup wizard (name, logo, time zone, working-hours, data-retention period) so that the workspace is ready to use. *(Spec 004-workspace-config, 2026-06-14: logo is captured in the ongoing branding surface (US-F03-2), not the first-run wizard, since branding is non-blocking — a documented default brand applies until set. Also: §5.4 FR-20 "languages" is **deferred** for the MVP (single-language EN); per-workspace default-language selection and candidate-facing localization are owned by F14/F21. Stakeholder-confirmed.)*
 - US-F03-2: As an Admin, I can update branding (logo, brand colour) so that candidate-facing pages match our brand.
 - US-F03-3: As an Admin, I can set the default SLA silence window (in days).
 - US-F03-4: As an Admin, I can configure the email-sending domain and provider API key in workspace settings so that emails are delivered from our domain. *(BA SG-4: email config moved here from F22 where it was misplaced.)*
@@ -167,7 +167,7 @@ Workspace initial setup wizard and ongoing admin configuration: branding, workin
 
 **Acceptance criteria**:
 - Data-retention period is displayed and must be acknowledged during workspace setup (GDPR gate).
-- When a candidate record's age exceeds the workspace retention period, the system flags it for Admin review, blocks new outbound communications to that candidate, and requires explicit Admin confirmation before permanent deletion (shares the same wipe mechanism as F04 erasure). *(Security ISSUE-10: data retention must be enforced, not display-only.)*
+- When a candidate record's age exceeds the workspace retention period, the system flags it for Admin review, blocks new outbound communications to that candidate, and requires explicit Admin confirmation before permanent deletion (shares the same wipe mechanism as F04 erasure). *(Security ISSUE-10: data retention must be enforced, not display-only.)* **[Scope note 2026-06-14, spec 004-workspace-config]**: the *enforcement* (age-flag/comms-block/Admin-confirmed wipe) **binds in F04**, not F03 — the outbound-comms path (F22) and the shared wipe mechanism (F04) do not exist at F03 time, so building it in F03 would require a stub (§II) or pulling F22/F04 forward (§I YAGNI). F03 ships the configured retention period, the mandatory GDPR acknowledgment, and the binding policy contract F04 consumes. Stakeholder-confirmed.
 - Workspace settings persisted to MongoDB; survive restart.
 - Email-sending domain config is tested end-to-end in F22.
 

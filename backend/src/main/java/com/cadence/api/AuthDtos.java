@@ -29,7 +29,8 @@ public final class AuthDtos {
 
     public record InviteAcceptRequest(String password) {}
 
-    public record MemberSummary(String memberId, String workspaceId, Role role, String displayName, String email) {}
+    public record MemberSummary(String memberId, String workspaceId, Role role, String displayName,
+                                String email, boolean workspaceConfigured) {}
 
     public record InvitationView(String email, Role role, boolean needsPassword) {}
 }
