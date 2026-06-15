@@ -15,6 +15,7 @@ import java.time.Duration;
 public class CalendarApiProperties {
 
     private final Google google = new Google();
+    private final Microsoft microsoft = new Microsoft();
     private Duration connectTimeout = Duration.ofSeconds(5);
     private Duration readTimeout = Duration.ofSeconds(10);
     private int maxRetries = 3;
@@ -22,8 +23,12 @@ public class CalendarApiProperties {
     private int freebusyParallelism = 8;
     private Duration maxWindow = Duration.ofDays(60);
     private Duration previewWindow = Duration.ofDays(7);
+    private int graphAvailabilityViewInterval = 15;
 
     public Google getGoogle() { return google; }
+    public Microsoft getMicrosoft() { return microsoft; }
+    public int getGraphAvailabilityViewInterval() { return graphAvailabilityViewInterval; }
+    public void setGraphAvailabilityViewInterval(int v) { this.graphAvailabilityViewInterval = v; }
     public Duration getConnectTimeout() { return connectTimeout; }
     public void setConnectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; }
     public Duration getReadTimeout() { return readTimeout; }
@@ -39,9 +44,16 @@ public class CalendarApiProperties {
     public Duration getPreviewWindow() { return previewWindow; }
     public void setPreviewWindow(Duration previewWindow) { this.previewWindow = previewWindow; }
 
-    /** Per-provider API base URL (only Google for F10; F11 adds Microsoft Graph). */
+    /** Google Calendar API base URL (F10). */
     public static class Google {
         private String baseUrl = "https://www.googleapis.com";
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+    }
+
+    /** Microsoft Graph API base URL (F11). Pointed at the in-test JDK HttpServer stub via @DynamicPropertySource. */
+    public static class Microsoft {
+        private String baseUrl = "https://graph.microsoft.com";
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     }

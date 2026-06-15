@@ -37,14 +37,24 @@ public interface CalendarProviderClient {
     List<BusyInterval> queryFreeBusy(String workspaceId, String memberId, Instant windowStart, Instant windowEnd);
 
     /**
-     * Idempotent create of a Cadence interview event on the member's calendar; returns the provider event
-     * id. A retried create for the same {@code (bookingRef, memberId)} does NOT produce a duplicate (D6).
+     * Idempotent create of a Cadence interview event on the member's calendar; RETURNS the
+     * provider-assigned event id. For Google the id is a deterministic client-supplied id; for Microsoft
+     * Graph it is the SERVER-assigned id read back from the create response (F11 D5). The caller MUST
+     * persist the returned id and use it to address later update/delete. A retried create for the same
+     * {@code (bookingRef, memberId)} does NOT produce a duplicate (Google: deterministic id + 409-success;
+     * Microsoft: {@code transactionId} dedup), backed by the caller's unique-index claim.
      */
     String createEvent(String workspaceId, String bookingRef, String memberId, EventDetails details);
 
-    /** In-place update (time/title/location) of a previously-created event. Idempotent (404/410 -> ok). */
-    void updateEvent(String workspaceId, String bookingRef, String memberId, EventDetails details);
+    /**
+     * In-place update (time/title/location) of the event addressed by its STORED {@code providerEventId}.
+     * Idempotent (a provider "already gone" 404/410 is treated as success — FR-011).
+     */
+    void updateEvent(String workspaceId, String memberId, String providerEventId, EventDetails details);
 
-    /** Idempotent delete; a provider "already gone" (404/410) is treated as success (FR-011). */
-    void deleteEvent(String workspaceId, String bookingRef, String memberId);
+    /**
+     * Idempotent delete of the event addressed by its STORED {@code providerEventId}; a provider "already
+     * gone" (404/410) is treated as success (FR-011).
+     */
+    void deleteEvent(String workspaceId, String memberId, String providerEventId);
 }

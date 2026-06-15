@@ -14,7 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** US1 (SC-001): a 5-member panel reads via the bounded fan-out; a Microsoft member is NOT_CONNECTED pre-F11. */
+/** US1 (SC-001): a 5-member panel reads via the bounded fan-out; a Microsoft member is now readable (F11). */
 class CalendarPanelAvailabilityTest extends CalendarApiItBase {
 
     @Test
@@ -38,11 +38,11 @@ class CalendarPanelAvailabilityTest extends CalendarApiItBase {
     }
 
     @Test
-    void microsoftConnectedMember_isNotConnectedPreF11() {
+    void microsoftConnectedMember_isReadable_postF11() {
         Member m = member("mo@x.com", Role.INTERVIEWER);
-        connect(m, CalendarProvider.MICROSOFT, "mo@outlook.com"); // no F10 client for Microsoft yet
+        connect(m, CalendarProvider.MICROSOFT, "mo@outlook.com"); // F11 adds the Microsoft client
         Instant start = Instant.parse("2026-06-16T00:00:00Z");
         MemberAvailability a = availabilityService.query(WS, start, start.plus(1, ChronoUnit.DAYS), List.of(m.getId())).get(0);
-        assertThat(a.status()).isEqualTo(AvailabilityStatus.NOT_CONNECTED);
+        assertThat(a.status()).isEqualTo(AvailabilityStatus.DATA); // no items seeded -> free
     }
 }

@@ -46,6 +46,23 @@ class CalendarApiRetryTest {
     }
 
     @Test
+    void classifyGraph_truthTable() {
+        // F11 (D6): Graph throttling is 429 (NOT 403 like Google), so ANY 403 -> RECONNECT regardless of
+        // the error code — including a quota-looking code that the Google classifier would call TRANSIENT.
+        assertThat(CalendarApiClassifier.classifyGraph(429, null)).isEqualTo(Outcome.TRANSIENT);
+        assertThat(CalendarApiClassifier.classifyGraph(500, null)).isEqualTo(Outcome.TRANSIENT);
+        assertThat(CalendarApiClassifier.classifyGraph(503, "ServiceUnavailable")).isEqualTo(Outcome.TRANSIENT);
+        assertThat(CalendarApiClassifier.classifyGraph(null, null)).isEqualTo(Outcome.TRANSIENT); // network
+        assertThat(CalendarApiClassifier.classifyGraph(401, null)).isEqualTo(Outcome.RECONNECT);
+        assertThat(CalendarApiClassifier.classifyGraph(403, "ErrorAccessDenied")).isEqualTo(Outcome.RECONNECT);
+        assertThat(CalendarApiClassifier.classifyGraph(403, "rateLimitExceeded")).isEqualTo(Outcome.RECONNECT); // NOT transient for Graph
+        assertThat(CalendarApiClassifier.classifyGraph(403, null)).isEqualTo(Outcome.RECONNECT);
+        assertThat(CalendarApiClassifier.classifyGraph(400, null)).isEqualTo(Outcome.FATAL);
+        assertThat(CalendarApiClassifier.classifyGraph(404, null)).isEqualTo(Outcome.FATAL);
+        assertThat(CalendarApiClassifier.classifyGraph(409, null)).isEqualTo(Outcome.FATAL);
+    }
+
+    @Test
     void backoff_isWithinBound() {
         long base = 10;
         CalendarApiRetry r = retry(3, base);
@@ -93,5 +110,28 @@ class CalendarApiRetryTest {
             throw new CalendarApiException(false, 400, null);
         })).isInstanceOf(CalendarApiException.class);
         assertThat(calls.get()).isEqualTo(1);
+    }
+
+    // F11 (D7 / QA B1): the Retry-After wait is a PURE function — tested directly, never by wall-clock.
+
+    @Test
+    void nextWaitMillis_takesMaxOfBackoffAndRetryAfter() {
+        CalendarApiRetry r = retry(3, 10);
+        // A large Retry-After dominates the jittered backoff deterministically.
+        assertThat(r.nextWaitMillis(1, Duration.ofSeconds(30))).isEqualTo(30_000);
+        // Null Retry-After -> pure backoff in [base, base*2).
+        for (int i = 0; i < 50; i++) {
+            assertThat(r.nextWaitMillis(1, null)).isGreaterThanOrEqualTo(10).isLessThan(20);
+        }
+        // Zero / smaller-than-backoff Retry-After -> backoff wins (>= base).
+        assertThat(r.nextWaitMillis(1, Duration.ZERO)).isGreaterThanOrEqualTo(10);
+        assertThat(r.nextWaitMillis(1, Duration.ofMillis(3))).isGreaterThanOrEqualTo(10);
+    }
+
+    @Test
+    void nextWaitMillis_zeroBackoff_usesRetryAfter() {
+        CalendarApiRetry r = retry(3, 0); // PT0S base -> backoff 0
+        assertThat(r.nextWaitMillis(1, null)).isZero();
+        assertThat(r.nextWaitMillis(1, Duration.ofSeconds(2))).isEqualTo(2_000);
     }
 }

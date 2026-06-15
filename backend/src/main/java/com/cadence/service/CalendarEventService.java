@@ -97,8 +97,16 @@ public class CalendarEventService {
                                   List<Participant> participants, EventDetails details) {
         for (Participant p : participants) {
             CalendarProviderClient client = clientFor(workspaceId, p.memberId());
+            // Resolve the STORED provider event id (F11 D5 — addressing is by the persisted id, not a derived
+            // one; Graph ids are server-assigned). No recorded event for this participant -> nothing to update.
+            ManagedCalendarEvent row = events
+                .findByWorkspaceIdAndBookingRefAndMemberIdAndProvider(workspaceId, bookingRef, p.memberId(), client.id())
+                .orElse(null);
+            if (row == null || row.getProviderEventId() == null) {
+                continue;
+            }
             EventDetails perDetails = withZone(details, p);
-            client.updateEvent(workspaceId, bookingRef, p.memberId(), perDetails);
+            client.updateEvent(workspaceId, p.memberId(), row.getProviderEventId(), perDetails);
             touchTimes(workspaceId, bookingRef, p.memberId(), client.id(), perDetails);
             audit.record(AuthEventType.CALENDAR_EVENT_UPDATED, workspaceId, p.memberId(), "updated", null);
             log.info("calendar event updated {} {} {}",
@@ -122,7 +130,7 @@ public class CalendarEventService {
                 continue;
             }
             try {
-                client.deleteEvent(workspaceId, bookingRef, row.getMemberId());
+                client.deleteEvent(workspaceId, row.getMemberId(), row.getProviderEventId());
                 markStatus(workspaceId, bookingRef, row.getMemberId(), row.getProvider(), EventStatus.DELETED);
                 audit.record(AuthEventType.CALENDAR_EVENT_DELETED, workspaceId, row.getMemberId(), "deleted", null);
             } catch (RuntimeException e) {
@@ -142,10 +150,10 @@ public class CalendarEventService {
     private Created createForParticipant(String workspaceId, String bookingRef, Participant p, EventDetails details) {
         CalendarProviderClient client = clientFor(workspaceId, p.memberId());
         CalendarProvider provider = client.id();
-        String eventId = com.cadence.integration.GoogleEventId.of(bookingRef, p.memberId());
 
         // Idempotent fast path: an already-recorded CREATED event needs no provider call (avoids a
-        // redundant insert on a sequential retry).
+        // redundant insert on a sequential retry). The STORED providerEventId is authoritative — for
+        // Microsoft it cannot be re-derived (Graph assigns it), so this is the only correct source on retry.
         ManagedCalendarEvent existing = events
             .findByWorkspaceIdAndBookingRefAndMemberIdAndProvider(workspaceId, bookingRef, p.memberId(), provider)
             .orElse(null);
@@ -154,19 +162,21 @@ public class CalendarEventService {
         }
 
         // Provider-FIRST (plan-review fix): create at the provider before recording. The provider create is
-        // idempotent (deterministic id -> 409 == success), so two concurrent creates yield exactly one
-        // event. If this throws, NO row is written -> no partial state (FR-014), nothing to roll back.
+        // idempotent (Google: deterministic id -> 409 == success; Microsoft: transactionId dedup), so two
+        // concurrent creates yield exactly one event. If this throws, NO row is written -> no partial state
+        // (FR-014), nothing to roll back. The RETURNED id is the provider-assigned id (Graph: server id) and
+        // is what we persist + later address (F11 D5).
         EventDetails perDetails = withZone(details, p);
-        client.createEvent(workspaceId, bookingRef, p.memberId(), perDetails);
+        String providerEventId = client.createEvent(workspaceId, bookingRef, p.memberId(), perDetails);
 
         // Record idempotently; the unique index makes exactly one writer the inserter (-> exactly one audit).
-        boolean inserted = recordCreated(workspaceId, bookingRef, p.memberId(), provider, eventId, perDetails);
+        boolean inserted = recordCreated(workspaceId, bookingRef, p.memberId(), provider, providerEventId, perDetails);
         if (inserted) {
             audit.record(AuthEventType.CALENDAR_EVENT_CREATED, workspaceId, p.memberId(), "created", null);
             log.info("calendar event created {} {} {}",
                 kv("bookingRef", bookingRef), kv("memberId", p.memberId()), kv("provider", provider.name()));
         }
-        return new Created(p.memberId(), provider, eventId);
+        return new Created(p.memberId(), provider, providerEventId);
     }
 
     private boolean rollback(String workspaceId, String bookingRef, List<Created> created,
@@ -175,7 +185,7 @@ public class CalendarEventService {
         for (Created c : created) {
             CalendarProviderClient client = clients.get(c.provider());
             try {
-                client.deleteEvent(workspaceId, bookingRef, c.memberId());
+                client.deleteEvent(workspaceId, c.memberId(), c.eventId());
                 markStatus(workspaceId, bookingRef, c.memberId(), c.provider(), EventStatus.DELETED);
                 results.put(c.memberId(), new MemberEventResult(c.memberId(), MemberOutcome.ROLLED_BACK, c.eventId()));
             } catch (RuntimeException e) {

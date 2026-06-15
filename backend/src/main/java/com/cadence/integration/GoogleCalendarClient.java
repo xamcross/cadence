@@ -113,8 +113,7 @@ public class GoogleCalendarClient implements CalendarProviderClient {
     }
 
     @Override
-    public void updateEvent(String workspaceId, String bookingRef, String memberId, EventDetails details) {
-        String eventId = GoogleEventId.of(bookingRef, memberId);
+    public void updateEvent(String workspaceId, String memberId, String eventId, EventDetails details) {
         ObjectNode patch = eventJson(null, details);
         try {
             retry.execute(() -> {
@@ -136,8 +135,7 @@ public class GoogleCalendarClient implements CalendarProviderClient {
     }
 
     @Override
-    public void deleteEvent(String workspaceId, String bookingRef, String memberId) {
-        String eventId = GoogleEventId.of(bookingRef, memberId);
+    public void deleteEvent(String workspaceId, String memberId, String eventId) {
         try {
             retry.execute(() -> {
                 String token = token(workspaceId, memberId);

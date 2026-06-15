@@ -66,14 +66,16 @@ class CalendarConnectIntegrationTest extends CalendarItBase {
     }
 
     @Test
-    void start_microsoftAuthorizeUrl_requestsReadScope_noWriteScope() {
+    void start_microsoftAuthorizeUrl_requestsWriteAndIdentityScope() {
+        // F11 (D1): event WRITE needs Calendars.ReadWrite (Graph has no owned-events-only delegated scope);
+        // openid/profile/email yield the id_token whose email/UPN getSchedule needs. §VIII-justified in plan.
         Member m = member("alex@x.com", Role.RECRUITER);
         String url = connectionService.start(WS, m.getId(), CalendarProvider.MICROSOFT);
 
-        assertThat(url).contains("Calendars.Read");   // FR-002 free/busy read scope
-        assertThat(url).contains("offline_access");    // refresh token
+        assertThat(url).contains("Calendars.ReadWrite"); // bi-directional write scope
+        assertThat(url).contains("openid");              // identity scope -> id_token -> getSchedule mailbox
+        assertThat(url).contains("offline_access");      // refresh token
         assertThat(url).contains("code_challenge_method=S256");
-        assertThat(url).doesNotContain("Calendars.ReadWrite"); // no write scope
     }
 
     @Test
