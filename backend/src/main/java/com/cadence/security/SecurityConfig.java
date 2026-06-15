@@ -1,5 +1,6 @@
 package com.cadence.security;
 
+import com.cadence.config.AuthProperties;
 import com.cadence.service.SessionService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -65,9 +67,17 @@ public class SecurityConfig {
             SessionCookieFactory cookieFactory,
             OidcLoginSuccessHandler successHandler,
             OidcLoginFailureHandler failureHandler,
-            RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+            RestAccessDeniedHandler accessDeniedHandler,
+            AuthProperties authProps) throws Exception {
 
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
+
+        // F01.1: a session that expires DURING calendar consent must not strand the member on a bare
+        // 401 — redirect the top-level callback GET to the SPA error page instead (Security #1). This is
+        // registered BEFORE the /api/** 401 mapping (entry points fire in registration order and the
+        // callback path matches /api/**), so a non-callback /api/** path still 401s.
+        AuthenticationEntryPoint calendarCallbackEntryPoint = (request, response, ex) ->
+            response.sendRedirect(authProps.getSpaBaseUrl() + "/calendar/connections?error=session_expired");
 
         return http
             .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
@@ -75,6 +85,9 @@ public class SecurityConfig {
             // explicitly via /oauth2/authorization/...). Non-API protected resources keep the
             // default 403 posture (preserves the F00 actuator-on-public-port contract).
             .exceptionHandling(e -> e
+                .defaultAuthenticationEntryPointFor(
+                    calendarCallbackEntryPoint,
+                    new AntPathRequestMatcher("/api/internal/calendar/connections/*/callback"))
                 .defaultAuthenticationEntryPointFor(
                     new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), new AntPathRequestMatcher("/api/**"))
                 .defaultAuthenticationEntryPointFor(

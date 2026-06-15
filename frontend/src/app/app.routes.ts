@@ -68,6 +68,13 @@ export const routes: Routes = [
       import('./features/admin/gdpr/retention-review.component').then((m) => m.RetentionReviewComponent)
   },
   {
+    // F01.1 calendar connections — member-self surface, any authenticated role (authGuard only).
+    path: 'calendar/connections',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/calendar/calendar-connections.component').then((m) => m.CalendarConnectionsComponent)
+  },
+  {
     path: 'accept-invite',
     loadComponent: () =>
       import('./features/auth/accept-invite/accept-invite.component').then((m) => m.AcceptInviteComponent)

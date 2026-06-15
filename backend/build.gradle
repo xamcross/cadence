@@ -54,9 +54,9 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter'
     // Spring Security test support — oidcLogin()/csrf() request post-processors (BOM-managed)
     testImplementation 'org.springframework.security:spring-security-test'
-    // WireMock — stub OIDC JWKS/token endpoints so ID-token validation + IdP-failure paths are
-    // tested deterministically in CI with no live IdP (research D11). Test scope only.
-    testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
+    // (No WireMock: F01.1 stubs the OAuth provider token/revoke endpoints with a tiny JDK
+    // com.sun.net.httpserver.HttpServer in-test — zero extra dependency, and avoids the
+    // wiremock-standalone fat-jar Jackson/Jetty classpath conflicts with Spring Boot.)
     // Gradle 9 no longer injects junit-platform-launcher automatically
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

@@ -83,6 +83,19 @@ jobs:
           fi
           echo "Candidate-PII scan passed — no candidate personal data found in test output."
 
+      - name: Calendar-token scan — check for leaked OAuth tokens/secrets (F01.1 SC-003/FR-009/FR-010)
+        run: |
+          # F01.1's CalendarLogPiiScanTest drives connect/refresh/reconnect/disconnect (incl. a failing
+          # revoke) with high-entropy SENTINELS for the access token, refresh token, auth code, and the
+          # provider-account email, and asserts they never reach Cadence's own logs. CI re-checks the
+          # captured output for those literals plus the generic OAuth secret patterns.
+          if grep -qE 'SENTINELACCESS0xDEADBEEF0123|SENTINELREFRESH0xCAFEBABE4567|SENTINELCODE0x99887766|sentinel-acct-9f8e7d@example\.invalid' test-output.txt; then
+            echo "ERROR: a calendar OAuth token/code/account sentinel appeared in test output — zero secret policy violated."
+            grep -nE 'SENTINELACCESS0xDEADBEEF0123|SENTINELREFRESH0xCAFEBABE4567|SENTINELCODE0x99887766|sentinel-acct-9f8e7d@example\.invalid' test-output.txt
+            exit 1
+          fi
+          echo "Calendar-token scan passed — no OAuth token/secret/account values found in test output."
+
       - name: Principle V scan — check scripts for non-ASCII characters
         run: |
           # LC_ALL=C forces byte-accurate matching of raw high bytes (0x80-0xFF). Without it,
