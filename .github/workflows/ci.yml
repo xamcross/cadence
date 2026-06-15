@@ -96,6 +96,28 @@ jobs:
           fi
           echo "Calendar-token scan passed — no OAuth token/secret/account values found in test output."
 
+      - name: Calendar event-content scan — check for leaked event content/emails (F10 SC-003/FR-017a/b/FR-018a)
+        run: |
+          # F10's CalendarEventLogPiiScanTest drives preview/create/update/cleanup with high-entropy
+          # SENTINELS across five categories — event title, location, dial-in/phone, attendee email,
+          # provider-account email — and asserts they never reach Cadence's own logs. CI re-checks.
+          if grep -qE 'SENTINELTITLE_zz9|SENTINELLOCATION_room42|SENTINELDIALIN15550009999|sentinel-attendee-7g@example\.invalid|sentinel-acct-3k@example\.invalid' test-output.txt; then
+            echo "ERROR: a calendar event-content/email sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELTITLE_zz9|SENTINELLOCATION_room42|SENTINELDIALIN15550009999|sentinel-attendee-7g@example\.invalid|sentinel-acct-3k@example\.invalid' test-output.txt
+            exit 1
+          fi
+          echo "Calendar event-content scan passed — no event content/email values found in test output."
+
+      - name: Calendar base-URL guard — the Google client must not hardcode the provider host (F10 D12)
+        run: |
+          # GoogleCalendarClient builds every URI from calendar.api.google.base-url so tests point at the
+          # stub and never hit real Google. A 'googleapis.com' literal in the client would defeat that.
+          if grep -n 'googleapis\.com' backend/src/main/java/com/cadence/integration/GoogleCalendarClient.java; then
+            echo "ERROR: GoogleCalendarClient.java hardcodes googleapis.com — use calendar.api.google.base-url."
+            exit 1
+          fi
+          echo "Calendar base-URL guard passed — the Google client has no hardcoded host."
+
       - name: Principle V scan — check scripts for non-ASCII characters
         run: |
           # LC_ALL=C forces byte-accurate matching of raw high bytes (0x80-0xFF). Without it,
