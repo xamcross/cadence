@@ -68,6 +68,13 @@ export const routes: Routes = [
       import('./features/admin/gdpr/retention-review.component').then((m) => m.RetentionReviewComponent)
   },
   {
+    // F12 interview templates + rule-engine slot preview. Recruiter OR Admin (roleGuard).
+    path: 'interview-templates',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
+    loadComponent: () =>
+      import('./features/interview-templates/interview-templates.component').then((m) => m.InterviewTemplatesComponent)
+  },
+  {
     // F01.1 calendar connections — member-self surface, any authenticated role (authGuard only).
     path: 'calendar/connections',
     canActivate: [authGuard],
