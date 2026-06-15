@@ -40,6 +40,34 @@ export const routes: Routes = [
       import('./features/admin/workspace/workspace-settings.component').then((m) => m.WorkspaceSettingsComponent)
   },
   {
+    // F04 GDPR — erasure trigger + lawful-basis record/withdraw. Admin OR Recruiter.
+    path: 'admin/gdpr/actions',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
+    loadComponent: () =>
+      import('./features/admin/gdpr/candidate-erasure-action.component').then((m) => m.CandidateErasureActionComponent)
+  },
+  {
+    // F04 GDPR — candidate audit log. Admin only.
+    path: 'admin/gdpr/audit',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/gdpr/candidate-audit.component').then((m) => m.CandidateAuditComponent)
+  },
+  {
+    // F04 GDPR — pending erasure-request queue. Admin only.
+    path: 'admin/gdpr/requests',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/gdpr/erasure-queue.component').then((m) => m.ErasureQueueComponent)
+  },
+  {
+    // F04 GDPR — retention review + confirm deletion. Admin only.
+    path: 'admin/gdpr/retention',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/gdpr/retention-review.component').then((m) => m.RetentionReviewComponent)
+  },
+  {
     path: 'accept-invite',
     loadComponent: () =>
       import('./features/auth/accept-invite/accept-invite.component').then((m) => m.AcceptInviteComponent)

@@ -1,6 +1,6 @@
 ﻿# Cadence Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-06-14
+Auto-generated from all feature plans. Last updated: 2026-06-15
 
 ## Active Technologies
 - Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, security, actuator, aop); **+ `spring-boot-starter-oauth2-client`** (new — OIDC login + transitive Nimbus `JwtEncoder`/`JwtDecoder` for the self-issued session JWT); Mongock 5.4.4; logstash-logback-encoder 9.0. Frontend: Angular standalone + Angular Material 17.3 (no new frontend deps) (002-authentication)
@@ -9,6 +9,8 @@ Auto-generated from all feature plans. Last updated: 2026-06-14
 - MongoDB 7.x (Atlas in prod, Testcontainers `mongo:7` in tests). Reuses `members` and `authAuditLog`; adds one collection **`assignments`**. (003-rbac)
 - Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, security w/ method security, actuator, aop); Mongock 5.4.4; logstash-logback-encoder 9.0. **No new backend or frontend runtime dependency** — logo validation uses JDK `javax.imageio.ImageIO` + magic-byte inspection; credential crypto reuses the existing `PiiCrypto`/`PiiStringConverter`. Test-only: `spring-security-test` (already present) for per-role authority post-processors. (004-workspace-config)
 - MongoDB 7.x (Atlas prod, Testcontainers `mongo:7` tests). Adds two collections — **`workspaceConfig`** (one doc/workspace) and **`workspaceLogo`** (one doc/workspace, raster bytes ≤ 1 MB). Reuses `authAuditLog` (extended) and the F01 `members`/`sessions` for the actor context. (004-workspace-config)
+- Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, security w/ method security, actuator, aop, **scheduling**); Mongock 5.4.4; logstash-logback-encoder 9.0. **No new backend or frontend runtime dependency** — PII crypto reuses `PiiCrypto`/`PiiStringConverter`/`MongoPiiConfig`; the retention scan reuses `SchedulerCheckpointService` + `@Scheduled`. Test-only: `spring-security-test` (already present) for per-role authority post-processors. (005-gdpr-baseline)
+- MongoDB 7.x (Atlas prod, Testcontainers `mongo:7` tests). Adds three collections — **`candidates`** (data-subject record, PII encrypted), **`auditLog`** (candidate-keyed, append-only — index pre-created by ChangeUnit001), **`erasureRequests`**. Reads `WorkspaceConfig` (F03 retention period) and reuses `members`/`sessions` (actor) and `schedulerCheckpoints` (F00.2). (005-gdpr-baseline)
 
 - **Backend**: Java 21, Spring Boot 3.3.5 (web, data-mongodb, actuator, security, scheduling, aop, test starters)
 - **Frontend**: Angular 17 standalone components, Angular CDK/Material, Angular i18n (`$localize`)
@@ -132,9 +134,9 @@ Critical patterns to follow in future features:
 - **Tests verified locally** (Docker available): full backend suite green (F01+F02+F03, incl. the new `com.cadence.workspace.*` — concurrency latches, raw-driver ciphertext, cold-converter reload, TRACE secret scan, 5×4 RBAC matrix) and `RbacEndpointInventoryTest` still green; frontend `ng test` 12/12 + `ng build` clean. Same run flags as F02; the first multi-class Testcontainers run after a recompile throws the one-time `GenericContainer` class-init error — re-run. CI `ci.yml` PII scan extended with a secret/credential pattern set + sentinel-token check (the prior scan covered emails only).
 
 ## Recent Changes
+- 005-gdpr-baseline: Added Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, security w/ method security, actuator, aop, **scheduling**); Mongock 5.4.4; logstash-logback-encoder 9.0. **No new backend or frontend runtime dependency** — PII crypto reuses `PiiCrypto`/`PiiStringConverter`/`MongoPiiConfig`; the retention scan reuses `SchedulerCheckpointService` + `@Scheduled`. Test-only: `spring-security-test` (already present) for per-role authority post-processors.
 - 004-workspace-config: Added Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, security w/ method security, actuator, aop); Mongock 5.4.4; logstash-logback-encoder 9.0. **No new backend or frontend runtime dependency** — logo validation uses JDK `javax.imageio.ImageIO` + magic-byte inspection; credential crypto reuses the existing `PiiCrypto`/`PiiStringConverter`. Test-only: `spring-security-test` (already present) for per-role authority post-processors.
 - 003-rbac: Added Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, **security with method security already enabled**, actuator, aop); Mongock 5.4.4; logstash-logback-encoder 9.0. **No new backend or frontend runtime dependency** (RBAC uses `@EnableMethodSecurity`, already present in `SecurityConfig`). Test-only: `spring-security-test` (already used by F01) for `@WithMockUser`/authority post-processors.
-- 002-authentication: Added Java 21 (backend, toolchain pinned); TypeScript 5.4 / Angular 17.3 (frontend) + Spring Boot 3.3.5 (web, data-mongodb, security, actuator, aop); **+ `spring-boot-starter-oauth2-client`** (new — OIDC login + transitive Nimbus `JwtEncoder`/`JwtDecoder` for the self-issued session JWT); Mongock 5.4.4; logstash-logback-encoder 9.0. Frontend: Angular standalone + Angular Material 17.3 (no new frontend deps)
 
 
 
