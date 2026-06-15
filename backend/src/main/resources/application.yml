@@ -121,6 +121,17 @@ calendar:
     preview-window: P7D
     graph-availability-view-interval: 15   # F11 getSchedule availabilityViewInterval (min); exact bounds come from scheduleItems
 
+# F12 Interview Template & Rule Engine. default-slot-cadence-minutes is the cadence used when a
+# template sets none (D3); the per-template caps bound a single template so a huge pool + max window
+# cannot amplify the availability fan-out into a DoS / mass-probe (FR-024/D8). The compute-window
+# clamp reuses calendar.api.max-window (no new key).
+interview:
+  template:
+    default-slot-cadence-minutes: 15
+    max-members: 25
+    max-pools: 10
+    max-blackouts: 50
+
 management:
   server:
     port: 8081
