@@ -27,10 +27,12 @@ import java.util.List;
 abstract class CalendarApiItBase extends CalendarItBase {
 
     protected static final StubGoogleCalendar gcal = new StubGoogleCalendar();
+    protected static final StubGraphCalendar mscal = new StubGraphCalendar(); // F11
 
     @DynamicPropertySource
     static void googleApiProps(DynamicPropertyRegistry r) {
         r.add("calendar.api.google.base-url", gcal::baseUrl);
+        r.add("calendar.api.microsoft.base-url", mscal::baseUrl); // F11 — Graph stub
         r.add("calendar.api.retry-base-backoff", () -> "PT0S");
     }
 
@@ -41,6 +43,7 @@ abstract class CalendarApiItBase extends CalendarItBase {
     @BeforeEach
     void cleanCalendarApi() {
         gcal.reset();
+        mscal.reset(); // F11 QA N1 — reset BOTH stubs so the mixed test does not bleed state
         mongoTemplate.remove(new Query(), ManagedCalendarEvent.class);
     }
 

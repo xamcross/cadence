@@ -144,6 +144,22 @@ abstract class CalendarItBase extends BaseIntegrationTest {
         return connectionRepo.findByWorkspaceIdAndMemberIdAndProvider(WS, m.getId(), p).orElseThrow();
     }
 
+    /**
+     * Connect a member with an id_token carrying ONLY a {@code sub} claim (no email/preferred_username/upn),
+     * so {@code providerAccountId} is an opaque non-mailbox id (F11 D2a — the Microsoft client must treat
+     * this as NEEDS_RECONNECTION rather than send a non-mailbox to getSchedule).
+     */
+    protected CalendarConnection connectSubOnly(Member m, CalendarProvider p, String sub) {
+        String idToken = idTokenRaw("{\"sub\":\"" + sub + "\"}");
+        String tokenJson = "{\"access_token\":\"access-" + p.path() + "\",\"refresh_token\":\"refresh-" + p.path()
+            + "\",\"expires_in\":3600,\"scope\":\"openid\",\"id_token\":\"" + idToken + "\"}";
+        wm.stub(tokenPath(p), "grant_type=authorization_code", 200, tokenJson);
+        connectionService.start(WS, m.getId(), p);
+        OAuthFlowState state = mongoTemplate.findOne(new Query(), OAuthFlowState.class);
+        connectionService.completeCallback(p, "code-xyz", state.getId(), null, WS, m.getId());
+        return connectionRepo.findByWorkspaceIdAndMemberIdAndProvider(WS, m.getId(), p).orElseThrow();
+    }
+
     /** A cold MongoTemplate (fresh PII converter) — reads as if after a restart. */
     protected MongoTemplate coldTemplate() {
         MongoCustomConversions conversions = new MongoPiiConfig().mongoCustomConversions(piiCrypto);
@@ -171,9 +187,12 @@ abstract class CalendarItBase extends BaseIntegrationTest {
 
     /** Unsigned id_token (display-only; the gateway does not validate the signature). */
     protected static String idToken(String account) {
-        String header = b64("{}");
-        String payload = b64("{\"email\":\"" + account + "\"}");
-        return header + "." + payload + ".sig";
+        return idTokenRaw("{\"email\":\"" + account + "\"}");
+    }
+
+    /** Unsigned id_token with a caller-supplied claims JSON payload. */
+    protected static String idTokenRaw(String claimsJson) {
+        return b64("{}") + "." + b64(claimsJson) + ".sig";
     }
 
     private static String b64(String s) {

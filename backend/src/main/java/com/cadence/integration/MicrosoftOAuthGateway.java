@@ -7,10 +7,15 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Microsoft 365 calendar OAuth gateway (research D7). Scope is {@code Calendars.Read offline_access}
- * (Graph free/busy via getSchedule has no narrower delegated scope; field projection at query time is
- * F11's documented mitigation, ISSUE-2). {@code offline_access} (in the scope) yields a refresh token;
- * {@code prompt=consent} forces re-consent so the refresh token is reliably issued.
+ * Microsoft 365 calendar OAuth gateway. Scope is config-driven (see {@code calendar.oauth.microsoft.scope}).
+ * As of F11 (research D1) it is {@code openid profile email offline_access Calendars.ReadWrite}:
+ * {@code Calendars.ReadWrite} is required to write events (Graph has no owned-events-only delegated scope,
+ * so it is broader than F10's Google grant — §VIII justification in the F11 plan); {@code openid profile
+ * email} make Graph issue an id_token whose email/UPN becomes {@code providerAccountId}, the mailbox
+ * address Graph {@code getSchedule} requires (D2a). The getSchedule no-content guarantee is enforced by
+ * the F11 adapter's parse-discipline (start/end/status only) + a non-circular test, NOT a field
+ * projection. {@code offline_access} yields a refresh token; {@code prompt=consent} forces re-consent so
+ * the refresh token is reliably issued (and a pre-F11 read-only connection re-consents under the new scope).
  */
 @Component
 public class MicrosoftOAuthGateway extends AbstractOAuthGateway {

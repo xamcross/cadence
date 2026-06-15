@@ -45,4 +45,29 @@ public final class CalendarApiClassifier {
             || "quotaExceeded".equals(reason)
             || "rateLimitExceededUnreg".equals(reason);
     }
+
+    /**
+     * Microsoft Graph classification (F11, research D6). Graph throttling is {@code 429} (NOT {@code 403}
+     * like Google), so a {@code 403} is unambiguously auth/permission/insufficient-scope -> RECONNECT.
+     * {@code code} is Graph's {@code error.code} (e.g. {@code ErrorAccessDenied}) — non-PII, parsed for
+     * diagnostics only; classification here is status-driven (the {@code code} is not needed to decide).
+     *
+     * <table><caption>truth table</caption>
+     *   <tr><td>429 / 5xx / network (null status)</td><td>TRANSIENT</td></tr>
+     *   <tr><td>401 / 403 (any code)</td><td>RECONNECT</td></tr>
+     *   <tr><td>other 4xx (400 / 404 / 409)</td><td>FATAL</td></tr>
+     * </table>
+     */
+    public static Outcome classifyGraph(Integer status, String code) {
+        if (status == null) {
+            return Outcome.TRANSIENT; // network / connect error
+        }
+        if (status == 429 || status >= 500) {
+            return Outcome.TRANSIENT;
+        }
+        if (status == 401 || status == 403) {
+            return Outcome.RECONNECT; // Graph throttling is 429, so a 403 is always auth/scope
+        }
+        return Outcome.FATAL; // other 4xx (incl. 409; 404/410 handled as idempotent success by the caller)
+    }
 }

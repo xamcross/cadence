@@ -69,9 +69,12 @@ auth:
     ip-pepper: ${IP_PEPPER:dev-insecure-ip-pepper-change-me}
 
 # F01.1 Calendar OAuth Token Store. Explicit endpoint URIs (NOT issuer-uri — the F01 eager-discovery
-# footgun). Client secrets come from Fly secrets in prod; the dev defaults are placeholders only. Scopes
-# are free/busy-only (constitution VIII): Google calendar.freebusy; Microsoft Calendars.Read offline_access
-# (Graph getSchedule has no narrower delegated scope; field projection at query time is F11's mitigation).
+# footgun). Client secrets come from Fly secrets in prod; the dev defaults are placeholders only.
+# Scopes (constitution VIII): Google = least-privilege calendar.events.owned + calendar.freebusy (F10 D1);
+# Microsoft = openid profile email offline_access Calendars.ReadWrite (F11 D1) — write needs ReadWrite
+# (Graph has no owned-events-only delegated scope), and openid/profile/email yield the id_token whose
+# email/UPN is the mailbox address getSchedule requires. getSchedule no-content is enforced by adapter
+# parse-discipline (start/end/status only) + a non-circular test, NOT a structural field projection.
 calendar:
   oauth:
     redirect-base-url: ${CALENDAR_REDIRECT_BASE_URL:http://localhost:8080}
@@ -97,12 +100,18 @@ calendar:
       authorization-uri: ${MS_CAL_AUTH_URI:https://login.microsoftonline.com/common/oauth2/v2.0/authorize}
       token-uri: ${MS_CAL_TOKEN_URI:https://login.microsoftonline.com/common/oauth2/v2.0/token}
       revocation-uri: ${MS_CAL_REVOKE_URI:}
-      scope: ${MS_CAL_SCOPE:Calendars.Read offline_access}
+      # F11 (research D1): event WRITE needs Calendars.ReadWrite (Graph has no owned-events-only delegated
+      # scope, so this is broader than F10's Google grant; §VIII justification in the F11 plan). openid/
+      # profile/email make Graph issue an id_token so providerAccountId holds the member SMTP/UPN that
+      # getSchedule needs (D2a). Space-separated.
+      scope: ${MS_CAL_SCOPE:openid profile email offline_access Calendars.ReadWrite}
   # F10 Google Calendar adapter (research D4/D8/D11). google.base-url points at real Google in prod and
   # at the in-test JDK HttpServer stub via @DynamicPropertySource. Retry = exp backoff + jitter, max 3.
   api:
     google:
       base-url: ${GOOGLE_CAL_API_BASE:https://www.googleapis.com}
+    microsoft:
+      base-url: ${MS_GRAPH_API_BASE:https://graph.microsoft.com}   # F11; tests point at the JDK HttpServer stub
     connect-timeout: PT5S
     read-timeout: PT10S
     max-retries: 3
@@ -110,6 +119,7 @@ calendar:
     freebusy-parallelism: 8
     max-window: P60D
     preview-window: P7D
+    graph-availability-view-interval: 15   # F11 getSchedule availabilityViewInterval (min); exact bounds come from scheduleItems
 
 management:
   server:
