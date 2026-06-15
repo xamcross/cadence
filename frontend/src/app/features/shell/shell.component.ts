@@ -21,6 +21,12 @@ import { AuthService } from '../../core/auth/auth.service';
         @if (m.role === 'ADMIN') {
           <a routerLink="/admin/members" i18n="@@shell.members">Members</a>
           <a routerLink="/admin/workspace" i18n="@@shell.workspace">Workspace settings</a>
+          <a routerLink="/admin/gdpr/audit" i18n="@@shell.gdprAudit">Audit log</a>
+          <a routerLink="/admin/gdpr/requests" i18n="@@shell.gdprRequests">Erasure requests</a>
+          <a routerLink="/admin/gdpr/retention" i18n="@@shell.gdprRetention">Retention</a>
+        }
+        @if (m.role === 'ADMIN' || m.role === 'RECRUITER') {
+          <a routerLink="/admin/gdpr/actions" i18n="@@shell.gdprActions">Candidate data</a>
         }
         <span class="spacer"></span>
         <span>{{ m.displayName }}</span>

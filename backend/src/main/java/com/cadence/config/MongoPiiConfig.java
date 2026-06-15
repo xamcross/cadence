@@ -1,5 +1,6 @@
 package com.cadence.config;
 
+import com.cadence.domain.Candidate;
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
 import com.cadence.domain.WorkspaceConfig;
@@ -29,6 +30,11 @@ public class MongoPiiConfig {
                 // encryption-at-rest control only; never-return is a SEPARATE control (the field is
                 // @JsonIgnore + on no response DTO). Reuse the SAME converter instance; one bean only.
                 registrar.registerConverter(WorkspaceConfig.class, "emailProviderCredential", converter);
+                // F04: encrypt candidate PII at rest (research D1). Same converter instance; one bean only.
+                // emailHash is NOT registered — it is a keyed HMAC, stored as-is for lookup.
+                registrar.registerConverter(Candidate.class, "name", converter);
+                registrar.registerConverter(Candidate.class, "email", converter);
+                registrar.registerConverter(Candidate.class, "phone", converter);
             }));
     }
 }

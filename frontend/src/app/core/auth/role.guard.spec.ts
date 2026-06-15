@@ -66,4 +66,35 @@ describe('roleGuard', () => {
     await resolve(run(['ADMIN']));
     expect(navigated).toContain('/login');
   });
+
+  // F04 SC-011: the erasure-action route is guarded roleGuard('ADMIN','RECRUITER') — cover BOTH the
+  // Admin-only routes and the mixed route, per the F03 single-route lesson.
+  describe("roleGuard('ADMIN','RECRUITER') — the F04 erasure-action route", () => {
+    it('lets RECRUITER through (true)', async () => {
+      setup(of(member('RECRUITER')));
+      const result = await resolve(run(['ADMIN', 'RECRUITER']));
+      expect(result).toBe(true);
+    });
+
+    it('lets ADMIN through (true)', async () => {
+      setup(of(member('ADMIN')));
+      const result = await resolve(run(['ADMIN', 'RECRUITER']));
+      expect(result).toBe(true);
+    });
+
+    it('redirects HM / Interviewer / Read-only to /not-authorized', async () => {
+      for (const role of ['HIRING_MANAGER', 'INTERVIEWER', 'READ_ONLY'] as Role[]) {
+        const { navigated } = setup(of(member(role)));
+        await resolve(run(['ADMIN', 'RECRUITER']));
+        expect(navigated).toContain('/not-authorized');
+      }
+    });
+  });
+
+  // The Admin-only F04 routes (audit/requests/retention) reject RECRUITER too.
+  it("roleGuard('ADMIN') redirects RECRUITER (Admin-only F04 surfaces)", async () => {
+    const { navigated } = setup(of(member('RECRUITER')));
+    await resolve(run(['ADMIN']));
+    expect(navigated).toContain('/not-authorized');
+  });
 });
