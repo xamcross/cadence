@@ -15,6 +15,17 @@ export interface ConnectionList {
 export interface StartResponse {
   authorizationUrl: string;
 }
+export interface BusyInterval {
+  start: string;
+  end: string;
+}
+export interface AvailabilityPreview {
+  provider: string | null;
+  status: string; // DATA | NOT_CONNECTED | NEEDS_RECONNECTION | TEMPORARILY_UNAVAILABLE
+  windowStart: string;
+  windowEnd: string;
+  busy: BusyInterval[];
+}
 
 /**
  * Member-self calendar connection API client (F01.1). Every call is scoped server-side to the
@@ -36,5 +47,12 @@ export class CalendarService {
 
   disconnect(provider: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${provider}`);
+  }
+
+  /** F10: the signed-in member's own availability for the next preview window (self-scoped server-side). */
+  previewAvailability(): Observable<AvailabilityPreview> {
+    return this.http.get<AvailabilityPreview>(
+      `${environment.apiBaseUrl}/internal/calendar/availability/preview`
+    );
   }
 }

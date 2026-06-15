@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, Subject } from 'rxjs';
 import { CalendarConnectionsComponent } from './calendar-connections.component';
-import { CalendarService, ConnectionList, StartResponse } from './calendar.service';
+import { AvailabilityPreview, CalendarService, ConnectionList, StartResponse } from './calendar.service';
 
 /**
  * F01.1: the calendar-connections component renders the three statuses, surfaces the ?error= banner,
@@ -11,9 +11,11 @@ import { CalendarService, ConnectionList, StartResponse } from './calendar.servi
  */
 describe('CalendarConnectionsComponent', () => {
   function setup(connections: ConnectionList, query: Record<string, string> = {}, startStub?: Partial<CalendarService>) {
+    const noPreview: AvailabilityPreview = { provider: null, status: 'NOT_CONNECTED', windowStart: '', windowEnd: '', busy: [] };
     const service: Partial<CalendarService> = {
       list: () => of(connections),
       disconnect: () => of(void 0),
+      previewAvailability: () => of(noPreview),
       ...startStub
     };
     TestBed.resetTestingModule(); // allow re-setup within a single looping test
@@ -65,6 +67,38 @@ describe('CalendarConnectionsComponent', () => {
     const fixture = setup({ connections: [] }, {}, { start: () => pending.asObservable() });
     fixture.componentInstance.connect(fixture.componentInstance.providers[0]);
     expect(fixture.componentInstance.starting()).toBe('google');
+  });
+
+  it('renders busy blocks when the preview returns DATA with intervals', () => {
+    const pv: AvailabilityPreview = {
+      provider: 'GOOGLE', status: 'DATA', windowStart: '2026-06-16T00:00:00Z', windowEnd: '2026-06-23T00:00:00Z',
+      busy: [{ start: '2026-06-16T13:00:00Z', end: '2026-06-16T14:00:00Z' }]
+    };
+    const fixture = setup({ connections: [] }, {}, { previewAvailability: () => of(pv) });
+    fixture.componentInstance.previewMine();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('2026-06-16T13:00:00Z');
+  });
+
+  it('renders "free" when the preview returns DATA with no intervals', () => {
+    const pv: AvailabilityPreview = {
+      provider: 'GOOGLE', status: 'DATA', windowStart: '', windowEnd: '', busy: []
+    };
+    const fixture = setup({ connections: [] }, {}, { previewAvailability: () => of(pv) });
+    fixture.componentInstance.previewMine();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('free');
+  });
+
+  it('renders a reconnection prompt when the preview returns NEEDS_RECONNECTION', () => {
+    const pv: AvailabilityPreview = {
+      provider: 'GOOGLE', status: 'NEEDS_RECONNECTION', windowStart: '', windowEnd: '', busy: []
+    };
+    const fixture = setup({ connections: [] }, {}, { previewAvailability: () => of(pv) });
+    fixture.componentInstance.previewMine();
+    fixture.detectChanges();
+    const alert = fixture.nativeElement.querySelector('.preview [role="alert"]');
+    expect(alert).not.toBeNull();
   });
 
   it('disconnects only after the confirm step', () => {

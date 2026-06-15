@@ -130,6 +130,16 @@ public class CalendarTokenService {
         return current.getAccessToken();
     }
 
+    /**
+     * F10 seam (research D9 / plan-review B1): flip a member's connection to NEEDS_RECONNECTION when a
+     * calendar API call reports a revoked or insufficient-scope grant. Reuses the guarded flip + audit;
+     * a no-op if the connection is absent or already flipped (the guard matches only CONNECTED).
+     */
+    public void markNeedsReconnection(String workspaceId, String memberId, CalendarProvider provider) {
+        connections.findByWorkspaceIdAndMemberIdAndProvider(workspaceId, memberId, provider)
+            .ifPresent(this::markNeedsReconnection);
+    }
+
     private void markNeedsReconnection(CalendarConnection conn) {
         Instant now = Instant.now(clock);
         // invalid_grant is terminal regardless of version, so flip on (id, status==CONNECTED) — NOT a

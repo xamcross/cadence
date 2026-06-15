@@ -17,4 +17,12 @@ public final class CalendarDtos {
     public record ConnectionList(List<ConnectionRow> connections) {}
 
     public record StartResponse(String authorizationUrl) {}
+
+    /**
+     * F10 self availability preview (D11). {@code provider} is null when not connected; {@code busy}
+     * carries ONLY start/end instants — never any event title/attendee/location (FR-002).
+     */
+    public record AvailabilityPreviewResponse(String provider, String status,
+                                              Instant windowStart, Instant windowEnd,
+                                              List<com.cadence.domain.BusyInterval> busy) {}
 }

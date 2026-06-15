@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { CalendarService, ConnectionRow } from './calendar.service';
+import { AvailabilityPreview, CalendarService, ConnectionRow } from './calendar.service';
 
 interface ProviderDef {
   id: string; // path segment: google | microsoft
@@ -51,6 +51,32 @@ interface ProviderDef {
         </li>
       }
     </ul>
+
+    <section class="preview">
+      <h2 i18n="@@calendar.preview.title">Preview my availability</h2>
+      <button type="button" [disabled]="previewing()" (click)="previewMine()"
+              i18n="@@calendar.preview.button">Preview my availability</button>
+      @if (preview(); as pv) {
+        @if (pv.status === 'DATA') {
+          @if (pv.busy.length > 0) {
+            <p i18n="@@calendar.preview.busyIntro">You are busy at these times in the next week:</p>
+            <ul class="busy">
+              @for (b of pv.busy; track b.start) {
+                <li>{{ b.start }} &ndash; {{ b.end }}</li>
+              }
+            </ul>
+          } @else {
+            <p i18n="@@calendar.preview.free">You appear free for the next week.</p>
+          }
+        } @else if (pv.status === 'NEEDS_RECONNECTION') {
+          <p role="alert" i18n="@@calendar.preview.needsReconnection">Your calendar needs reconnection before availability can be read.</p>
+        } @else if (pv.status === 'NOT_CONNECTED') {
+          <p i18n="@@calendar.preview.notConnected">Connect a calendar above to preview your availability.</p>
+        } @else {
+          <p i18n="@@calendar.preview.temporarilyUnavailable">Availability is temporarily unavailable. Please try again shortly.</p>
+        }
+      }
+    </section>
   `,
   styles: [`
     .providers { list-style: none; padding: 0; }
@@ -76,6 +102,8 @@ export class CalendarConnectionsComponent implements OnInit {
   readonly starting = signal<string | null>(null);
   readonly confirmingDisconnect = signal<string | null>(null);
   readonly banner = signal<{ type: 'success' | 'error'; text: string } | null>(null);
+  readonly preview = signal<AvailabilityPreview | null>(null);
+  readonly previewing = signal(false);
 
   ngOnInit(): void {
     const q = this.route.snapshot.queryParamMap;
@@ -112,6 +140,20 @@ export class CalendarConnectionsComponent implements OnInit {
         this.load();
       },
       error: () => this.banner.set({ type: 'error', text: $localize`:@@calendar.banner.disconnectFailed:Could not disconnect. Please try again.` })
+    });
+  }
+
+  previewMine(): void {
+    this.previewing.set(true);
+    this.calendar.previewAvailability().subscribe({
+      next: (pv) => {
+        this.preview.set(pv);
+        this.previewing.set(false);
+      },
+      error: () => {
+        this.previewing.set(false);
+        this.banner.set({ type: 'error', text: $localize`:@@calendar.banner.previewFailed:Could not load your availability. Please try again.` });
+      }
     });
   }
 

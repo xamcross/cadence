@@ -19,5 +19,11 @@ public enum AuthEventType {
     // F01.1 Calendar OAuth Token Store (append-only — never reorder)
     CALENDAR_CONNECTED,
     CALENDAR_DISCONNECTED,
-    CALENDAR_RECONNECT_REQUIRED
+    CALENDAR_RECONNECT_REQUIRED,
+    // F10 Google Calendar event lifecycle (append-only — never reorder). The calendar-op-triggered
+    // needs-reconnection occurrence (FR-020) REUSES CALENDAR_RECONNECT_REQUIRED above — no new value.
+    CALENDAR_EVENT_CREATED,
+    CALENDAR_EVENT_UPDATED,
+    CALENDAR_EVENT_DELETED,
+    CALENDAR_EVENT_CLEANUP_INCOMPLETE
 }

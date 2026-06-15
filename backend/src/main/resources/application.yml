@@ -87,7 +87,10 @@ calendar:
       authorization-uri: ${GOOGLE_CAL_AUTH_URI:https://accounts.google.com/o/oauth2/v2/auth}
       token-uri: ${GOOGLE_CAL_TOKEN_URI:https://oauth2.googleapis.com/token}
       revocation-uri: ${GOOGLE_CAL_REVOKE_URI:https://oauth2.googleapis.com/revoke}
-      scope: ${GOOGLE_CAL_SCOPE:https://www.googleapis.com/auth/calendar.freebusy}
+      # F10 (research D1): event WRITE requires more than free/busy. Least-privilege = manage only
+      # events Cadence creates (calendar.events.owned) + free/busy read. calendar.events (read/write of
+      # ALL events) is the documented fallback only, with a re-recorded §VIII trade-off. Space-separated.
+      scope: ${GOOGLE_CAL_SCOPE:https://www.googleapis.com/auth/calendar.events.owned https://www.googleapis.com/auth/calendar.freebusy}
     microsoft:
       client-id: ${MS_CAL_CLIENT_ID:dev-ms-client}
       client-secret: ${MS_CAL_CLIENT_SECRET:dev-ms-secret}
@@ -95,6 +98,18 @@ calendar:
       token-uri: ${MS_CAL_TOKEN_URI:https://login.microsoftonline.com/common/oauth2/v2.0/token}
       revocation-uri: ${MS_CAL_REVOKE_URI:}
       scope: ${MS_CAL_SCOPE:Calendars.Read offline_access}
+  # F10 Google Calendar adapter (research D4/D8/D11). google.base-url points at real Google in prod and
+  # at the in-test JDK HttpServer stub via @DynamicPropertySource. Retry = exp backoff + jitter, max 3.
+  api:
+    google:
+      base-url: ${GOOGLE_CAL_API_BASE:https://www.googleapis.com}
+    connect-timeout: PT5S
+    read-timeout: PT10S
+    max-retries: 3
+    retry-base-backoff: PT0.1S
+    freebusy-parallelism: 8
+    max-window: P60D
+    preview-window: P7D
 
 management:
   server:
