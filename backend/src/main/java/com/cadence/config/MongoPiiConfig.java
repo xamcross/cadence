@@ -1,8 +1,10 @@
 package com.cadence.config;
 
+import com.cadence.domain.CalendarConnection;
 import com.cadence.domain.Candidate;
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
+import com.cadence.domain.OAuthFlowState;
 import com.cadence.domain.WorkspaceConfig;
 import com.cadence.security.PiiCrypto;
 import com.cadence.security.PiiStringConverter;
@@ -35,6 +37,12 @@ public class MongoPiiConfig {
                 registrar.registerConverter(Candidate.class, "name", converter);
                 registrar.registerConverter(Candidate.class, "email", converter);
                 registrar.registerConverter(Candidate.class, "phone", converter);
+                // F01.1: encrypt calendar OAuth secrets + the connected-account id at rest (research D2).
+                // Same converter instance; one bean only.
+                registrar.registerConverter(CalendarConnection.class, "refreshToken", converter);
+                registrar.registerConverter(CalendarConnection.class, "accessToken", converter);
+                registrar.registerConverter(CalendarConnection.class, "providerAccountId", converter);
+                registrar.registerConverter(OAuthFlowState.class, "pkceVerifier", converter);
             }));
     }
 }

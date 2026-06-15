@@ -35,14 +35,16 @@ public class RoleService {
     private final MemberRepository members;
     private final SessionService sessions;
     private final AuthAuditService audit;
+    private final CalendarConnectionService calendarConnections;
     private final Clock clock;
 
     public RoleService(MongoTemplate mongo, MemberRepository members, SessionService sessions,
-                       AuthAuditService audit, Clock clock) {
+                       AuthAuditService audit, CalendarConnectionService calendarConnections, Clock clock) {
         this.mongo = mongo;
         this.members = members;
         this.sessions = sessions;
         this.audit = audit;
+        this.calendarConnections = calendarConnections;
         this.clock = clock;
     }
 
@@ -97,6 +99,14 @@ public class RoleService {
         }
         // Only reached on success (the guard throws on a last-Admin trip, before this line).
         sessions.revokeAllForMember(memberId);
+        // F01.1 (D12): destroy the member's calendar credentials too. Best-effort — a provider-revoke
+        // failure inside disconnectAll is already swallowed there, but guard the whole call so a
+        // deactivation can never be aborted by a calendar-cleanup error.
+        try {
+            calendarConnections.disconnectAll(workspaceId, memberId);
+        } catch (RuntimeException ignored) {
+            // deactivation already succeeded; calendar cleanup is best-effort
+        }
     }
 
     /**

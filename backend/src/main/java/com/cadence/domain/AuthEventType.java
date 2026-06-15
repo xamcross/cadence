@@ -15,5 +15,9 @@ public enum AuthEventType {
     AUTHORIZATION_DENIED,
     // F03 Workspace Setup & Configuration
     WORKSPACE_CONFIGURED,
-    WORKSPACE_CONFIG_CHANGED
+    WORKSPACE_CONFIG_CHANGED,
+    // F01.1 Calendar OAuth Token Store (append-only — never reorder)
+    CALENDAR_CONNECTED,
+    CALENDAR_DISCONNECTED,
+    CALENDAR_RECONNECT_REQUIRED
 }

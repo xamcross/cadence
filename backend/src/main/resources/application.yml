@@ -68,6 +68,34 @@ auth:
     token-pepper: ${TOKEN_PEPPER:dev-insecure-token-pepper-change-me}
     ip-pepper: ${IP_PEPPER:dev-insecure-ip-pepper-change-me}
 
+# F01.1 Calendar OAuth Token Store. Explicit endpoint URIs (NOT issuer-uri — the F01 eager-discovery
+# footgun). Client secrets come from Fly secrets in prod; the dev defaults are placeholders only. Scopes
+# are free/busy-only (constitution VIII): Google calendar.freebusy; Microsoft Calendars.Read offline_access
+# (Graph getSchedule has no narrower delegated scope; field projection at query time is F11's mitigation).
+calendar:
+  oauth:
+    redirect-base-url: ${CALENDAR_REDIRECT_BASE_URL:http://localhost:8080}
+    state-ttl: PT10M
+    access-token-skew: PT60S
+    connect-timeout: PT5S
+    read-timeout: PT10S
+    max-refresh-retries: 3
+    refresh-retry-backoff: PT0.05S
+    google:
+      client-id: ${GOOGLE_CAL_CLIENT_ID:dev-google-client}
+      client-secret: ${GOOGLE_CAL_CLIENT_SECRET:dev-google-secret}
+      authorization-uri: ${GOOGLE_CAL_AUTH_URI:https://accounts.google.com/o/oauth2/v2/auth}
+      token-uri: ${GOOGLE_CAL_TOKEN_URI:https://oauth2.googleapis.com/token}
+      revocation-uri: ${GOOGLE_CAL_REVOKE_URI:https://oauth2.googleapis.com/revoke}
+      scope: ${GOOGLE_CAL_SCOPE:https://www.googleapis.com/auth/calendar.freebusy}
+    microsoft:
+      client-id: ${MS_CAL_CLIENT_ID:dev-ms-client}
+      client-secret: ${MS_CAL_CLIENT_SECRET:dev-ms-secret}
+      authorization-uri: ${MS_CAL_AUTH_URI:https://login.microsoftonline.com/common/oauth2/v2.0/authorize}
+      token-uri: ${MS_CAL_TOKEN_URI:https://login.microsoftonline.com/common/oauth2/v2.0/token}
+      revocation-uri: ${MS_CAL_REVOKE_URI:}
+      scope: ${MS_CAL_SCOPE:Calendars.Read offline_access}
+
 management:
   server:
     port: 8081

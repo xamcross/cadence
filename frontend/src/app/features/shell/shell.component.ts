@@ -28,6 +28,8 @@ import { AuthService } from '../../core/auth/auth.service';
         @if (m.role === 'ADMIN' || m.role === 'RECRUITER') {
           <a routerLink="/admin/gdpr/actions" i18n="@@shell.gdprActions">Candidate data</a>
         }
+        <!-- F01.1: calendar connections — every authenticated role manages their own. -->
+        <a routerLink="/calendar/connections" i18n="@@shell.calendarConnections">Calendar connections</a>
         <span class="spacer"></span>
         <span>{{ m.displayName }}</span>
         <button type="button" (click)="logout()" i18n="@@shell.signout">Sign out</button>

@@ -6,6 +6,7 @@ import com.cadence.domain.MemberStatus;
 import com.cadence.domain.Role;
 import com.cadence.repository.MemberRepository;
 import com.cadence.service.AuthAuditService;
+import com.cadence.service.CalendarConnectionService;
 import com.cadence.service.RoleService;
 import com.cadence.service.SessionService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,8 +46,9 @@ class RoleServiceTest {
         members = mock(MemberRepository.class);
         sessions = mock(SessionService.class);
         audit = mock(AuthAuditService.class);
+        CalendarConnectionService calendarConnections = mock(CalendarConnectionService.class);
         Clock clock = Clock.fixed(Instant.parse("2026-06-14T12:00:00Z"), ZoneOffset.UTC);
-        service = new RoleService(mongo, members, sessions, audit, clock);
+        service = new RoleService(mongo, members, sessions, audit, calendarConnections, clock);
     }
 
     private Member member(String id, String ws, Role role) {
