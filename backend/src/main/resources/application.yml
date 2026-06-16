@@ -132,6 +132,15 @@ interview:
     max-pools: 10
     max-blackouts: 50
 
+# F21 Email Template Library. Bounds on a single template so authoring content cannot exhaust storage
+# nor amplify render-time substitution work (FR-020/D11); empty subject/body is rejected at save.
+email:
+  template:
+    max-subject-length: 200
+    max-body-length: 10000
+    max-tokens-per-template: 50
+    max-variants-per-type: 20
+
 management:
   server:
     port: 8081

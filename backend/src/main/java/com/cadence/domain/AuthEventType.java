@@ -30,5 +30,11 @@ public enum AuthEventType {
     INTERVIEW_TEMPLATE_CREATED,
     INTERVIEW_TEMPLATE_UPDATED,
     INTERVIEW_TEMPLATE_RETIRED,
-    INTERVIEW_TEMPLATE_COMPUTE_REFUSED
+    INTERVIEW_TEMPLATE_COMPUTE_REFUSED,
+    // F21 Email Template Library (append-only — never reorder). Ids + type/stage/kind only, no content/PII (D9).
+    // EMAIL_TEMPLATE_EDITED carries the change-kind (create_override/edit/tone_apply/variant_edit) in `outcome`.
+    EMAIL_TEMPLATE_EDITED,
+    EMAIL_TEMPLATE_LOCKED,
+    EMAIL_TEMPLATE_UNLOCKED,
+    EMAIL_TEMPLATE_RESET
 }
