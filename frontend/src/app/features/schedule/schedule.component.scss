@@ -1,0 +1,114 @@
+// F14 candidate scheduling page — mobile-first (375px base), enhanced at 768/1280px.
+// Logical properties keep it RTL-safe; targets are >=44px; motion respects the user's preference.
+
+:host {
+  display: block;
+  color: #1a1a1a;
+}
+
+.schedule {
+  max-inline-size: 40rem;
+  margin-inline: auto;
+  padding: 1.25rem 1rem;
+  box-sizing: border-box;
+  // Tolerate long translations / unbroken pseudo-localized strings without horizontal overflow (FR-012).
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.state-heading {
+  font-size: 1.4rem;
+  line-height: 1.3;
+  margin-block: 0 0.75rem;
+
+  // The heading is a programmatic focus target (FR-024). Keep its focus ring visible but unobtrusive.
+  &:focus-visible {
+    outline: 3px solid #1c5fd8;
+    outline-offset: 2px;
+  }
+}
+
+.zone {
+  color: #444;
+  margin-block-end: 1rem;
+}
+
+.slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.625rem;
+}
+
+.slot,
+.retry {
+  inline-size: 100%;
+  min-block-size: 44px; // WCAG 2.2 target size; comfortably above the 24px minimum.
+  min-inline-size: 44px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  text-align: start;
+  border: 2px solid #1c5fd8;
+  border-radius: 8px;
+  background: #fff;
+  color: #11337a;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: #eef3fe; }
+  &:disabled { opacity: 0.5; cursor: default; }
+
+  &:focus-visible {
+    outline: 3px solid #11337a;
+    outline-offset: 2px;
+  }
+}
+
+.retry {
+  inline-size: auto;
+  margin-block: 0.5rem;
+}
+
+.help {
+  color: #444;
+  margin-block-start: 1.25rem;
+}
+
+.err {
+  color: #8a1b1b; // AA contrast on white; paired with role="alert" text (not colour alone).
+  font-weight: 600;
+  margin-block-start: 1rem;
+}
+
+// Keep the assertive live region in the DOM (so injected text is announced) but out of sight when empty.
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+// Tablet / desktop: a touch more breathing room and a two-column slot grid where space allows.
+@media (min-width: 768px) {
+  .schedule { padding: 2rem 1.5rem; }
+  .state-heading { font-size: 1.75rem; }
+  .slots { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1280px) {
+  .slots { grid-template-columns: repeat(3, 1fr); }
+}
+
+// Respect reduced-motion: no transitions/animations (the loading state is static text, not a spinner).
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

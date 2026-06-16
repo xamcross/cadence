@@ -1,1 +1,31 @@
 /* You can add global styles to this file, and also import other style files */
+
+/*
+ * F14 global accessibility baseline (applies to the candidate-facing page and the rest of the SPA).
+ * No third-party / CDN font is imported here on purpose — the app renders with system fonts, so loading
+ * a page contacts no third party that could receive the URL-borne scheduling token (FR-025). Do not add
+ * a remote `@import url(...)` to a font CDN here (a CI guard fails the build on such hosts).
+ */
+
+html, body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* A visible focus indicator for every keyboard-focused control (WCAG 2.2 2.4.13 / FR-006). */
+:focus-visible {
+  outline: 3px solid #1c5fd8;
+  outline-offset: 2px;
+}
+
+/* Honour the user's reduced-motion preference globally (WCAG 2.2 2.2.2 / FR-004). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
