@@ -29,6 +29,22 @@ public final class OperationalEmailTemplates {
         + "<a href=\"{link}\">{link}</a><br><br>"
         + "If you did not request this you can safely ignore this message.";
 
+    /**
+     * templateId "interview-confirmation" (F13 participant confirmation — sent to internal panel members
+     * via the non-consent-gated member-mail path). Placeholders {@code {title}/{date}/{time}/{timezone}/
+     * {location}} are substituted from the merge map in {@code SmtpEmailSender}. No candidate PII — these
+     * are the interview details the interviewer needs.
+     */
+    public static final String INTERVIEW_CONFIRMATION_ID = "interview-confirmation";
+    public static final String INTERVIEW_CONFIRMATION_SUBJECT = "Interview scheduled: {title}";
+    public static final String INTERVIEW_CONFIRMATION_BODY =
+        "An interview has been scheduled and added to your calendar.<br><br>"
+        + "Interview: {title}<br>"
+        + "Date: {date}<br>"
+        + "Time: {time} ({timezone})<br>"
+        + "Location: {location}<br><br>"
+        + "This event has been placed on your calendar automatically.";
+
     /** The dead-letter / scheduler system alert (F00.2 sendSystemAlert). */
     public static final String SYSTEM_ALERT_SUBJECT = "Cadence scheduler task failed";
     public static final String SYSTEM_ALERT_BODY =

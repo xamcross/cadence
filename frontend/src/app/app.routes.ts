@@ -89,6 +89,20 @@ export const routes: Routes = [
       import('./features/calendar/calendar-connections.component').then((m) => m.CalendarConnectionsComponent)
   },
   {
+    // F13 candidate self-scheduling slot-picker — PUBLIC (token in the URL, no login, no guard).
+    // Top-level sibling of the guarded shell so authGuard never fires (the candidate has no session).
+    path: 'schedule',
+    loadComponent: () =>
+      import('./features/schedule/schedule.component').then((m) => m.ScheduleComponent)
+  },
+  {
+    // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
+    path: 'scheduling',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
+    loadComponent: () =>
+      import('./features/scheduling/scheduling.component').then((m) => m.SchedulingComponent)
+  },
+  {
     path: 'accept-invite',
     loadComponent: () =>
       import('./features/auth/accept-invite/accept-invite.component').then((m) => m.AcceptInviteComponent)

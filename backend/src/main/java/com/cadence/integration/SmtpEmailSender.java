@@ -53,7 +53,6 @@ public class SmtpEmailSender implements EmailSender {
 
     @Override
     public void sendEmail(String toInternalId, String templateId, Map<String, String> mergeFields) {
-        String link = mergeFields == null ? null : mergeFields.get("link");
         String workspaceId;
         String toAddress;
         String subject;
@@ -81,18 +80,46 @@ public class SmtpEmailSender implements EmailSender {
             toAddress = m.getEmail(); // converter-decrypted plaintext; never logged
             subject = OperationalEmailTemplates.PASSWORD_RESET_SUBJECT;
             bodyTemplate = OperationalEmailTemplates.PASSWORD_RESET_BODY;
+        } else if (OperationalEmailTemplates.INTERVIEW_CONFIRMATION_ID.equals(templateId)) {
+            // F13: participant (internal panel member) interview confirmation. The member-mail path is a
+            // CLOSED dispatcher; this branch resolves the member address and substitutes the interview
+            // detail merge fields (title/date/time/timezone/location).
+            Member m = members.findByIdOptional(toInternalId).orElse(null);
+            if (m == null) {
+                log.warn("Operational email: member not found",
+                    StructuredArguments.kv("templateId", templateId));
+                return;
+            }
+            workspaceId = m.getWorkspaceId();
+            toAddress = m.getEmail(); // converter-decrypted plaintext; never logged
+            subject = substitute(OperationalEmailTemplates.INTERVIEW_CONFIRMATION_SUBJECT, mergeFields);
+            bodyTemplate = OperationalEmailTemplates.INTERVIEW_CONFIRMATION_BODY;
         } else {
             log.warn("Operational email: unknown templateId",
                 StructuredArguments.kv("templateId", templateId));
             return;
         }
 
-        String body = link == null ? bodyTemplate : bodyTemplate.replace("{link}", link);
+        String body = substitute(bodyTemplate, mergeFields);
         SendOutcome outcome = transport.transmit(
             new OutboundEmail(workspaceId, toAddress, subject, body, null));
         log.debug("Operational email transmitted",
             StructuredArguments.kv("templateId", templateId),
             StructuredArguments.kv("accepted", outcome.accepted()));
+    }
+
+    /** Literal {@code {key}} substitution over the merge map (no merge engine — operational mail only). */
+    private static String substitute(String template, Map<String, String> mergeFields) {
+        if (mergeFields == null || template == null) {
+            return template;
+        }
+        String result = template;
+        for (Map.Entry<String, String> e : mergeFields.entrySet()) {
+            if (e.getValue() != null) {
+                result = result.replace("{" + e.getKey() + "}", e.getValue());
+            }
+        }
+        return result;
     }
 
     @Override
