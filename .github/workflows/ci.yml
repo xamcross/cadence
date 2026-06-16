@@ -259,16 +259,34 @@ jobs:
           node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
           npx ng build --configuration production
 
-      - name: Serve built app and run Lighthouse CI
+      - name: Third-party-font guard — the candidate page must not leak the URL token via a CDN asset (F14 FR-025)
         working-directory: frontend
         run: |
-          npx serve -s dist/cadence/browser -l 4200 &
-          # Poll until the static server answers instead of a fixed sleep (flaky on slow runners).
+          # The scheduling token rides the URL query string; a third-party font/asset (e.g. Google Fonts)
+          # would receive the page URL via Referer. The app uses system fonts — guard against a regression
+          # that reintroduces a CDN asset in the built output or the sources.
+          # Scan the built output (index.html + emitted JS/CSS bundles, where a TS-embedded CDN URL would land)
+          # and the sources. The app uses system fonts; CSP font-src 'self' is the runtime backstop.
+          if grep -rnE 'googleapis\.com|gstatic\.com' dist/cadence/browser src/ ; then
+            echo "ERROR: a third-party font/asset (googleapis/gstatic) was found — candidate token-leak risk (FR-025)."
+            exit 1
+          fi
+          echo "Third-party-font guard passed — no googleapis/gstatic references."
+
+      - name: Serve built app (with candidate-API stub) and run Lighthouse CI
+        working-directory: frontend
+        run: |
+          # F14: serve the real /schedule route with a canned open-state so Lighthouse measures the
+          # content-bearing candidate page (the bare static server rendered the no-backend 'invalid' state).
+          node lighthouse/serve-with-stub.mjs &
+          # Poll until the server answers instead of a fixed sleep (flaky on slow runners).
           for i in $(seq 1 30); do
             if curl -sf http://localhost:4200 > /dev/null; then break; fi
             sleep 1
           done
-          npx lhci autorun
+          # Use the scoped @lhci/cli (a devDependency) — `npx lhci` resolves an unrelated squatter package.
+          # The config lives at the repo root; this job runs in frontend/, so point at it explicitly.
+          npx @lhci/cli autorun --config=../lighthouserc.json
 
   deploy-backend:
     name: Deploy Backend to Fly.io
