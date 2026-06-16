@@ -42,5 +42,13 @@ public enum AuthEventType {
     EMAIL_DISPATCH_SENT,
     EMAIL_DISPATCH_REFUSED,
     EMAIL_DISPATCH_FAILED,
-    EMAIL_DISPATCH_BOUNCED
+    EMAIL_DISPATCH_BOUNCED,
+    // F13 Single-Stage Scheduling (append-only — never reorder). Ids + outcome literal only,
+    // value-free (no candidate name, no token value, no location — data-model §6).
+    SCHEDULING_LINK_SENT,
+    SCHEDULING_BOOKED,
+    SCHEDULING_ROLLED_BACK,
+    SCHEDULING_CLEANUP_INCOMPLETE,
+    SCHEDULING_LINK_EXPIRED,
+    SCHEDULING_REFUSED
 }

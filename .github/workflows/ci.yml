@@ -146,6 +146,21 @@ jobs:
           fi
           echo "Email-delivery scan passed — no recipient / body found in test output."
 
+      - name: Scheduling scan — check for leaked candidate PII / location (F13 FR-011/FR-024)
+        run: |
+          # F13's SchedulingLogPiiScanTest drives initiate + view + confirm with a high-entropy candidate-name
+          # sentinel and a location sentinel and asserts neither reaches Cadence's own logs, the persisted
+          # schedulingRequests doc (locationText is encrypted at rest), the candidate API payloads, or the audit
+          # log (only ids / status / outcome Strings are logged; the candidate payload is times-only — no
+          # participant identity). The link token is random per request (not a fixed sentinel) and is never
+          # persisted raw (only its HMAC), so it has no grep-able sentinel.
+          if grep -qE 'SENTINELF13NAME_zz9|SENTINELF13LOC_zz9' test-output.txt; then
+            echo "ERROR: a scheduling candidate-PII / location sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF13NAME_zz9|SENTINELF13LOC_zz9' test-output.txt
+            exit 1
+          fi
+          echo "Scheduling scan passed — no candidate PII / location found in test output."
+
       - name: Email-delivery header-injection guard — the dispatch path must not concatenate headers (F22 D10)
         run: |
           # The Message-ID is set by the transport from the idempotency-key HASH (a hex string), never from

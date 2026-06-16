@@ -3,7 +3,11 @@ package com.cadence.service;
 import com.cadence.domain.Candidate;
 import com.cadence.domain.CandidateAuditOutcome;
 import com.cadence.domain.CandidateEventType;
+import com.cadence.domain.ClaimStatus;
 import com.cadence.domain.ErasureState;
+import com.cadence.domain.InterviewSlotClaim;
+import com.cadence.domain.SchedulingRequest;
+import com.cadence.domain.SchedulingStatus;
 import com.mongodb.client.result.UpdateResult;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * The single shared wipe used by all three erasure paths — operator-triggered (US2),
@@ -65,9 +70,33 @@ public class CandidateErasureService {
             .set("erasedAt", Instant.now(clock));
         UpdateResult r = mongoTemplate.updateFirst(q, u, Candidate.class);
         if (r.getMatchedCount() == 1) {
+            supersedeLiveScheduling(workspaceId, candidateId);
             audit.append(workspaceId, candidateId, CandidateEventType.ERASURE_COMPLETED, reason, actorMemberId);
             return true;
         }
         return false;
+    }
+
+    /**
+     * F13 (research D10 / FR-014): an erased candidate must carry no live scheduling state. Supersede any
+     * PENDING_SELECTION/BOOKING {@code schedulingRequests} for the candidate and release their ACTIVE
+     * {@code interviewSlotClaims}, so the link is no longer bookable and held slots are freed.
+     */
+    private void supersedeLiveScheduling(String workspaceId, String candidateId) {
+        List<SchedulingRequest> live = mongoTemplate.find(
+            Query.query(Criteria.where("workspaceId").is(workspaceId).and("candidateId").is(candidateId)
+                .and("status").in(SchedulingStatus.PENDING_SELECTION, SchedulingStatus.BOOKING)),
+            SchedulingRequest.class);
+        if (live.isEmpty()) {
+            return;
+        }
+        List<String> ids = live.stream().map(SchedulingRequest::getId).toList();
+        Instant now = Instant.now(clock);
+        mongoTemplate.updateMulti(Query.query(Criteria.where("_id").in(ids)),
+            new Update().set("status", SchedulingStatus.SUPERSEDED).set("updatedAt", now),
+            SchedulingRequest.class);
+        mongoTemplate.updateMulti(
+            Query.query(Criteria.where("schedulingRequestId").in(ids).and("status").is(ClaimStatus.ACTIVE)),
+            new Update().set("status", ClaimStatus.RELEASED), InterviewSlotClaim.class);
     }
 }

@@ -165,6 +165,15 @@ cadence:
     # Fixed delays for the standalone @Scheduled workers (read directly by @Scheduled, not bound properties).
     reaper-fixed-delay: PT1M
     sweep-fixed-delay: PT30S
+  scheduling:
+    token-ttl: PT72H
+    search-window-days: 10
+    reaper-threshold: PT10M
+    reaper-sweep-batch-limit: 200
+    rate-limit-per-minute: 10
+    spa-schedule-base-path: /schedule
+    # Fixed delay for the SchedulingReaper @Scheduled worker (read directly by @Scheduled).
+    reaper-interval-ms: 60000
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.

@@ -5,6 +5,7 @@ import com.cadence.domain.Candidate;
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
 import com.cadence.domain.OAuthFlowState;
+import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.WorkspaceConfig;
 import com.cadence.security.PiiCrypto;
 import com.cadence.security.PiiStringConverter;
@@ -43,6 +44,10 @@ public class MongoPiiConfig {
                 registrar.registerConverter(CalendarConnection.class, "accessToken", converter);
                 registrar.registerConverter(CalendarConnection.class, "providerAccountId", converter);
                 registrar.registerConverter(OAuthFlowState.class, "pkceVerifier", converter);
+                // F13: encrypt the recruiter-provided interview location at rest (research D2). It must
+                // survive to the candidate's async confirm; same converter instance; one bean only. The
+                // never-return guarantee is a SEPARATE control (@JsonIgnore + on no candidate DTO).
+                registrar.registerConverter(SchedulingRequest.class, "locationText", converter);
             }));
     }
 }

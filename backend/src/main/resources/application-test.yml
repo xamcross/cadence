@@ -22,3 +22,11 @@ cadence:
     # (no wall-clock race between a background tick and the test's clock-advanced assertions).
     reaper-fixed-delay: PT1H
     sweep-fixed-delay: PT1H
+  scheduling:
+    token-ttl: PT72H
+    search-window-days: 10
+    reaper-threshold: PT2S
+    reaper-sweep-batch-limit: 50
+    rate-limit-per-minute: 5
+    # Park the SchedulingReaper background fire far out; tests drive sweep() directly via the test clock.
+    reaper-interval-ms: 3600000
