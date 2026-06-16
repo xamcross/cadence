@@ -33,6 +33,30 @@ class SchedulingIndexTest extends BaseIntegrationTest {
     }
 
     @Test
+    void schedulingRequests_hasRescheduleIndexes() {   // F20 ChangeUnit013
+        List<Document> idx = indexes("schedulingRequests");
+
+        Document manage = byKey(idx, new Document("manageTokenHash", 1));
+        assertThat(manage).as("manageTokenHash index").isNotNull();
+        assertThat(manage.getBoolean("unique", false)).as("manageTokenHash is unique").isTrue();
+        // Partial (NOT sparse) on $exists — paired with @Field(write=NON_NULL) so two cleared rows never collide.
+        assertThat(manage.get("partialFilterExpression"))
+            .as("manageTokenHash is partial on {$exists:true}")
+            .isEqualTo(new Document("manageTokenHash", new Document("$exists", true)));
+
+        assertThat(byKey(idx, new Document("rootRequestId", 1).append("mode", 1).append("status", 1)))
+            .as("lineage / cap-derivation index").isNotNull();
+        assertThat(byKey(idx, new Document("mode", 1).append("status", 1).append("updatedAt", 1)))
+            .as("forward-commit recovery index").isNotNull();
+
+        Document teardown = byKey(idx, new Document("calendarTeardownPending", 1));
+        assertThat(teardown).as("erasure teardown index").isNotNull();
+        assertThat(teardown.get("partialFilterExpression"))
+            .as("teardown index is partial on true")
+            .isEqualTo(new Document("calendarTeardownPending", true));
+    }
+
+    @Test
     void interviewSlotClaims_hasUniquePartialActiveIndex_andReleaseIndex() {
         List<Document> idx = indexes("interviewSlotClaims");
 

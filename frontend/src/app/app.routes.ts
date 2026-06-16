@@ -96,6 +96,20 @@ export const routes: Routes = [
       import('./features/schedule/schedule.component').then((m) => m.ScheduleComponent)
   },
   {
+    // F20 candidate booking-management page (Flow A3 reschedule/cancel) — PUBLIC (manage token in the URL,
+    // no login, no guard). Top-level sibling of the guarded shell so authGuard never fires, mirroring /schedule.
+    path: 'booking',
+    loadComponent: () =>
+      import('./features/booking/booking-manage.component').then((m) => m.BookingManageComponent)
+  },
+  {
+    // F20 candidate cancel confirmation — PUBLIC. Explicit affirmative "Yes, cancel" step (the cancel POST
+    // fires only on that click, never on page load — FR-012). Reached from /booking; token in the URL.
+    path: 'booking/cancel',
+    loadComponent: () =>
+      import('./features/booking/cancel-confirm.component').then((m) => m.CancelConfirmComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

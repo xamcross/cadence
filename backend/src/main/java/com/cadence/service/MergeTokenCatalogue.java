@@ -44,6 +44,7 @@ public class MergeTokenCatalogue {
         put(EmailMessageType.REJECTION, MergeToken.STATUS_LINK);
         put(EmailMessageType.FEEDBACK_REQUEST, MergeToken.STAGE_NAME, MergeToken.FEEDBACK_LINK);
         put(EmailMessageType.SLA_HOLDING, MergeToken.STATUS_LINK, MergeToken.EXPECTED_DATE);
+        put(EmailMessageType.CANCELLATION); // F20: universal tokens only (candidate/workspace/recruiter name).
     }
 
     private void put(EmailMessageType type, MergeToken... extras) {

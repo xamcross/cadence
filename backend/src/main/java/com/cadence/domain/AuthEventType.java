@@ -50,5 +50,9 @@ public enum AuthEventType {
     SCHEDULING_ROLLED_BACK,
     SCHEDULING_CLEANUP_INCOMPLETE,
     SCHEDULING_LINK_EXPIRED,
-    SCHEDULING_REFUSED
+    SCHEDULING_REFUSED,
+    // F20 Reschedule & Cancellation (append-only — never reorder). Value-free outcome literal only.
+    SCHEDULING_RESCHEDULED,
+    SCHEDULING_CANCELLED,
+    SCHEDULING_CAP_REACHED
 }

@@ -42,16 +42,19 @@ public class SchedulingReaper {
     private final MongoTemplate mongo;
     private final SchedulerCheckpointService checkpoints;
     private final AuthAuditService audit;
+    private final com.cadence.service.CalendarEventService calendar;
     private final SchedulingProperties props;
     private final Clock clock;
 
     public SchedulingReaper(SchedulingRequestRepository requests, MongoTemplate mongo,
                             SchedulerCheckpointService checkpoints, AuthAuditService audit,
+                            com.cadence.service.CalendarEventService calendar,
                             SchedulingProperties props, Clock clock) {
         this.requests = requests;
         this.mongo = mongo;
         this.checkpoints = checkpoints;
         this.audit = audit;
+        this.calendar = calendar;
         this.props = props;
         this.clock = clock;
     }
@@ -104,6 +107,56 @@ public class SchedulingReaper {
                     SchedulingRequest.class);
                 log.info("scheduling reaper released stuck booking {}",
                     StructuredArguments.kv("schedulingRequestId", req.getId()));
+            }
+
+            // 3) F20 forward-commit recovery (D3): a RESCHEDULE round reached BOOKED but the parent cancel may
+            // not have finished (crash window). Deterministic: child BOOKED + parent still BOOKED -> roll
+            // FORWARD (cancel the parent). The parent-status check is a per-row CAS (cross-document). A round
+            // still in BOOKING is handled by pass (2) above (roll back, parent stands) — no change needed.
+            for (SchedulingRequest child : requests.findRescheduleAwaitingForwardCommit(
+                    com.cadence.domain.SchedulingMode.RESCHEDULE, SchedulingStatus.BOOKED, stuckBefore, page)) {
+                if (child.getParentRequestId() == null) {
+                    continue;
+                }
+                SchedulingRequest parent = mongo.findAndModify(
+                    Query.query(Criteria.where("_id").is(child.getParentRequestId())
+                        .and("status").is(SchedulingStatus.BOOKED)),
+                    new Update().set("status", SchedulingStatus.RESCHEDULED).set("updatedAt", now)
+                        .unset("manageTokenHash"),
+                    org.springframework.data.mongodb.core.FindAndModifyOptions.options().returnNew(true),
+                    SchedulingRequest.class);
+                if (parent != null) {
+                    calendar.cancelBooking(parent.getWorkspaceId(), parent.getId());
+                    releaseClaims(parent.getWorkspaceId(), parent.getId());
+                    log.info("scheduling reaper forward-committed reschedule {}",
+                        StructuredArguments.kv("schedulingRequestId", child.getId()));
+                } else {
+                    // The parent is no longer BOOKED (concurrently cancelled/superseded) — the orphaned new
+                    // round must not stand. Roll it back: remove its events, release its claims, mark SUPERSEDED.
+                    calendar.cancelBooking(child.getWorkspaceId(), child.getId());
+                    releaseClaims(child.getWorkspaceId(), child.getId());
+                    mongo.updateFirst(
+                        Query.query(Criteria.where("_id").is(child.getId()).and("status").is(SchedulingStatus.BOOKED)),
+                        new Update().set("status", SchedulingStatus.SUPERSEDED).set("updatedAt", now),
+                        SchedulingRequest.class);
+                    log.info("scheduling reaper rolled back orphaned reschedule (parent gone) {}",
+                        StructuredArguments.kv("schedulingRequestId", child.getId()));
+                }
+            }
+
+            // 4) F20 erasure async calendar teardown (D9): erasure flips a BOOKED booking to CANCELLED
+            // synchronously (O(1)) and defers the provider event removal here. Idempotent (already-DELETED
+            // events are no-ops); inherits the cleanup-incomplete honest bound.
+            for (SchedulingRequest req : requests.findAwaitingCalendarTeardown(page)) {
+                boolean clean = calendar.cancelBooking(req.getWorkspaceId(), req.getId());
+                mongo.updateFirst(Query.query(Criteria.where("_id").is(req.getId())),
+                    new Update().set("calendarTeardownPending", false)
+                        .set("status", clean ? SchedulingStatus.CANCELLED : SchedulingStatus.CLEANUP_INCOMPLETE)
+                        .set("updatedAt", now),
+                    SchedulingRequest.class);
+                log.info("scheduling reaper erasure teardown {} {}",
+                    StructuredArguments.kv("schedulingRequestId", req.getId()),
+                    StructuredArguments.kv("clean", Boolean.toString(clean)));
             }
         } finally {
             checkpoints.complete(TASK);

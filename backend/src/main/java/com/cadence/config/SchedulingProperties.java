@@ -33,6 +33,18 @@ public class SchedulingProperties {
     /** SPA path for the candidate scheduling page; appended to the F01 {@code spaBaseUrl}. */
     private String spaScheduleBasePath = "/schedule";
 
+    /** SPA path for the candidate booking-management (reschedule/cancel) page; appended to {@code spaBaseUrl} (F20). */
+    private String spaBookingBasePath = "/booking";
+
+    /** Max candidate self-service reschedules per booking lineage (F20, FR-005). Recruiter reschedule is uncapped. */
+    private int rescheduleCap = 3;
+
+    /**
+     * Self-service reschedule/cancel is disabled within this lead time before the interview start (F20, FR-004).
+     * Default {@code PT0S} = allowed up until the interview start instant.
+     */
+    private Duration selfServiceLeadTime = Duration.ZERO;
+
     public Duration getTokenTtl() { return tokenTtl; }
     public void setTokenTtl(Duration tokenTtl) { this.tokenTtl = tokenTtl; }
 
@@ -50,4 +62,13 @@ public class SchedulingProperties {
 
     public String getSpaScheduleBasePath() { return spaScheduleBasePath; }
     public void setSpaScheduleBasePath(String spaScheduleBasePath) { this.spaScheduleBasePath = spaScheduleBasePath; }
+
+    public String getSpaBookingBasePath() { return spaBookingBasePath; }
+    public void setSpaBookingBasePath(String spaBookingBasePath) { this.spaBookingBasePath = spaBookingBasePath; }
+
+    public int getRescheduleCap() { return rescheduleCap; }
+    public void setRescheduleCap(int rescheduleCap) { this.rescheduleCap = rescheduleCap; }
+
+    public Duration getSelfServiceLeadTime() { return selfServiceLeadTime; }
+    public void setSelfServiceLeadTime(Duration selfServiceLeadTime) { this.selfServiceLeadTime = selfServiceLeadTime; }
 }

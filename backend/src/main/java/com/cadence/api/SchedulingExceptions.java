@@ -51,4 +51,18 @@ public final class SchedulingExceptions {
 
     /** Per-IP rate limit exceeded (FR-010) → 429. */
     public static class RateLimitedException extends RuntimeException {}
+
+    // --- F20 Reschedule & Cancellation ---
+
+    /** Self-service reschedule cap reached; the link is invalidated and the recruiter notified (FR-005) → 409. */
+    public static class CapReachedException extends RuntimeException {}
+
+    /** A reschedule found zero compliant alternatives; the original booking is retained (FR-007) → 422. */
+    public static class RescheduleNoSlotsException extends RuntimeException {}
+
+    /** The interview is within the self-service lead time before start (FR-004) → 409. (Past-interview → 410.) */
+    public static class IneligibleException extends RuntimeException {}
+
+    /** The candidate has no live BOOKED interview to reschedule/cancel → 409. */
+    public static class NoActiveBookingException extends RuntimeException {}
 }

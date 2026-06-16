@@ -117,6 +117,24 @@ public class RuleEngine {
             byMember.put(ma.memberId(), ma);
         }
 
+        // F20 carve-out (D7 / FR-006): the booking being rescheduled is still live on its participants'
+        // calendars (D2 keeps it until forward-commit), so the provider free/busy read shows them busy at the
+        // OLD time. Subtract the moved booking's own event window from each participant's busy intervals so a
+        // reschedule is not falsely refused for slots adjacent to the original meeting (not just the exact
+        // instant, which D6 already excludes). Scoped to the excluded booking only.
+        if (req.excludeBookingRef() != null) {
+            for (ManagedCalendarEvent ev : managedEvents.findByWorkspaceIdAndBookingRef(req.workspaceId(), req.excludeBookingRef())) {
+                if (ev.getStatus() == EventStatus.DELETED || ev.getStartAt() == null || ev.getEndAt() == null) {
+                    continue;
+                }
+                MemberAvailability ma = byMember.get(ev.getMemberId());
+                if (ma != null && ma.status() == AvailabilityStatus.DATA) {
+                    byMember.put(ev.getMemberId(), new MemberAvailability(ma.memberId(), ma.status(),
+                        subtractInterval(ma.busy(), ev.getStartAt(), ev.getEndAt())));
+                }
+            }
+        }
+
         // Unschedulable = required members whose availability is not DATA, with a distinguishable reason (FR-014).
         List<MemberUnschedulable> unschedulable = new ArrayList<>();
         for (String m : required.stream().sorted().toList()) {
@@ -135,6 +153,10 @@ public class RuleEngine {
             List<ManagedCalendarEvent> rows = managedEvents
                 .findLiveForCap(req.workspaceId(), m, CAP_EXCLUDED, windowStart, windowEnd);
             for (ManagedCalendarEvent e : rows) {
+                // F20 carve-out (D7): do not count the booking being rescheduled against its own cap.
+                if (req.excludeBookingRef() != null && req.excludeBookingRef().equals(e.getBookingRef())) {
+                    continue;
+                }
                 byDay.merge(e.getStartAt().atZone(zone).toLocalDate(), 1, Integer::sum);
             }
             existingByDay.put(m, byDay);
@@ -237,6 +259,24 @@ public class RuleEngine {
             return ZoneId.of(t.getTimeZoneOverride());
         }
         return cfg != null && cfg.getTimeZone() != null ? ZoneId.of(cfg.getTimeZone()) : null;
+    }
+
+    /** Remove [cs, ce) from a busy-interval list (interval subtraction), keeping any left/right remainders. */
+    private static List<BusyInterval> subtractInterval(List<BusyInterval> busy, Instant cs, Instant ce) {
+        List<BusyInterval> out = new ArrayList<>();
+        for (BusyInterval b : busy) {
+            if (!(b.start().isBefore(ce) && cs.isBefore(b.end()))) {
+                out.add(b);                                            // no overlap — keep
+                continue;
+            }
+            if (b.start().isBefore(cs)) {
+                out.add(new BusyInterval(b.start(), cs));              // left remainder
+            }
+            if (ce.isBefore(b.end())) {
+                out.add(new BusyInterval(ce, b.end()));                // right remainder
+            }
+        }
+        return out;
     }
 
     /** Free == positively-known (status DATA) AND no busy interval overlaps [from, to). Half-open. */

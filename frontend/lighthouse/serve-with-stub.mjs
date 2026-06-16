@@ -39,6 +39,35 @@ function cannedOpen() {
   return { status: 'open', zoneHint: 'America/New_York', bookedStart: null, slots };
 }
 
+// Canned A1 booked-state booking view (times + capabilities only — no PII, no location).
+function cannedBooking() {
+  const start = new Date(Date.UTC(2030, 0, 6, 14, 0, 0)); // fixed future date — deterministic, no Date.now()
+  return {
+    status: 'booked',
+    bookedStart: start.toISOString(),
+    zoneId: 'America/New_York',
+    at: null,
+    canReschedule: true,
+    canCancel: true,
+    rescheduleRemaining: 2
+  };
+}
+
+// Canned A2 open-reschedule slots (times only) — same shape the F13 confirm step consumes.
+function cannedReschedule() {
+  const base = Date.UTC(2030, 0, 8, 14, 0, 0);
+  const slots = [0, 1, 2].map((i) => {
+    const startMs = base + i * 24 * 3600 * 1000;
+    return {
+      slotId: String(i),
+      start: new Date(startMs).toISOString(),
+      end: new Date(startMs + 3600 * 1000).toISOString(),
+      zoneId: 'America/New_York'
+    };
+  });
+  return { rescheduleToken: 'lighthouse-demo-reschedule', zoneHint: 'America/New_York', slots };
+}
+
 function sendJson(res, code, body) {
   const json = JSON.stringify(body);
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -61,7 +90,22 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && path.endsWith('/confirm')) {
         return sendJson(res, 200, { status: 'booked', bookedStart: cannedOpen().slots[0].start, zoneId: 'America/New_York' });
       }
-      if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, cannedOpen());
+      if (path.includes(DEMO_TOKEN) || path.includes('lighthouse-demo-reschedule')) return sendJson(res, 200, cannedOpen());
+      return sendJson(res, 400, { error: 'invalid', message: 'invalid' });
+    }
+
+    // Stub the F20 candidate booking-management API: view -> booked; reschedule -> times-only slots;
+    // cancel -> cancelled; others -> 400. So the Lighthouse gate measures the real content-bearing state.
+    if (path.startsWith('/api/candidate/booking/')) {
+      if (req.method === 'POST' && path.endsWith('/reschedule')) {
+        if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, cannedReschedule());
+        return sendJson(res, 400, { error: 'invalid', message: 'invalid' });
+      }
+      if (req.method === 'POST' && path.endsWith('/cancel')) {
+        if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, { status: 'cancelled', at: new Date(Date.UTC(2030, 0, 5)).toISOString() });
+        return sendJson(res, 400, { error: 'invalid', message: 'invalid' });
+      }
+      if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, cannedBooking());
       return sendJson(res, 400, { error: 'invalid', message: 'invalid' });
     }
 
