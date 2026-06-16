@@ -35,6 +35,14 @@ export interface CancelResponse {
   at: string;
 }
 
+/** F23 A1 POST /api/candidate/booking/{confirmToken}/confirm — affirmative attendance confirmation. */
+export interface ConfirmAttendanceResponse {
+  status: string; // confirmed
+  bookedStart: string;
+  zoneId: string;
+  at: string;
+}
+
 /**
  * F20 candidate booking-management API (contract A) — public, manage-token-only, no session.
  * The token is bound to the booking lifecycle; the server resolves the target booking solely from
@@ -59,5 +67,14 @@ export class BookingService {
   cancel(token: string): Observable<CancelResponse> {
     return this.http.post<CancelResponse>(
       `${this.base}/candidate/booking/${encodeURIComponent(token)}/cancel`, {});
+  }
+
+  /**
+   * F23 affirmative attendance confirmation — fired ONLY from an explicit "Confirm attendance" click
+   * (never on page load / no GET — FR-006). The confirm token is DISTINCT from the manage token.
+   */
+  confirm(token: string): Observable<ConfirmAttendanceResponse> {
+    return this.http.post<ConfirmAttendanceResponse>(
+      `${this.base}/candidate/booking/${encodeURIComponent(token)}/confirm`, {});
   }
 }

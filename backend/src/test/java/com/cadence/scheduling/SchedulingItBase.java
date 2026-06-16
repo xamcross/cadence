@@ -75,6 +75,8 @@ abstract class SchedulingItBase extends BaseIntegrationTest {
         mongoTemplate.remove(new Query(), Candidate.class);
         mongoTemplate.remove(new Query(), SchedulingRequest.class);
         mongoTemplate.remove(new Query(), InterviewSlotClaim.class);
+        mongoTemplate.remove(new Query(), com.cadence.domain.EmailDispatch.class);
+        mongoTemplate.remove(new Query(), com.cadence.domain.RecruiterNotification.class);
     }
 
     protected Member member(String email, Role role) {
@@ -198,6 +200,7 @@ abstract class SchedulingItBase extends BaseIntegrationTest {
         req.setSentAt(now);
         req.setExpiresAt(now.plusSeconds(72 * 3600));
         req.setBookedAt(now);
+        req.setBookedStartAt(chosen.getStart());   // F23: denormalized start (set in the real BOOKED CAS)
         req.setChosenSlotId(chosen.getSlotId());
         req.setSearchRangeStart(LocalDate.now(clock));
         req.setSearchRangeEnd(LocalDate.now(clock).plusDays(10));

@@ -2,6 +2,7 @@ package com.cadence.api;
 
 import com.cadence.domain.WorkspaceConfig;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Map;
@@ -35,7 +36,10 @@ public final class WorkspaceDtos {
         String timeZone,
         WorkingHoursDto workingHours,
         Integer slaSilenceWindowDays,
-        Integer retentionPeriodDays) {}
+        Integer retentionPeriodDays,
+        // F23 No-Show Defense cascade settings (Durations, ISO-8601 e.g. "PT24H"). Null = unchanged.
+        Duration confirmationLeadTime,
+        Duration unconfirmedEscalationDeadline) {}
 
     public record BrandingRequest(String brandColor) {}
 
@@ -74,7 +78,10 @@ public final class WorkspaceDtos {
         boolean hasLogo,
         String emailSendingDomain,
         boolean credentialSet,
-        Map<String, Boolean> templateLocks) {
+        Map<String, Boolean> templateLocks,
+        // F23 No-Show Defense cascade settings (null = workspace uses the global default).
+        Duration confirmationLeadTime,
+        Duration unconfirmedEscalationDeadline) {
 
         public static WorkspaceConfigResponse from(WorkspaceConfig c) {
             WorkingHoursDto wh = c.getWorkingHours() == null ? null
@@ -84,13 +91,14 @@ public final class WorkspaceDtos {
                 c.getSlaSilenceWindowDays() == 0 ? null : c.getSlaSilenceWindowDays(),
                 c.getRetentionPeriodDays() == 0 ? null : c.getRetentionPeriodDays(),
                 c.getRetentionAcknowledgedAt(), c.getBrandColor(), c.isHasLogo(),
-                c.getEmailSendingDomain(), c.isCredentialSet(), c.getTemplateLocks());
+                c.getEmailSendingDomain(), c.isCredentialSet(), c.getTemplateLocks(),
+                c.getConfirmationLeadTime(), c.getUnconfirmedEscalationDeadline());
         }
 
         /** The unconfigured default response (no document exists yet). */
         public static WorkspaceConfigResponse unconfigured() {
             return new WorkspaceConfigResponse(false, null, null, null, null, null, null,
-                null, false, null, false, Map.of());
+                null, false, null, false, Map.of(), null, null);
         }
     }
 

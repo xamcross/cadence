@@ -33,10 +33,10 @@ public class BuiltInEmailTemplates {
                 + "{{interview_time}} ({{time_zone}}).\nLocation: {{location}}\n\n"
                 + "Need to change it? {{reschedule_link}}\n\nBest,\n{{recruiter_name}}"));
         defaults.put(EmailMessageType.REMINDER_24H, new Content(
-            "Reminder: your interview tomorrow",
+            "Please confirm your interview",
             "Hi {{candidate_name}},\n\nThis is a reminder that your {{stage_name}} interview is on "
                 + "{{interview_date}} at {{interview_time}} ({{time_zone}}).\nLocation: {{location}}\n\n"
-                + "Reschedule if needed: {{reschedule_link}}\n\nBest,\n{{recruiter_name}}"));
+                + "Please confirm you'll attend: {{confirm_link}}\n\nBest,\n{{recruiter_name}}"));
         defaults.put(EmailMessageType.REMINDER_1H, new Content(
             "Your interview starts soon",
             "Hi {{candidate_name}},\n\nYour {{stage_name}} interview starts at {{interview_time}} "

@@ -110,6 +110,15 @@ export const routes: Routes = [
       import('./features/booking/cancel-confirm.component').then((m) => m.CancelConfirmComponent)
   },
   {
+    // F23 candidate attendance confirmation (Flow A4 no-show defense) — PUBLIC. Reached from the candidate's
+    // REMINDER_24H email; the confirm token (DISTINCT from the manage token) is in the URL. Explicit
+    // affirmative "Confirm attendance" step (the confirm POST fires only on that click, never on page load —
+    // FR-006). Top-level sibling of the guarded shell so authGuard never fires, mirroring /booking, /schedule.
+    path: 'confirm',
+    loadComponent: () =>
+      import('./features/booking/confirm-attendance.component').then((m) => m.ConfirmAttendanceComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

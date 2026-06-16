@@ -20,5 +20,7 @@ public enum CandidateAuditOutcome {
     RETENTION,
     // F20 booking-change reasons for the BOOKING_CHANGED candidate audit (append-only):
     BOOKING_RESCHEDULED,
-    BOOKING_CANCELLED
+    BOOKING_CANCELLED,
+    // F23 No-Show Defense (append-only): candidate confirmed attendance via the reminder link.
+    ATTENDANCE_CONFIRMED
 }

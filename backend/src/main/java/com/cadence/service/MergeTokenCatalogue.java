@@ -38,8 +38,12 @@ public class MergeTokenCatalogue {
         Set<MergeToken> interview = EnumSet.of(MergeToken.STAGE_NAME, MergeToken.INTERVIEW_DATE,
             MergeToken.INTERVIEW_TIME, MergeToken.TIME_ZONE, MergeToken.LOCATION, MergeToken.RESCHEDULE_LINK);
         put(EmailMessageType.CONFIRMATION, interview.toArray(new MergeToken[0]));
-        put(EmailMessageType.REMINDER_24H, interview.toArray(new MergeToken[0]));
-        put(EmailMessageType.REMINDER_1H, interview.toArray(new MergeToken[0]));
+        // F23: the reminders carry the attendance-confirmation link (CONFIRM_LINK) in addition to the
+        // interview tokens. CONFIRMATION keeps RESCHEDULE_LINK only (a confirmed booking is not a confirm prompt).
+        Set<MergeToken> reminder = EnumSet.copyOf(interview);
+        reminder.add(MergeToken.CONFIRM_LINK);
+        put(EmailMessageType.REMINDER_24H, reminder.toArray(new MergeToken[0]));
+        put(EmailMessageType.REMINDER_1H, reminder.toArray(new MergeToken[0]));
         put(EmailMessageType.HOLD_UPDATE, MergeToken.STATUS_LINK, MergeToken.EXPECTED_DATE);
         put(EmailMessageType.REJECTION, MergeToken.STATUS_LINK);
         put(EmailMessageType.FEEDBACK_REQUEST, MergeToken.STAGE_NAME, MergeToken.FEEDBACK_LINK);

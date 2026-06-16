@@ -294,6 +294,9 @@ public class SlotReservationService {
                     Query.query(Criteria.where("_id").is(req.getId()).and("status").is(SchedulingStatus.BOOKING)),
                     new Update().set("status", SchedulingStatus.BOOKED).set("bookedAt", now).set("updatedAt", now)
                         .set("manageTokenHash", hasher.hashToken(rawManage))
+                        // F23: denormalize the interview start so the no-show cascade can sweep BOOKED rows by
+                        // time (the start otherwise lives only inside offeredSlots — D2). Covers initial + reschedule.
+                        .set("bookedStartAt", slot.getStart())
                         .set("lastOutcomeReason", SchedulingOutcomeReason.NONE),
                     FindAndModifyOptions.options().returnNew(true), SchedulingRequest.class);
                 if (booked == null) {

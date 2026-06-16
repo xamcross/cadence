@@ -54,5 +54,10 @@ public enum AuthEventType {
     // F20 Reschedule & Cancellation (append-only — never reorder). Value-free outcome literal only.
     SCHEDULING_RESCHEDULED,
     SCHEDULING_CANCELLED,
-    SCHEDULING_CAP_REACHED
+    SCHEDULING_CAP_REACHED,
+    // F23 No-Show Defense (append-only — never reorder). Value-free outcome literal only. The recruiter
+    // slot RELEASE reuses SCHEDULING_CANCELLED (it is a recruiter-initiated cancel).
+    NOSHOW_CONFIRMATION_REQUESTED,
+    NOSHOW_ATTENDANCE_CONFIRMED,
+    NOSHOW_UNCONFIRMED_ESCALATED
 }

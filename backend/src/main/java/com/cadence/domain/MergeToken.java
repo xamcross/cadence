@@ -20,7 +20,9 @@ public enum MergeToken {
     STATUS_LINK("status_link", true),
     RESCHEDULE_LINK("reschedule_link", true),
     FEEDBACK_LINK("feedback_link", true),
-    EXPECTED_DATE("expected_date", false);
+    EXPECTED_DATE("expected_date", false),
+    // F23 No-Show Defense (append-only). URL-typed — the candidate attendance-confirmation link.
+    CONFIRM_LINK("confirm_link", true);
 
     private final String token;
     private final boolean urlTyped;

@@ -55,4 +55,26 @@ public interface SchedulingRequestRepository extends MongoRepository<SchedulingR
     /** Reaper erasure-teardown (D9): CANCELLED bookings whose provider events still need removal. */
     @Query("{ 'calendarTeardownPending': true }")
     List<SchedulingRequest> findAwaitingCalendarTeardown(Pageable pageable);
+
+    // --- F23 No-Show Defense (data-model §1, explicit @Query + Pageable cap — the F12 lesson) ---
+
+    /** Resolve a booking from the F23 confirm credential. */
+    Optional<SchedulingRequest> findByConfirmTokenHash(String confirmTokenHash);
+
+    /**
+     * Cascade stage 1: BOOKED bookings due for a confirmation request — start still in the FUTURE
+     * ({@code $gt now}, so a past interview is never asked to confirm; stage 3 stamps it no-show) and within
+     * the global query bound.
+     */
+    @Query("{ 'status': 'BOOKED', 'confirmationRequestedAt': null, 'bookedStartAt': { $gt: ?0, $lte: ?1 } }")
+    List<SchedulingRequest> findConfirmationRequestDue(Instant now, Instant bound, Pageable pageable);
+
+    /** Cascade stage 2: BOOKED, requested, unconfirmed, not yet escalated, start still in the future. */
+    @Query("{ 'status': 'BOOKED', 'confirmationRequestedAt': { $ne: null }, 'candidateConfirmedAt': null, "
+        + "'escalatedAt': null, 'bookedStartAt': { $gt: ?0, $lte: ?1 } }")
+    List<SchedulingRequest> findEscalationDue(Instant now, Instant bound, Pageable pageable);
+
+    /** Cascade stage 3: BOOKED, unconfirmed, start reached, no-show not yet stamped. */
+    @Query("{ 'status': 'BOOKED', 'candidateConfirmedAt': null, 'noShowAt': null, 'bookedStartAt': { $lte: ?0 } }")
+    List<SchedulingRequest> findNoShowDue(Instant now, Pageable pageable);
 }

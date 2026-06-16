@@ -2,7 +2,9 @@ package com.cadence.api;
 
 import com.cadence.api.SchedulingDtos.BookingResponse;
 import com.cadence.api.SchedulingDtos.CancelBookingResponse;
+import com.cadence.api.SchedulingDtos.ConfirmAttendanceResponse;
 import com.cadence.api.SchedulingDtos.OpenRescheduleResponse;
+import com.cadence.service.NoShowCascadeService;
 import com.cadence.service.SlotReservationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
@@ -27,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class CandidateBookingController {
 
     private final SlotReservationService service;
+    private final NoShowCascadeService noShow;
 
-    public CandidateBookingController(SlotReservationService service) {
+    public CandidateBookingController(SlotReservationService service, NoShowCascadeService noShow) {
         this.service = service;
+        this.noShow = noShow;
     }
 
     @GetMapping("/{token}")
@@ -48,5 +52,16 @@ public class CandidateBookingController {
     public ResponseEntity<CancelBookingResponse> cancel(@PathVariable String token, HttpServletRequest http) {
         SlotReservationService.CancelResult r = service.cancel(token, http.getRemoteAddr());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(CancelBookingResponse.from(r));
+    }
+
+    /**
+     * F23: candidate confirms attendance (affirmative POST — never a GET, so a prefetch/scanner cannot record
+     * a confirmation). {@code token} is the F23 confirm credential (distinct from the manage token); the
+     * booking is resolved SOLELY from it (no IDOR). 410 past / 400 invalid / 429 rate-limited; idempotent replay.
+     */
+    @PostMapping("/{token}/confirm")
+    public ResponseEntity<ConfirmAttendanceResponse> confirm(@PathVariable String token, HttpServletRequest http) {
+        NoShowCascadeService.ConfirmResult r = noShow.confirmAttendance(token, http.getRemoteAddr());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ConfirmAttendanceResponse.from(r));
     }
 }

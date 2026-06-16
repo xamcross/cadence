@@ -96,6 +96,46 @@ public class SchedulingRequest {
      */
     private boolean calendarTeardownPending;
 
+    // --- F23 No-Show Defense (data-model §1) — confirmation-attendance lifecycle layered over BOOKED ---
+
+    /**
+     * Denormalized interview start instant (D2), set in the BOOKING->BOOKED CAS (covers initial + reschedule
+     * rounds). The cascade's ONLY queryable start field. NOT the source of truth for candidate-facing
+     * "is it past" checks — those use the in-memory chosen {@code OfferedSlot.start} (so the two never diverge
+     * after a reschedule). Null on a non-BOOKED row.
+     */
+    private Instant bookedStartAt;
+
+    /** Stage-1 stamp: confirmation request dispatched (or attempted, when not contactable). Null => not run. */
+    private Instant confirmationRequestedAt;
+
+    /**
+     * The F23 confirm credential (HMAC of a 256-bit token) — minted at stage 1 ONLY when an email is sent.
+     * Partial-unique {@code {$exists:true}} index; {@code write=NON_NULL} so a null is OMITTED from BSON
+     * (the F01 present-as-null collision footgun) — two cleared rows never collide. Cleared via {@code $unset}
+     * on erasure. Distinct from {@code tokenHash} (slot-pick) and {@code manageTokenHash} (F20). Raw never stored.
+     */
+    @JsonIgnore
+    @Field(value = "confirmTokenHash", write = Field.Write.NON_NULL)
+    private String confirmTokenHash;
+
+    /**
+     * Internal, value-free (D5): true when stage 1 found the candidate not contactable (no email, no confirm
+     * token). NEVER a differential recruiter signal (the escalation is the same coarse INTERVIEW_UNCONFIRMED);
+     * {@code @JsonIgnore} so it can never serialize onto a recruiter/F50 DTO.
+     */
+    @JsonIgnore
+    private boolean confirmationNotRequestable;
+
+    /** Set by the candidate confirm action (exactly once via CAS). Excludes the booking from escalation/no-show. */
+    private Instant candidateConfirmedAt;
+
+    /** Stage-2 stamp: the booking was escalated to the recruiter as unconfirmed (drives the observable state). */
+    private Instant escalatedAt;
+
+    /** Stage-3 stamp: the interview start was reached unconfirmed — the MVP no-show signal for F50 (FR-016). */
+    private Instant noShowAt;
+
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -170,6 +210,27 @@ public class SchedulingRequest {
     public boolean isCalendarTeardownPending() { return calendarTeardownPending; }
     public void setCalendarTeardownPending(boolean calendarTeardownPending) { this.calendarTeardownPending = calendarTeardownPending; }
 
+    public Instant getBookedStartAt() { return bookedStartAt; }
+    public void setBookedStartAt(Instant bookedStartAt) { this.bookedStartAt = bookedStartAt; }
+
+    public Instant getConfirmationRequestedAt() { return confirmationRequestedAt; }
+    public void setConfirmationRequestedAt(Instant confirmationRequestedAt) { this.confirmationRequestedAt = confirmationRequestedAt; }
+
+    public String getConfirmTokenHash() { return confirmTokenHash; }
+    public void setConfirmTokenHash(String confirmTokenHash) { this.confirmTokenHash = confirmTokenHash; }
+
+    public boolean isConfirmationNotRequestable() { return confirmationNotRequestable; }
+    public void setConfirmationNotRequestable(boolean confirmationNotRequestable) { this.confirmationNotRequestable = confirmationNotRequestable; }
+
+    public Instant getCandidateConfirmedAt() { return candidateConfirmedAt; }
+    public void setCandidateConfirmedAt(Instant candidateConfirmedAt) { this.candidateConfirmedAt = candidateConfirmedAt; }
+
+    public Instant getEscalatedAt() { return escalatedAt; }
+    public void setEscalatedAt(Instant escalatedAt) { this.escalatedAt = escalatedAt; }
+
+    public Instant getNoShowAt() { return noShowAt; }
+    public void setNoShowAt(Instant noShowAt) { this.noShowAt = noShowAt; }
+
     /** Resolve the lineage root id (an INITIAL row roots on itself). */
     public String resolveRootRequestId() { return rootRequestId != null ? rootRequestId : id; }
 
@@ -179,7 +240,7 @@ public class SchedulingRequest {
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
-    /** Deliberately omits {@code locationText}, {@code tokenHash}, and {@code manageTokenHash} — never leak via logs (D2). */
+    /** Deliberately omits {@code locationText}, {@code tokenHash}, {@code manageTokenHash}, and {@code confirmTokenHash} — never leak via logs (D2). */
     @Override
     public String toString() {
         return "SchedulingRequest{id=" + id + ", workspaceId=" + workspaceId + ", candidateId=" + candidateId

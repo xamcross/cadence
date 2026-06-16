@@ -19,5 +19,9 @@ public enum RecruiterNotificationType {
     /** The candidate self-service reschedule cap was reached; the self-service link was invalidated (FR-005). */
     RESCHEDULE_CAP_REACHED,
     /** A calendar event could not be removed after retries — a residual orphan needs manual removal (FR-011/FR-012). */
-    CALENDAR_CLEANUP_INCOMPLETE
+    CALENDAR_CLEANUP_INCOMPLETE,
+    // F23 No-Show Defense (append-only — value-free). The SINGLE coarse escalation alert: covers both a
+    // candidate non-response AND a not-contactable booking, so it never discloses WHY (no GDPR/contactability
+    // oracle to the recruiter, research D5). The one-tap "release slot" prompt keys off this.
+    INTERVIEW_UNCONFIRMED
 }

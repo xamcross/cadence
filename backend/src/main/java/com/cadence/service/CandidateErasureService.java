@@ -111,9 +111,13 @@ public class CandidateErasureService {
             SchedulingRequest.class);
         if (!booked.isEmpty()) {
             List<String> ids = booked.stream().map(SchedulingRequest::getId).toList();
+            // F23 (D9): also $unset the confirm token so no usable confirm link survives for the erased subject.
+            // The cascade halts via its status:BOOKED guard; a reminder enqueued in the find->update gap is
+            // suppressed by the F22 consent re-gate at send (the authoritative backstop).
             mongoTemplate.updateMulti(Query.query(Criteria.where("_id").in(ids)),
                 new Update().set("status", SchedulingStatus.CANCELLED).set("cancelledAt", now)
-                    .set("calendarTeardownPending", true).set("updatedAt", now).unset("manageTokenHash"),
+                    .set("calendarTeardownPending", true).set("updatedAt", now)
+                    .unset("manageTokenHash").unset("confirmTokenHash"),
                 SchedulingRequest.class);
             mongoTemplate.updateMulti(
                 Query.query(Criteria.where("schedulingRequestId").in(ids).and("status").is(ClaimStatus.ACTIVE)),

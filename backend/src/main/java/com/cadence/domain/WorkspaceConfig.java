@@ -5,6 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +56,14 @@ public class WorkspaceConfig {
 
     private Map<String, Boolean> templateLocks = new HashMap<>();
 
+    /**
+     * F23 No-Show Defense per-workspace cascade settings (data-model §3). Nullable — {@code null} means the
+     * {@code NoShowProperties} global default applies. Validated at save: {@code 0 < escalation < lead <=
+     * cascadeQueryBound} (FR-014).
+     */
+    private Duration confirmationLeadTime;
+    private Duration unconfirmedEscalationDeadline;
+
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -101,6 +110,12 @@ public class WorkspaceConfig {
 
     public Map<String, Boolean> getTemplateLocks() { return templateLocks; }
     public void setTemplateLocks(Map<String, Boolean> templateLocks) { this.templateLocks = templateLocks; }
+
+    public Duration getConfirmationLeadTime() { return confirmationLeadTime; }
+    public void setConfirmationLeadTime(Duration confirmationLeadTime) { this.confirmationLeadTime = confirmationLeadTime; }
+
+    public Duration getUnconfirmedEscalationDeadline() { return unconfirmedEscalationDeadline; }
+    public void setUnconfirmedEscalationDeadline(Duration unconfirmedEscalationDeadline) { this.unconfirmedEscalationDeadline = unconfirmedEscalationDeadline; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
