@@ -15,7 +15,6 @@
       }
     },
     "assert": {
-      "preset": "lighthouse:no-pwa",
       "aggregationMethod": "median",
       "assertions": {
         "categories:performance": ["error", { "minScore": 0.85 }],
