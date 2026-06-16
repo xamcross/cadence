@@ -121,6 +121,18 @@ jobs:
           fi
           echo "Interview-template scan passed — no template name / member email found in test output."
 
+      - name: Email-template scan — check for leaked template content / candidate PII (F21 SC-009)
+        run: |
+          # F21's EmailTemplateLogPiiScanTest drives template edit + preview (incl. a failing render path)
+          # with a high-entropy template-content sentinel and a candidate-PII sentinel and asserts neither
+          # reaches Cadence's own logs (only ids / type / stage Strings are logged). CI re-checks the sentinels.
+          if grep -qE 'SENTINELF21BODY_zz9|SENTINELF21CANDIDATE_zz9' test-output.txt; then
+            echo "ERROR: an email-template content / candidate-PII sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF21BODY_zz9|SENTINELF21CANDIDATE_zz9' test-output.txt
+            exit 1
+          fi
+          echo "Email-template scan passed — no template content / candidate PII found in test output."
+
       - name: Calendar base-URL guard — the Google client must not hardcode the provider host (F10 D12)
         run: |
           # GoogleCalendarClient builds every URI from calendar.api.google.base-url so tests point at the

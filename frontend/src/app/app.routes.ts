@@ -75,6 +75,13 @@ export const routes: Routes = [
       import('./features/interview-templates/interview-templates.component').then((m) => m.InterviewTemplatesComponent)
   },
   {
+    // F21 email template library — list/edit/tone/lock/reset + preview. Recruiter OR Admin (roleGuard).
+    path: 'email-templates',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
+    loadComponent: () =>
+      import('./features/email-templates/email-templates.component').then((m) => m.EmailTemplatesComponent)
+  },
+  {
     // F01.1 calendar connections — member-self surface, any authenticated role (authGuard only).
     path: 'calendar/connections',
     canActivate: [authGuard],
