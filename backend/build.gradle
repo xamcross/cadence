@@ -36,6 +36,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     // Bean Validation for request DTOs (@Valid). Spring-managed starter.
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // F22 Email Delivery. Provides JavaMailSender for transactional email transmission (constitution
+    // §III Spring Mail); no provider SDK added — the transport is wrapped behind EmailSender/MailTransport
+    // so the provider is swappable by bean replacement (research D1).
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 
     // Mongock — idempotent, versioned MongoDB migration runner
     // Correct artifact ID: mongodb-springdata-v4-driver (NOT mongock-mongodb-springdata-v4)

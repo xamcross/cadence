@@ -60,6 +60,13 @@ public class Candidate {
     /** Retention age basis (GDPR last-activity) and the F00.1 {workspaceId,lastContactAt} index field. */
     private Instant lastContactAt;
 
+    // --- Deliverability (F22) — operational, PII-adjacent (purged on erasure, data-model §2). The gate
+    // reads isUndeliverable() (lowest-precedence deny); the bounce webhook writes these on a hard bounce.
+    private boolean undeliverable;
+    private DispatchOutcomeReason undeliverableReason; // value-free (e.g. HARD_BOUNCE); never provider free-text
+    private Instant undeliverableAt;
+    private Instant undeliverableClearedAt;
+
     private Instant createdAt;
 
     public Candidate() {}
@@ -111,6 +118,18 @@ public class Candidate {
 
     public Instant getLastContactAt() { return lastContactAt; }
     public void setLastContactAt(Instant lastContactAt) { this.lastContactAt = lastContactAt; }
+
+    public boolean isUndeliverable() { return undeliverable; }
+    public void setUndeliverable(boolean undeliverable) { this.undeliverable = undeliverable; }
+
+    public DispatchOutcomeReason getUndeliverableReason() { return undeliverableReason; }
+    public void setUndeliverableReason(DispatchOutcomeReason undeliverableReason) { this.undeliverableReason = undeliverableReason; }
+
+    public Instant getUndeliverableAt() { return undeliverableAt; }
+    public void setUndeliverableAt(Instant undeliverableAt) { this.undeliverableAt = undeliverableAt; }
+
+    public Instant getUndeliverableClearedAt() { return undeliverableClearedAt; }
+    public void setUndeliverableClearedAt(Instant undeliverableClearedAt) { this.undeliverableClearedAt = undeliverableClearedAt; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

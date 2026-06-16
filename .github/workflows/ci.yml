@@ -133,6 +133,36 @@ jobs:
           fi
           echo "Email-template scan passed — no template content / candidate PII found in test output."
 
+      - name: Email-delivery scan — check for leaked recipient / body (F22 D10/FR-013/FR-016)
+        run: |
+          # F22's EmailDeliveryLogPiiScanTest drives a failing render + a signed hard bounce with a
+          # high-entropy recipient sentinel and a body sentinel and asserts neither (nor the webhook secret)
+          # reaches Cadence's own logs / persisted row / audit / dead-letter (only ids / status / reason
+          # Strings are logged). CI re-checks the sentinels in the captured output.
+          if grep -qE 'SENTINELF22BODY_zz9|SENTINELF22RECIPIENT_zz9' test-output.txt; then
+            echo "ERROR: an email-delivery body / recipient sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF22BODY_zz9|SENTINELF22RECIPIENT_zz9' test-output.txt
+            exit 1
+          fi
+          echo "Email-delivery scan passed — no recipient / body found in test output."
+
+      - name: Email-delivery header-injection guard — the dispatch path must not concatenate headers (F22 D10)
+        run: |
+          # The Message-ID is set by the transport from the idempotency-key HASH (a hex string), never from
+          # candidate-controlled text, so a CRLF in a name/subject cannot inject an SMTP header. Guard against a
+          # regression that builds a raw header line by string concatenation in the email-delivery sources.
+          delivery_sources="backend/src/main/java/com/cadence/integration/SmtpMailTransport.java \
+            backend/src/main/java/com/cadence/integration/SmtpEmailSender.java \
+            backend/src/main/java/com/cadence/service/EmailDispatchService.java"
+          for f in $delivery_sources; do
+            [ -f "$f" ] || continue
+            if grep -nE '"(Message-ID|From|To|Subject|Bcc|Cc)[^"]*"[[:space:]]*\+' "$f"; then
+              echo "ERROR: $f builds an email header by string concatenation — SMTP-header-injection risk."
+              exit 1
+            fi
+          done
+          echo "Email-delivery header-injection guard passed — no concatenated header lines."
+
       - name: Calendar base-URL guard — the Google client must not hardcode the provider host (F10 D12)
         run: |
           # GoogleCalendarClient builds every URI from calendar.api.google.base-url so tests point at the

@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-templates.service';
 
@@ -68,11 +69,29 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
             Some fields had no value: {{ r.missingFields.join(', ') }}
           </p>
         }
+
+        @if (previewing(); as p) {
+          <div class="send">
+            <h3 i18n="@@et.sendTitle">Send to candidate</h3>
+            <label i18n="@@et.candidateId">
+              Candidate ID <input name="sendCandidateId" [(ngModel)]="sendCandidateId" />
+            </label>
+            <button type="button" (click)="send(p)" [disabled]="sending() || !sendCandidateId.trim()"
+                    i18n="@@et.sendbtn">Send to candidate</button>
+            @if (sendStatus(); as s) {
+              <p role="status" class="sent" i18n="@@et.sendok">Email {{ s }} for candidate.</p>
+            }
+            @if (sendError(); as se) {
+              <p role="alert" class="error">{{ se }}</p>
+            }
+          </div>
+        }
       </section>
     }
   `,
   styles: [
     `.error { color: #b00020; } .warning { color: #8a6d00; } .locked { color: #b00020; font-weight: 600; }
+     .sent { color: #1b5e20; } .send { margin-top: 1rem; border-top: 1px solid #ddd; padding-top: .75rem; }
      .row { display: flex; gap: .75rem; align-items: center; } .tokens { font-size: .85rem; color: #555; }`
   ]
 })
@@ -85,11 +104,17 @@ export class EmailTemplatesComponent implements OnInit {
   readonly templates = signal<EmailTemplate[]>([]);
   readonly editing = signal<EmailTemplate | null>(null);
   readonly rendered = signal<RenderedMessage | null>(null);
+  /** The template the current preview belongs to — the "Send to candidate" action targets it. */
+  readonly previewing = signal<EmailTemplate | null>(null);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly sending = signal(false);
+  readonly sendStatus = signal<string | null>(null);
+  readonly sendError = signal<string | null>(null);
 
   subject = '';
   body = '';
+  sendCandidateId = '';
 
   ngOnInit(): void {
     this.load();
@@ -151,10 +176,42 @@ export class EmailTemplatesComponent implements OnInit {
   }
 
   preview(t: EmailTemplate): void {
+    this.sendStatus.set(null);
+    this.sendError.set(null);
     this.service.preview(t.messageType, { stageKey: t.stageKey, sampleValues: this.sampleValues() }).subscribe({
-      next: (r) => this.rendered.set(r),
+      next: (r) => { this.rendered.set(r); this.previewing.set(t); },
       error: () => this.error.set($localize`:@@et.previewErr:Could not render the preview.`)
     });
+  }
+
+  /**
+   * Send the previewed template to a candidate (F22). The server resolves the candidate name and runs the
+   * consent gate; a 409 not_contactable shows the value-free reason, a 404 a not-found message. The server
+   * is the boundary — this is the recruiter trigger only.
+   */
+  send(t: EmailTemplate): void {
+    const candidateId = this.sendCandidateId.trim();
+    if (!candidateId) return;
+    this.sending.set(true);
+    this.sendStatus.set(null);
+    this.sendError.set(null);
+    this.service.sendToCandidate(candidateId,
+      { messageType: t.messageType, stageKey: t.stageKey, sampleValues: this.sampleValues() }).subscribe({
+        next: (r) => { this.sending.set(false); this.sendStatus.set(r.status); },
+        error: (e: HttpErrorResponse) => { this.sending.set(false); this.sendError.set(this.sendErrorMessage(e)); }
+      });
+  }
+
+  /** Map a send failure to a value-free, localised message; 409 surfaces the contactability reason. */
+  private sendErrorMessage(e: HttpErrorResponse): string {
+    if (e.status === 409) {
+      const reason = (e.error?.reason as string) ?? '';
+      return $localize`:@@et.sendNotContactable:This candidate cannot be contacted (${reason}:reason:).`;
+    }
+    if (e.status === 404) {
+      return $localize`:@@et.sendNotFound:Candidate not found.`;
+    }
+    return $localize`:@@et.sendErr:Could not send the email.`;
   }
 
   /** Friendly sample data for every catalogue token, so a preview shows a realistic message. */

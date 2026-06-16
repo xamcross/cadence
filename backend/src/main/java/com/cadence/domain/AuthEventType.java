@@ -36,5 +36,11 @@ public enum AuthEventType {
     EMAIL_TEMPLATE_EDITED,
     EMAIL_TEMPLATE_LOCKED,
     EMAIL_TEMPLATE_UNLOCKED,
-    EMAIL_TEMPLATE_RESET
+    EMAIL_TEMPLATE_RESET,
+    // F22 Email Delivery Channel (append-only — never reorder). Ids + type/reason literal only,
+    // value-free (no recipient/subject/body/merge PII — D10).
+    EMAIL_DISPATCH_SENT,
+    EMAIL_DISPATCH_REFUSED,
+    EMAIL_DISPATCH_FAILED,
+    EMAIL_DISPATCH_BOUNCED
 }

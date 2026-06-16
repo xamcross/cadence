@@ -27,7 +27,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RbacEndpointInventoryTest extends BaseIntegrationTest {
 
     private static final List<String> ALLOWED_PREFIXES = List.of(
-        "/api/public/", "/api/candidate/", "/actuator", "/oauth2", "/login/oauth2/code", "/error");
+        "/api/public/", "/api/candidate/", "/actuator", "/oauth2", "/login/oauth2/code", "/error",
+        // F22 (research D4): the inbound provider bounce webhook is unauthenticated-by-design — the real
+        // gate is the in-controller HMAC signature, not a session/role. Its dedicated permitAll chain
+        // (SecurityConfig @Order(3)) routes it; the handler additionally carries @PreAuthorize("permitAll()").
+        "/api/webhooks/email/");
 
     @Autowired
     RequestMappingHandlerMapping mapping;

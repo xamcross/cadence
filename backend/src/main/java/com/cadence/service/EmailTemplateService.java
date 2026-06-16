@@ -214,6 +214,30 @@ public class EmailTemplateService {
         return renderer.render(type, subject, body, values);
     }
 
+    /**
+     * Render a candidate message for SEND (F22, research D9). Unlike {@link #preview} the candidate is
+     * REQUIRED and resolved workspace-scoped (empty -> {@link RbacExceptions.ScopedNotFoundException} ->
+     * 404, oracle-free); the decrypted candidate name is merged but the decryption (PII) stays INSIDE this
+     * F21 service. {@code nonPiiContext} supplies non-candidate-derived tokens (e.g. a date string) and is
+     * transient — it is never persisted by the caller. Resolves variant -> base override -> built-in
+     * default via {@link #resolveForRender}.
+     */
+    public RenderedMessage renderForSend(String workspaceId, EmailMessageType type, String stageKey,
+                                         String candidateId, Map<String, String> nonPiiContext) {
+        String sk = normalize(stageKey);
+        if (!EmailTemplate.BASE.equals(sk)) validateStage(workspaceId, sk);
+        Resolved eff = resolveForRender(workspaceId, type, sk);
+
+        Candidate c = candidates.findByWorkspaceIdAndId(workspaceId, candidateId)
+            .orElseThrow(RbacExceptions.ScopedNotFoundException::new);
+
+        Map<String, String> values = new HashMap<>();
+        if (nonPiiContext != null) values.putAll(nonPiiContext);
+        values.put("candidate_name", c.getName()); // decrypted on read; NEVER logged (PII stays inside F21)
+
+        return renderer.render(type, eff.subject(), eff.body(), values);
+    }
+
     // --- internals -------------------------------------------------------------------------------
 
     private Resolved resolveForRender(String workspaceId, EmailMessageType type, String stageKey) {

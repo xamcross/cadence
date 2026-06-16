@@ -55,6 +55,12 @@ public class CandidateErasureService {
             .set("email", ERASED_MARKER)
             .set("phone", ERASED_MARKER)
             .unset("emailHash")   // not converter-managed -> $unset is safe and removes the key entirely
+            // F22 (research D7 / FR-017): purge the operational deliverability metadata too — no residual
+            // bounce state on an erased subject. These are non-converter booleans/instants, so $set/null is safe.
+            .set("undeliverable", false)
+            .set("undeliverableReason", null)
+            .set("undeliverableAt", null)
+            .set("undeliverableClearedAt", null)
             .set("erasureState", ErasureState.ERASED)
             .set("erasedAt", Instant.now(clock));
         UpdateResult r = mongoTemplate.updateFirst(q, u, Candidate.class);

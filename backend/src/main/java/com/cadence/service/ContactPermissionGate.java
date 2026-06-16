@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ContactPermissionGate {
 
-    public enum Reason { NONE, NO_BASIS, WITHDRAWN, ERASED, OVER_RETENTION, UNAVAILABLE }
+    public enum Reason { NONE, NO_BASIS, WITHDRAWN, ERASED, OVER_RETENTION, UNAVAILABLE, UNDELIVERABLE }
 
     public record Decision(boolean permit, Reason reason) {
         public static Decision allow() { return new Decision(true, Reason.NONE); }
@@ -49,6 +49,11 @@ public class ContactPermissionGate {
             }
             if (c.getLawfulBasis() == null) {
                 return Decision.deny(Reason.NO_BASIS);
+            }
+            // F22 operational suppression — the LAST deny before allow(), so a legal/consent reason
+            // always wins (precedence erased > over_retention > withdrawn > no_basis > undeliverable).
+            if (c.isUndeliverable()) {
+                return Decision.deny(Reason.UNDELIVERABLE);
             }
             return Decision.allow();
         } catch (RuntimeException e) {

@@ -79,6 +79,23 @@ class ContactPermissionGateTest {
     }
 
     @Test
+    void denies_undeliverable_asTheLastReason_whenAllLegalReasonsClear() {
+        Candidate c = cand(ErasureState.ACTIVE, false, false, LawfulBasis.CONSENT);
+        c.setUndeliverable(true);
+        stub(c);
+        assertThat(evaluate().reason()).isEqualTo(Reason.UNDELIVERABLE);
+    }
+
+    @Test
+    void undeliverable_isLowestPrecedence_legalReasonsWin() {
+        // erased + undeliverable -> ERASED wins (a legal reason always beats the operational flag)
+        Candidate erased = cand(ErasureState.ERASED, false, false, LawfulBasis.CONSENT);
+        erased.setUndeliverable(true);
+        stub(erased);
+        assertThat(evaluate().reason()).isEqualTo(Reason.ERASED);
+    }
+
+    @Test
     void failsClosed_whenCandidateMissing() {
         stub(null);
         ContactPermissionGate.Decision d = evaluate();
