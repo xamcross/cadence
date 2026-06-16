@@ -9,5 +9,7 @@ public enum EmailMessageType {
     HOLD_UPDATE,
     REJECTION,
     FEEDBACK_REQUEST,
-    SLA_HOLDING
+    SLA_HOLDING,
+    // F20: candidate-facing interview cancellation notice (recruiter-initiated cancel, FR-013).
+    CANCELLATION
 }

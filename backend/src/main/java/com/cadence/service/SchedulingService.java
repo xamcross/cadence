@@ -55,6 +55,7 @@ public class SchedulingService {
     private final CandidateRepository candidates;
     private final ContactPermissionGate gate;
     private final SchedulingRequestRepository requests;
+    private final SlotReservationService reservation;
     private final MongoTemplate mongo;
     private final TokenHasher hasher;
     private final EmailDispatchService dispatch;
@@ -65,7 +66,8 @@ public class SchedulingService {
 
     public SchedulingService(RuleEngine ruleEngine, InterviewTemplateRepository templates,
                              CandidateRepository candidates, ContactPermissionGate gate,
-                             SchedulingRequestRepository requests, MongoTemplate mongo, TokenHasher hasher,
+                             SchedulingRequestRepository requests, SlotReservationService reservation,
+                             MongoTemplate mongo, TokenHasher hasher,
                              EmailDispatchService dispatch, AuthAuditService audit, AuthProperties authProps,
                              SchedulingProperties props, Clock clock) {
         this.ruleEngine = ruleEngine;
@@ -73,6 +75,7 @@ public class SchedulingService {
         this.candidates = candidates;
         this.gate = gate;
         this.requests = requests;
+        this.reservation = reservation;
         this.mongo = mongo;
         this.hasher = hasher;
         this.dispatch = dispatch;
@@ -85,7 +88,12 @@ public class SchedulingService {
     public record InitiateResult(String schedulingRequestId, SchedulingStatus status, int offeredSlotCount,
                                  Instant sentAt, Instant expiresAt) {}
 
-    public record StatusView(SchedulingStatus status, Instant sentAt, Instant expiresAt, Instant chosenStart) {}
+    /** Recruiter status display. {@code status} is a DISPLAY string (may be the derived RESCHEDULE_IN_PROGRESS). */
+    public record StatusView(String status, Instant sentAt, Instant expiresAt, Instant chosenStart) {}
+
+    public record RescheduleInviteResult(Instant invitedAt) {}
+
+    public record CancelOutcome(Instant at, boolean cleanupIncomplete) {}
 
     /** Recruiter-initiated single-stage scheduling (US1). */
     public InitiateResult initiate(String workspaceId, String actorMemberId, String candidateId,
@@ -178,21 +186,81 @@ public class SchedulingService {
             saved.getSentAt(), saved.getExpiresAt());
     }
 
-    /** Latest per-candidate scheduling status (US3). */
+    /**
+     * Per-candidate scheduling status (US3 + F20 FR-021). Resolves the AUTHORITATIVE booking from the root
+     * lineage — the live BOOKED row, NOT the newest row (the newest may be an in-flight PENDING_SELECTION
+     * reschedule child while the parent is still the authoritative BOOKED booking). "Reschedule in progress"
+     * is derived (BOOKED && rescheduleInvitedAt != null).
+     */
     public StatusView status(String workspaceId, String candidateId) {
-        SchedulingRequest req = requests
+        SchedulingRequest live = requests
+            .findFirstByWorkspaceIdAndCandidateIdAndStatusOrderByCreatedAtDesc(
+                workspaceId, candidateId, SchedulingStatus.BOOKED)
+            .orElse(null);
+        SchedulingRequest req = live != null ? live : requests
             .findFirstByWorkspaceIdAndCandidateIdOrderByCreatedAtDesc(workspaceId, candidateId)
             .orElseThrow(RbacExceptions.ScopedNotFoundException::new);
-        Instant chosenStart = null;
-        if (req.getStatus() == SchedulingStatus.BOOKED && req.getChosenSlotId() != null) {
-            for (OfferedSlot s : req.getOfferedSlots()) {
-                if (req.getChosenSlotId().equals(s.getSlotId())) {
-                    chosenStart = s.getStart();
-                    break;
-                }
-            }
+        String display = req.getStatus().name();
+        if (req.getStatus() == SchedulingStatus.BOOKED && req.getRescheduleInvitedAt() != null) {
+            display = "RESCHEDULE_IN_PROGRESS";
         }
-        return new StatusView(req.getStatus(), req.getSentAt(), req.getExpiresAt(), chosenStart);
+        Instant chosenStart = chosenStart(req);
+        return new StatusView(display, req.getSentAt(), req.getExpiresAt(), chosenStart);
+    }
+
+    /**
+     * Recruiter-initiated reschedule (US2 / FR-003): preserves the existing booking and re-invites the
+     * candidate. Verifies an alternative exists (carving out the moved booking), rotates the manage token,
+     * stamps {@code rescheduleInvitedAt}, and re-sends the consent-gated reschedule invitation.
+     */
+    public RescheduleInviteResult rescheduleByRecruiter(String workspaceId, String actorMemberId,
+                                                        String candidateId, String ip) {
+        Instant now = Instant.now(clock);
+        SchedulingRequest booking = liveBooking(workspaceId, candidateId);
+        if (!gate.evaluate(workspaceId, candidateId).permit()) {
+            audit.record(AuthEventType.SCHEDULING_REFUSED, workspaceId, actorMemberId,
+                SchedulingOutcomeReason.NOT_CONTACTABLE.name(), ip);
+            throw new SchedulingExceptions.NotContactableException();
+        }
+        // Verify ≥1 compliant alternative exists (carve out the moved booking) — else retain + notify.
+        java.time.LocalDate start = java.time.LocalDate.now(clock);
+        java.time.LocalDate end = start.plusDays(props.getSearchWindowDays());
+        Instant bookedStart = chosenStart(booking);
+        boolean any = ruleEngine.compute(new SlotComputationRequest(
+                workspaceId, booking.getTemplateId(), start, end, booking.getId()))
+            .slots().stream().anyMatch(s -> bookedStart == null || !s.start().equals(bookedStart));
+        if (!any) {
+            throw new SchedulingExceptions.RescheduleNoSlotsException();
+        }
+        reservation.resendRescheduleInvitation(booking);
+        audit.record(AuthEventType.SCHEDULING_LINK_SENT, workspaceId, actorMemberId, "reschedule_invited", ip);
+        return new RescheduleInviteResult(now);
+    }
+
+    /** Recruiter-initiated cancellation (US3 AS-2 / FR-013): notifies the candidate (consent-gated). */
+    public CancelOutcome cancelByRecruiter(String workspaceId, String actorMemberId, String candidateId, String ip) {
+        SchedulingRequest booking = liveBooking(workspaceId, candidateId);
+        SlotReservationService.CancelResult r = reservation.cancelByBooking(booking, false, actorMemberId);
+        return new CancelOutcome(r.at(), r.cleanupIncomplete());
+    }
+
+    private SchedulingRequest liveBooking(String workspaceId, String candidateId) {
+        // Out-of-workspace / unknown candidate -> indistinguishable scoped 404 (no existence oracle, FR-025).
+        candidates.findByWorkspaceIdAndId(workspaceId, candidateId)
+            .orElseThrow(RbacExceptions.ScopedNotFoundException::new);
+        // Present in the workspace but with no live booking -> 409 (distinct from not-found).
+        return requests.findFirstByWorkspaceIdAndCandidateIdAndStatusOrderByCreatedAtDesc(
+                workspaceId, candidateId, SchedulingStatus.BOOKED)
+            .orElseThrow(SchedulingExceptions.NoActiveBookingException::new);
+    }
+
+    private static Instant chosenStart(SchedulingRequest req) {
+        if (req.getChosenSlotId() == null) {
+            return null;
+        }
+        return req.getOfferedSlots().stream()
+            .filter(s -> req.getChosenSlotId().equals(s.getSlotId()))
+            .map(OfferedSlot::getStart).findFirst().orElse(null);
     }
 
     private SchedulingRequest insertUnique(SchedulingRequest req, String raw) {

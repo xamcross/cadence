@@ -161,6 +161,19 @@ jobs:
           fi
           echo "Scheduling scan passed — no candidate PII / location found in test output."
 
+      - name: Reschedule/cancel PII scan — F20 manage-token / location / candidate name must not leak
+        run: |
+          # F20's RescheduleIsolationAndPiiTest drives reschedule + cancel and asserts neither the
+          # candidate name, the recruiter location/dial-in, nor a manage-token value reaches Cadence's logs,
+          # the persisted schedulingRequests doc (manageTokenHash is HMAC-only; locationText encrypted), the
+          # candidate API payloads (times-only), or the audit log (ids/outcome literals only).
+          if grep -qE 'SENTINELF20NAME_zz9|SENTINELF20LOC_zz9' test-output.txt; then
+            echo "ERROR: an F20 candidate-PII / location sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF20NAME_zz9|SENTINELF20LOC_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F20 reschedule/cancel scan passed — no candidate PII / location found in test output."
+
       - name: Email-delivery header-injection guard — the dispatch path must not concatenate headers (F22 D10)
         run: |
           # The Message-ID is set by the transport from the idempotency-key HASH (a hex string), never from

@@ -17,5 +17,8 @@ public enum CandidateAuditOutcome {
     // Erasure-completion reasons (which path performed the wipe):
     OPERATOR,
     CANDIDATE_REQUEST,
-    RETENTION
+    RETENTION,
+    // F20 booking-change reasons for the BOOKING_CHANGED candidate audit (append-only):
+    BOOKING_RESCHEDULED,
+    BOOKING_CANCELLED
 }

@@ -172,6 +172,10 @@ cadence:
     reaper-sweep-batch-limit: 200
     rate-limit-per-minute: 10
     spa-schedule-base-path: /schedule
+    # F20 reschedule/cancel (Flow A3).
+    spa-booking-base-path: /booking
+    reschedule-cap: 3
+    self-service-lead-time: PT0S
     # Fixed delay for the SchedulingReaper @Scheduled worker (read directly by @Scheduled).
     reaper-interval-ms: 60000
 

@@ -182,6 +182,35 @@ abstract class SchedulingItBase extends BaseIntegrationTest {
         return new Seeded(saved, raw);
     }
 
+    /** F20: a persisted BOOKED booking (INITIAL, mode default) with a known raw MANAGE token + one ACTIVE claim. */
+    protected Seeded seedBookedRequest(String candidateId, String templateId, String locationText, OfferedSlot chosen,
+                                       String requiredMemberId) {
+        String rawManage = SecureTokens.newToken();
+        Instant now = Instant.now(clock);
+        SchedulingRequest req = new SchedulingRequest();
+        req.setWorkspaceId(WS);
+        req.setCandidateId(candidateId);
+        req.setTemplateId(templateId);
+        req.setStatus(SchedulingStatus.BOOKED);
+        req.setMode(com.cadence.domain.SchedulingMode.INITIAL);
+        req.setTokenHash(hasher.hashToken(SecureTokens.newToken()));   // the (consumed) slot-pick token
+        req.setManageTokenHash(hasher.hashToken(rawManage));
+        req.setSentAt(now);
+        req.setExpiresAt(now.plusSeconds(72 * 3600));
+        req.setBookedAt(now);
+        req.setChosenSlotId(chosen.getSlotId());
+        req.setSearchRangeStart(LocalDate.now(clock));
+        req.setSearchRangeEnd(LocalDate.now(clock).plusDays(10));
+        req.setOfferedSlots(new ArrayList<>(List.of(chosen)));
+        req.setLocationText(locationText);
+        req.setCreatedAt(now);
+        req.setUpdatedAt(now);
+        SchedulingRequest saved = mongoTemplate.save(req);
+        InterviewSlotClaim claim = new InterviewSlotClaim(WS, requiredMemberId, chosen.getStart(), saved.getId(), now);
+        mongoTemplate.save(claim);
+        return new Seeded(saved, rawManage);
+    }
+
     /** One offered slot: required member ids + per-pool qualifying candidate lists. */
     protected OfferedSlot slot(String slotId, Instant start, Instant end, List<String> required,
                                List<List<String>> poolCandidates) {

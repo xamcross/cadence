@@ -40,4 +40,16 @@ export class SchedulingService {
     return this.http.get<StatusResponse>(
       `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/scheduling`);
   }
+
+  /** F20: recruiter-initiated reschedule — re-invites the candidate, preserving the existing booking (US2). */
+  reschedule(candidateId: string): Observable<{ status: string; invitedAt: string }> {
+    return this.http.post<{ status: string; invitedAt: string }>(
+      `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/scheduling/reschedule`, {});
+  }
+
+  /** F20: recruiter-initiated cancellation — notifies the candidate (US3). */
+  cancel(candidateId: string): Observable<{ status: string; at: string }> {
+    return this.http.post<{ status: string; at: string }>(
+      `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/scheduling/cancel`, {});
+  }
 }

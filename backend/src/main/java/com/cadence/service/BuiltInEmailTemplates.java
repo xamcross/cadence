@@ -60,6 +60,12 @@ public class BuiltInEmailTemplates {
             "Hi {{candidate_name}},\n\nWe wanted to let you know we're still reviewing your application "
                 + "and haven't forgotten you. See your status here:\n\n{{status_link}}\n\n"
                 + "We expect an update by {{expected_date}}.\n\nBest,\n{{recruiter_name}}, {{workspace_name}}"));
+        // F20: candidate cancellation notice (recruiter-initiated cancel). Universal tokens only — resolved
+        // from the candidate/workspace records, so no per-send context is required.
+        defaults.put(EmailMessageType.CANCELLATION, new Content(
+            "Your interview with {{workspace_name}} has been cancelled",
+            "Hi {{candidate_name}},\n\nYour interview with {{workspace_name}} has been cancelled. "
+                + "We will be in touch about next steps.\n\nBest,\n{{recruiter_name}}, {{workspace_name}}"));
     }
 
     @PostConstruct

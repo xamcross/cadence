@@ -2,6 +2,8 @@ package com.cadence.api;
 
 import com.cadence.api.SchedulingDtos.InitiateRequest;
 import com.cadence.api.SchedulingDtos.InitiateResponse;
+import com.cadence.api.SchedulingDtos.RecruiterCancelResponse;
+import com.cadence.api.SchedulingDtos.RecruiterRescheduleResponse;
 import com.cadence.api.SchedulingDtos.StatusResponse;
 import com.cadence.service.SchedulingService;
 import com.cadence.service.SessionService;
@@ -57,5 +59,27 @@ public class SchedulingController {
             @PathVariable String candidateId) {
         SchedulingService.StatusView view = service.status(principal.workspaceId(), candidateId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(StatusResponse.from(view));
+    }
+
+    /** F20: recruiter-initiated reschedule — re-invites the candidate, preserving the existing booking (US2). */
+    @PostMapping("/reschedule")
+    public ResponseEntity<RecruiterRescheduleResponse> reschedule(
+            @AuthenticationPrincipal SessionService.Principal principal,
+            @PathVariable String candidateId,
+            HttpServletRequest http) {
+        SchedulingService.RescheduleInviteResult r = service.rescheduleByRecruiter(
+            principal.workspaceId(), principal.memberId(), candidateId, http.getRemoteAddr());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(RecruiterRescheduleResponse.from(r));
+    }
+
+    /** F20: recruiter-initiated cancellation — notifies the candidate (US3 AS-2). */
+    @PostMapping("/cancel")
+    public ResponseEntity<RecruiterCancelResponse> cancel(
+            @AuthenticationPrincipal SessionService.Principal principal,
+            @PathVariable String candidateId,
+            HttpServletRequest http) {
+        SchedulingService.CancelOutcome r = service.cancelByRecruiter(
+            principal.workspaceId(), principal.memberId(), candidateId, http.getRemoteAddr());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(RecruiterCancelResponse.from(r));
     }
 }

@@ -15,7 +15,8 @@ import java.util.Map;
  * chain's RestAccessDeniedHandler -> uniform 403). ScopedNotFoundException is handled globally -> 404 (no
  * existence oracle). Every envelope is value-free — never a token value, candidate name, or location.
  */
-@RestControllerAdvice(assignableTypes = {SchedulingController.class, CandidateSchedulingController.class})
+@RestControllerAdvice(assignableTypes = {SchedulingController.class, CandidateSchedulingController.class,
+    CandidateBookingController.class})
 public class SchedulingExceptionHandler {
 
     private static ResponseEntity<Map<String, Object>> envelope(HttpStatus status, String error, String message) {
@@ -97,5 +98,30 @@ public class SchedulingExceptionHandler {
     @ExceptionHandler(SchedulingExceptions.RateLimitedException.class)
     public ResponseEntity<Map<String, Object>> rateLimited(SchedulingExceptions.RateLimitedException e) {
         return envelope(HttpStatus.TOO_MANY_REQUESTS, "rate_limited", "Too many requests — please slow down.");
+    }
+
+    // --- F20 ---
+
+    @ExceptionHandler(SchedulingExceptions.CapReachedException.class)
+    public ResponseEntity<Map<String, Object>> capReached(SchedulingExceptions.CapReachedException e) {
+        return envelope(HttpStatus.CONFLICT, "cap_reached",
+            "You have reached the reschedule limit — please contact your recruiter.");
+    }
+
+    @ExceptionHandler(SchedulingExceptions.RescheduleNoSlotsException.class)
+    public ResponseEntity<Map<String, Object>> rescheduleNoSlots(SchedulingExceptions.RescheduleNoSlotsException e) {
+        return envelope(HttpStatus.UNPROCESSABLE_ENTITY, "no_slots",
+            "No alternative times are currently available — your recruiter will follow up.");
+    }
+
+    @ExceptionHandler(SchedulingExceptions.IneligibleException.class)
+    public ResponseEntity<Map<String, Object>> ineligible(SchedulingExceptions.IneligibleException e) {
+        return envelope(HttpStatus.CONFLICT, "ineligible",
+            "This interview can no longer be changed online — contact your recruiter.");
+    }
+
+    @ExceptionHandler(SchedulingExceptions.NoActiveBookingException.class)
+    public ResponseEntity<Map<String, Object>> noActiveBooking(SchedulingExceptions.NoActiveBookingException e) {
+        return envelope(HttpStatus.CONFLICT, "no_active_booking", "This candidate has no booked interview.");
     }
 }

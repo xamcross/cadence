@@ -78,25 +78,46 @@ public class CandidateErasureService {
     }
 
     /**
-     * F13 (research D10 / FR-014): an erased candidate must carry no live scheduling state. Supersede any
-     * PENDING_SELECTION/BOOKING {@code schedulingRequests} for the candidate and release their ACTIVE
-     * {@code interviewSlotClaims}, so the link is no longer bookable and held slots are freed.
+     * F13 (research D10 / FR-014) + F20 (research D9 / FR-024): an erased candidate must carry no live
+     * scheduling state and NO calendar event. This runs inside the synchronous {@code wipe()} and does only
+     * O(1) writes — supersede any PENDING_SELECTION/BOOKING {@code schedulingRequests} (incl. in-flight
+     * reschedule rounds) and release their ACTIVE claims; and for a BOOKED booking, CAS it to CANCELLED,
+     * release its claims, {@code $unset} the manage token, and set {@code calendarTeardownPending} so the
+     * reaper removes the provider events ASYNC (keeps {@code wipe()} non-blocking — the F04 202 SLA).
      */
     private void supersedeLiveScheduling(String workspaceId, String candidateId) {
+        Instant now = Instant.now(clock);
+
+        // (a) Pre-booking + in-flight reschedule rounds -> SUPERSEDED + release claims.
         List<SchedulingRequest> live = mongoTemplate.find(
             Query.query(Criteria.where("workspaceId").is(workspaceId).and("candidateId").is(candidateId)
                 .and("status").in(SchedulingStatus.PENDING_SELECTION, SchedulingStatus.BOOKING)),
             SchedulingRequest.class);
-        if (live.isEmpty()) {
-            return;
+        if (!live.isEmpty()) {
+            List<String> ids = live.stream().map(SchedulingRequest::getId).toList();
+            mongoTemplate.updateMulti(Query.query(Criteria.where("_id").in(ids)),
+                new Update().set("status", SchedulingStatus.SUPERSEDED).set("updatedAt", now),
+                SchedulingRequest.class);
+            mongoTemplate.updateMulti(
+                Query.query(Criteria.where("schedulingRequestId").in(ids).and("status").is(ClaimStatus.ACTIVE)),
+                new Update().set("status", ClaimStatus.RELEASED), InterviewSlotClaim.class);
         }
-        List<String> ids = live.stream().map(SchedulingRequest::getId).toList();
-        Instant now = Instant.now(clock);
-        mongoTemplate.updateMulti(Query.query(Criteria.where("_id").in(ids)),
-            new Update().set("status", SchedulingStatus.SUPERSEDED).set("updatedAt", now),
+
+        // (b) Active BOOKED interviews -> CANCELLED (O(1)) + release claims + clear manage token + defer the
+        // provider event teardown to the reaper (FR-024). $unset the manage token so no usable link survives.
+        List<SchedulingRequest> booked = mongoTemplate.find(
+            Query.query(Criteria.where("workspaceId").is(workspaceId).and("candidateId").is(candidateId)
+                .and("status").is(SchedulingStatus.BOOKED)),
             SchedulingRequest.class);
-        mongoTemplate.updateMulti(
-            Query.query(Criteria.where("schedulingRequestId").in(ids).and("status").is(ClaimStatus.ACTIVE)),
-            new Update().set("status", ClaimStatus.RELEASED), InterviewSlotClaim.class);
+        if (!booked.isEmpty()) {
+            List<String> ids = booked.stream().map(SchedulingRequest::getId).toList();
+            mongoTemplate.updateMulti(Query.query(Criteria.where("_id").in(ids)),
+                new Update().set("status", SchedulingStatus.CANCELLED).set("cancelledAt", now)
+                    .set("calendarTeardownPending", true).set("updatedAt", now).unset("manageTokenHash"),
+                SchedulingRequest.class);
+            mongoTemplate.updateMulti(
+                Query.query(Criteria.where("schedulingRequestId").in(ids).and("status").is(ClaimStatus.ACTIVE)),
+                new Update().set("status", ClaimStatus.RELEASED), InterviewSlotClaim.class);
+        }
     }
 }

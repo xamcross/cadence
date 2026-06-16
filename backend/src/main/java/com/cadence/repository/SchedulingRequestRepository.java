@@ -1,5 +1,6 @@
 package com.cadence.repository;
 
+import com.cadence.domain.SchedulingMode;
 import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.SchedulingStatus;
 import org.springframework.data.domain.Pageable;
@@ -30,4 +31,28 @@ public interface SchedulingRequestRepository extends MongoRepository<SchedulingR
     /** Reaper: requests stuck in {@code status} (BOOKING) older than {@code threshold}. */
     @Query("{ 'status': ?0, 'updatedAt': { $lt: ?1 } }")
     List<SchedulingRequest> findStuck(SchedulingStatus status, Instant threshold, Pageable pageable);
+
+    // --- F20 Reschedule & Cancellation ---
+
+    /** Resolve a booking from the reschedule/cancel manage credential (data-model §1). */
+    Optional<SchedulingRequest> findByManageTokenHash(String manageTokenHash);
+
+    /** The cap derivation (D5): committed reschedule rounds in a lineage. Pass RESCHEDULE + the committed statuses. */
+    long countByRootRequestIdAndModeAndStatusIn(String rootRequestId, SchedulingMode mode, List<SchedulingStatus> statuses);
+
+    /** The authoritative live booking for a candidate's status read (T033) — the live BOOKED row, not the newest child. */
+    Optional<SchedulingRequest> findFirstByWorkspaceIdAndCandidateIdAndStatusOrderByCreatedAtDesc(
+        String workspaceId, String candidateId, SchedulingStatus status);
+
+    /**
+     * Reaper forward-commit recovery (D3): RESCHEDULE rounds that reached BOOKED but whose parent cancel may
+     * not have finished (crash window), older than the threshold. The parent-status check is a per-row CAS.
+     */
+    @Query("{ 'mode': ?0, 'status': ?1, 'updatedAt': { $lt: ?2 } }")
+    List<SchedulingRequest> findRescheduleAwaitingForwardCommit(SchedulingMode mode, SchedulingStatus status,
+                                                                Instant before, Pageable pageable);
+
+    /** Reaper erasure-teardown (D9): CANCELLED bookings whose provider events still need removal. */
+    @Query("{ 'calendarTeardownPending': true }")
+    List<SchedulingRequest> findAwaitingCalendarTeardown(Pageable pageable);
 }
