@@ -141,6 +141,42 @@ email:
     max-tokens-per-template: 50
     max-variants-per-type: 20
 
+# F22 Email Delivery Channel (research D1/D2/D4/D5). The app-level default SMTP relay (host/port/
+# username + the API-key-as-password) sends member/operational mail (invites/resets/system-alert) and
+# is the candidate-send fallback when a workspace has no F03 email config. Fly secret NAMES are
+# UPPER_SNAKE_CASE (dotted/lowercase property paths are NOT valid secret names). CADENCE_EMAIL_SMTP_PASSWORD
+# MUST be set or the F01 member-email path breaks on first deploy. CADENCE_EMAIL_WEBHOOK_SECRET gates the
+# inbound provider bounce webhook (never persisted to Mongo, never logged). No secrets inline.
+# Invariant: reaper-threshold > smtp.read-timeout + max-backoff (so the reaper never races a live claim).
+cadence:
+  email:
+    smtp:
+      host: ${CADENCE_EMAIL_SMTP_HOST:localhost}
+      port: ${CADENCE_EMAIL_SMTP_PORT:587}
+      username: ${CADENCE_EMAIL_SMTP_USERNAME:}
+      password: ${CADENCE_EMAIL_SMTP_PASSWORD:}
+    webhook-secret: ${CADENCE_EMAIL_WEBHOOK_SECRET:}
+    ops-alert-address: ${CADENCE_EMAIL_OPS_ALERT_ADDRESS:ops@localhost}
+    retry-max-attempts: 3
+    retry-base-backoff: PT30S
+    reaper-threshold: PT10M
+    sweep-batch-limit: 100
+    read-timeout: PT10S
+    # Fixed delays for the standalone @Scheduled workers (read directly by @Scheduled, not bound properties).
+    reaper-fixed-delay: PT1M
+    sweep-fixed-delay: PT30S
+
+# Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
+# senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.
+spring.mail:
+  host: ${CADENCE_EMAIL_SMTP_HOST:localhost}
+  port: ${CADENCE_EMAIL_SMTP_PORT:587}
+  username: ${CADENCE_EMAIL_SMTP_USERNAME:}
+  password: ${CADENCE_EMAIL_SMTP_PASSWORD:}
+  properties:
+    mail.smtp.auth: true
+    mail.smtp.starttls.enable: true
+
 management:
   server:
     port: 8081

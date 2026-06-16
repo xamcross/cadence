@@ -1,3 +1,24 @@
 management:
   server:
     port: 18081
+
+# F22 test overrides. The RecordingMailTransport (@Primary test bean) replaces the SMTP transport, so the
+# dummy host is never dialled. Zero backoff + a short reaper threshold keep the dispatch/reaper tests fast
+# and deterministic (the crash window is driven by the test clock, not wall-clock sleeps). Fixed webhook
+# secret so the bounce-webhook signature tests are reproducible.
+cadence:
+  email:
+    smtp:
+      host: dummy-smtp.invalid
+      port: 587
+      username: test
+      password: test
+    webhook-secret: test-webhook-secret-f22
+    ops-alert-address: ops@cadence.test
+    retry-base-backoff: PT0S
+    reaper-threshold: PT2S
+    read-timeout: PT1S
+    # Park the background @Scheduled fires far out so the deterministic tests drive sweep()/reap() directly
+    # (no wall-clock race between a background tick and the test's clock-advanced assertions).
+    reaper-fixed-delay: PT1H
+    sweep-fixed-delay: PT1H

@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
 import { EmailTemplatesComponent } from './email-templates.component';
-import { EmailTemplate, EmailTemplatesService, RenderedMessage, TemplateList } from './email-templates.service';
+import { EmailTemplate, EmailTemplatesService, RenderedMessage, SendResult, TemplateList } from './email-templates.service';
 
 /**
  * F21 SC-011: the email-templates component renders the missing-field warning, disables editing of a
@@ -24,6 +25,7 @@ describe('EmailTemplatesComponent', () => {
       lock: () => of({ ...base, locked: true }),
       unlock: () => of(base),
       preview: () => of({ subject: 'Hi Dana Lee', bodyText: 'Hello Dana Lee', bodyHtml: 'Hello Dana Lee', missingFields: [] }),
+      sendToCandidate: () => of({ dispatchId: 'd1', status: 'SENT', messageType: 'INVITATION' } as SendResult),
       ...overrides
     };
     TestBed.resetTestingModule();
@@ -60,6 +62,34 @@ describe('EmailTemplatesComponent', () => {
     const alert = fixture.nativeElement.querySelector('[role="alert"]');
     expect(alert).not.toBeNull();
     expect(alert.textContent).toContain('candidate_name');
+  });
+
+  it('sends the previewed template to a candidate (happy path)', () => {
+    const fixture = setup({ templates: [base] });
+    fixture.componentInstance.preview(base);
+    fixture.detectChanges();
+    fixture.componentInstance.sendCandidateId = 'cand1';
+    fixture.componentInstance.send(base);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.sendStatus()).toBe('SENT');
+    expect(fixture.componentInstance.sendError()).toBeNull();
+    const status = fixture.nativeElement.querySelector('[role="status"]');
+    expect(status).not.toBeNull();
+    expect(status.textContent).toContain('SENT');
+  });
+
+  it('shows the not-contactable reason on a 409', () => {
+    const err = new HttpErrorResponse({ status: 409, error: { error: 'not_contactable', reason: 'WITHDRAWN' } });
+    const fixture = setup({ templates: [base] }, { sendToCandidate: () => throwError(() => err) });
+    fixture.componentInstance.preview(base);
+    fixture.detectChanges();
+    fixture.componentInstance.sendCandidateId = 'cand1';
+    fixture.componentInstance.send(base);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.sendStatus()).toBeNull();
+    const alert = Array.from(fixture.nativeElement.querySelectorAll('[role="alert"]'))
+      .find((el) => /WITHDRAWN/.test((el as HTMLElement).textContent ?? ''));
+    expect(alert).toBeTruthy();
   });
 
   it('disables the Edit control on a locked template for a non-Admin', () => {
