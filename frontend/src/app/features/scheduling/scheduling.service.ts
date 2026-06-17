@@ -23,6 +23,11 @@ export interface StatusResponse {
   sentAt: string;
   expiresAt: string;
   chosenStart: string | null;
+  // F23 no-show defense: confirmation-cascade state surfaced for the booking-status view (all optional —
+  // present once the booking is BOOKED and the cascade has run). Times-only / boolean — no PII.
+  confirmationRequested?: boolean;
+  candidateConfirmed?: boolean;
+  escalated?: boolean;
 }
 
 /** F13 recruiter scheduling API (contract A). */
@@ -51,5 +56,15 @@ export class SchedulingService {
   cancel(candidateId: string): Observable<{ status: string; at: string }> {
     return this.http.post<{ status: string; at: string }>(
       `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/scheduling/cancel`, {});
+  }
+
+  /**
+   * F23: recruiter one-tap release of an unconfirmed slot (US2). Removes the calendar events for all
+   * participants, frees the slot for re-scheduling, and notifies the candidate — turning a likely no-show
+   * into a recovered slot. Reuses the F20 cancellation primitive server-side.
+   */
+  release(candidateId: string): Observable<{ status: string; at: string; cleanupIncomplete: boolean }> {
+    return this.http.post<{ status: string; at: string; cleanupIncomplete: boolean }>(
+      `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/scheduling/release`, {});
   }
 }

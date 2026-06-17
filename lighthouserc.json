@@ -4,7 +4,8 @@
       "url": [
         "http://localhost:4200/schedule?token=lighthouse-demo",
         "http://localhost:4200/booking?token=lighthouse-demo",
-        "http://localhost:4200/booking/cancel?token=lighthouse-demo"
+        "http://localhost:4200/booking/cancel?token=lighthouse-demo",
+        "http://localhost:4200/confirm?token=lighthouse-demo"
       ],
       "numberOfRuns": 3,
       "settings": {

@@ -36,6 +36,9 @@ public class SchedulingProperties {
     /** SPA path for the candidate booking-management (reschedule/cancel) page; appended to {@code spaBaseUrl} (F20). */
     private String spaBookingBasePath = "/booking";
 
+    /** SPA path for the candidate attendance-confirmation page; appended to {@code spaBaseUrl} (F23). */
+    private String spaConfirmBasePath = "/confirm";
+
     /** Max candidate self-service reschedules per booking lineage (F20, FR-005). Recruiter reschedule is uncapped. */
     private int rescheduleCap = 3;
 
@@ -65,6 +68,9 @@ public class SchedulingProperties {
 
     public String getSpaBookingBasePath() { return spaBookingBasePath; }
     public void setSpaBookingBasePath(String spaBookingBasePath) { this.spaBookingBasePath = spaBookingBasePath; }
+
+    public String getSpaConfirmBasePath() { return spaConfirmBasePath; }
+    public void setSpaConfirmBasePath(String spaConfirmBasePath) { this.spaConfirmBasePath = spaConfirmBasePath; }
 
     public int getRescheduleCap() { return rescheduleCap; }
     public void setRescheduleCap(int rescheduleCap) { this.rescheduleCap = rescheduleCap; }

@@ -53,6 +53,17 @@ function cannedBooking() {
   };
 }
 
+// Canned F23 confirm-attendance response (times only — no PII, no location).
+function cannedConfirmed() {
+  const start = new Date(Date.UTC(2030, 0, 6, 14, 0, 0)); // fixed future date — deterministic, no Date.now()
+  return {
+    status: 'confirmed',
+    bookedStart: start.toISOString(),
+    zoneId: 'America/New_York',
+    at: new Date(Date.UTC(2030, 0, 5, 9, 0, 0)).toISOString()
+  };
+}
+
 // Canned A2 open-reschedule slots (times only) — same shape the F13 confirm step consumes.
 function cannedReschedule() {
   const base = Date.UTC(2030, 0, 8, 14, 0, 0);
@@ -103,6 +114,12 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method === 'POST' && path.endsWith('/cancel')) {
         if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, { status: 'cancelled', at: new Date(Date.UTC(2030, 0, 5)).toISOString() });
+        return sendJson(res, 400, { error: 'invalid', message: 'invalid' });
+      }
+      // F23 confirm-attendance: POST -> canned confirmed response (times only — no PII). So the Lighthouse
+      // gate measures the real content-bearing confirmed state, not the SPA-fallback invalid state.
+      if (req.method === 'POST' && path.endsWith('/confirm')) {
+        if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, cannedConfirmed());
         return sendJson(res, 400, { error: 'invalid', message: 'invalid' });
       }
       if (path.includes(DEMO_TOKEN)) return sendJson(res, 200, cannedBooking());

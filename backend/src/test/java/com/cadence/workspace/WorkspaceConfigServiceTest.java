@@ -33,7 +33,7 @@ class WorkspaceConfigServiceTest {
     private final AuthAuditService audit = mock(AuthAuditService.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-06-14T12:00:00Z"), ZoneOffset.UTC);
     private final WorkspaceConfigService service =
-        new WorkspaceConfigService(mongo, repo, audit, clock);
+        new WorkspaceConfigService(mongo, repo, audit, new com.cadence.config.NoShowProperties(), clock);
 
     private WorkspaceDtos.SetupRequest setup(String tz, LocalTime start, LocalTime end, Integer sla, Integer ret) {
         return new WorkspaceDtos.SetupRequest("Acme", tz,

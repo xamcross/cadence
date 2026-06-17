@@ -72,6 +72,51 @@ class SchedulingIndexTest extends BaseIntegrationTest {
             .as("release-set lookup index").isNotNull();
     }
 
+    @Test
+    void schedulingRequests_hasNoShowIndexes_andConfirmTokenPartialUnique() {   // F23 ChangeUnit014 (T015)
+        List<Document> idx = indexes("schedulingRequests");
+
+        assertThat(byKey(idx, new Document("status", 1).append("bookedStartAt", 1)))
+            .as("no-show cascade sweep index").isNotNull();
+
+        Document confirm = byKey(idx, new Document("confirmTokenHash", 1));
+        assertThat(confirm).as("confirmTokenHash index").isNotNull();
+        assertThat(confirm.getBoolean("unique", false)).as("confirmTokenHash is unique").isTrue();
+        // Partial (NOT sparse) on $exists — paired with @Field(write=NON_NULL) so two cleared rows never collide.
+        assertThat(confirm.get("partialFilterExpression"))
+            .as("confirmTokenHash is partial on {$exists:true}")
+            .isEqualTo(new Document("confirmTokenHash", new Document("$exists", true)));
+    }
+
+    @Test
+    void confirmTokenHash_twoClearedRowsDoNotCollide() {   // F23 (T045) — the F01 present-as-null footgun
+        com.cadence.domain.SchedulingRequest a = bookedWithoutConfirmToken("noshow-idx-a");
+        com.cadence.domain.SchedulingRequest b = bookedWithoutConfirmToken("noshow-idx-b");
+        try {
+            // @Field(write=NON_NULL) omits the null confirmTokenHash from BSON; the partial index only covers
+            // {$exists:true}, so two token-less BOOKED rows do NOT collide on the unique index.
+            mongoTemplate.insert(a);
+            mongoTemplate.insert(b);
+            assertThat(mongoTemplate.findById("noshow-idx-a", com.cadence.domain.SchedulingRequest.class)).isNotNull();
+            assertThat(mongoTemplate.findById("noshow-idx-b", com.cadence.domain.SchedulingRequest.class)).isNotNull();
+        } finally {
+            mongoTemplate.remove(a);
+            mongoTemplate.remove(b);
+        }
+    }
+
+    private static com.cadence.domain.SchedulingRequest bookedWithoutConfirmToken(String id) {
+        com.cadence.domain.SchedulingRequest r = new com.cadence.domain.SchedulingRequest();
+        r.setId(id);
+        r.setWorkspaceId("ws-idx");
+        r.setCandidateId("c-idx");
+        r.setTemplateId("t-idx");
+        r.setStatus(com.cadence.domain.SchedulingStatus.BOOKED);
+        r.setTokenHash("th-" + id);   // distinct slot-pick token (the F13 {tokenHash} unique index is not partial)
+        // confirmTokenHash deliberately left null (omitted from BSON via @Field(write=NON_NULL)).
+        return r;
+    }
+
     private List<Document> indexes(String collection) {
         List<Document> out = new ArrayList<>();
         mongoTemplate.getCollection(collection).listIndexes().forEach(out::add);

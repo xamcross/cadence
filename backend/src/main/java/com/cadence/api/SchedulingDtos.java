@@ -1,5 +1,6 @@
 package com.cadence.api;
 
+import com.cadence.service.NoShowCascadeService;
 import com.cadence.service.SchedulingService;
 import com.cadence.service.SlotReservationService;
 
@@ -90,6 +91,22 @@ public final class SchedulingDtos {
     public record RecruiterCancelResponse(String status, Instant at) {
         public static RecruiterCancelResponse from(SchedulingService.CancelOutcome r) {
             return new RecruiterCancelResponse(r.cleanupIncomplete() ? "cleanup_incomplete" : "cancelled", r.at());
+        }
+    }
+
+    // --- F23 No-Show Defense ---
+
+    /** Candidate attendance confirmation (public-by-confirm-token) — times only. */
+    public record ConfirmAttendanceResponse(String status, Instant bookedStart, String zoneId, Instant at) {
+        public static ConfirmAttendanceResponse from(NoShowCascadeService.ConfirmResult r) {
+            return new ConfirmAttendanceResponse(r.status(), r.bookedStart(), r.zoneId(), r.at());
+        }
+    }
+
+    /** Recruiter one-tap release of an unconfirmed slot (reuses the F20 recruiter-cancel outcome). */
+    public record ReleaseResponse(String status, Instant at, boolean cleanupIncomplete) {
+        public static ReleaseResponse from(SchedulingService.CancelOutcome r) {
+            return new ReleaseResponse("cancelled", r.at(), r.cleanupIncomplete());
         }
     }
 }

@@ -178,6 +178,16 @@ cadence:
     self-service-lead-time: PT0S
     # Fixed delay for the SchedulingReaper @Scheduled worker (read directly by @Scheduled).
     reaper-interval-ms: 60000
+    # F23 No-Show Defense (Flow A4) — the candidate attendance-confirmation page path.
+    spa-confirm-base-path: /confirm
+  # F23 No-Show Defense cascade. Global defaults; a per-workspace override on WorkspaceConfig wins.
+  noshow:
+    confirmation-lead-time: PT24H
+    escalation-deadline: PT2H
+    cascade-query-bound: PT72H
+    cascade-sweep-batch-limit: 200
+    # Fixed delay for the NoShowDefenseScheduler @Scheduled worker (read directly by @Scheduled).
+    cascade-interval-ms: 60000
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.

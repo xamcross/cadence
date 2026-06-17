@@ -2,6 +2,7 @@ package com.cadence.service;
 
 import com.cadence.api.WorkspaceDtos;
 import com.cadence.api.WorkspaceExceptions;
+import com.cadence.config.NoShowProperties;
 import com.cadence.domain.WorkingHours;
 import com.cadence.domain.WorkspaceConfig;
 import com.cadence.repository.WorkspaceConfigRepository;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -49,13 +51,15 @@ public class WorkspaceConfigService {
     private final MongoTemplate mongo;
     private final WorkspaceConfigRepository configs;
     private final AuthAuditService audit;
+    private final NoShowProperties noShowProps;
     private final Clock clock;
 
     public WorkspaceConfigService(MongoTemplate mongo, WorkspaceConfigRepository configs,
-                                  AuthAuditService audit, Clock clock) {
+                                  AuthAuditService audit, NoShowProperties noShowProps, Clock clock) {
         this.mongo = mongo;
         this.configs = configs;
         this.audit = audit;
+        this.noShowProps = noShowProps;
         this.clock = clock;
     }
 
@@ -152,6 +156,24 @@ public class WorkspaceConfigService {
             audits.put("retention_period",
                 new String[]{Integer.toString(current.getRetentionPeriodDays()),
                              Integer.toString(patch.retentionPeriodDays())});
+        }
+        // F23: per-workspace no-show cascade settings. Cross-field constraint evaluated on the EFFECTIVE
+        // values (patch ?? current ?? global default) so a single-field edit cannot pass an individually-valid
+        // value that violates the pair (FR-014).
+        if (patch.confirmationLeadTime() != null || patch.unconfirmedEscalationDeadline() != null) {
+            Duration lead = firstNonNull(patch.confirmationLeadTime(), current.getConfirmationLeadTime(),
+                noShowProps.getConfirmationLeadTime());
+            Duration esc = firstNonNull(patch.unconfirmedEscalationDeadline(),
+                current.getUnconfirmedEscalationDeadline(), noShowProps.getEscalationDeadline());
+            validateNoShow(lead, esc, errors);
+            if (patch.confirmationLeadTime() != null) {
+                update.set("confirmationLeadTime", patch.confirmationLeadTime());
+                audits.put("confirmation_lead_time", null);
+            }
+            if (patch.unconfirmedEscalationDeadline() != null) {
+                update.set("unconfirmedEscalationDeadline", patch.unconfirmedEscalationDeadline());
+                audits.put("escalation_deadline", null);
+            }
         }
         if (!errors.isEmpty()) {
             throw new WorkspaceExceptions.ValidationException(errors);
@@ -305,6 +327,34 @@ public class WorkspaceConfigService {
     private static void validateColor(String color, Map<String, String> errors) {
         if (color == null || !COLOR.matcher(color).matches()) {
             errors.put("brandColor", "Must be a hex colour like #1F2937.");
+        }
+    }
+
+    @SafeVarargs
+    private static <T> T firstNonNull(T... values) {
+        for (T v : values) {
+            if (v != null) return v;
+        }
+        return null;
+    }
+
+    /** FR-014: {@code 0 < escalation < lead <= cascadeQueryBound}; both positive. */
+    private void validateNoShow(Duration lead, Duration escalation, Map<String, String> errors) {
+        if (lead == null || lead.isZero() || lead.isNegative()) {
+            errors.put("confirmationLeadTime", "Must be a positive duration.");
+        }
+        if (escalation == null || escalation.isZero() || escalation.isNegative()) {
+            errors.put("unconfirmedEscalationDeadline", "Must be a positive duration.");
+        }
+        if (lead != null && escalation != null) {
+            if (escalation.compareTo(lead) >= 0) {
+                errors.put("unconfirmedEscalationDeadline",
+                    "The escalation deadline must be smaller than the confirmation lead time (closer to the interview).");
+            }
+            if (lead.compareTo(noShowProps.getCascadeQueryBound()) > 0) {
+                errors.put("confirmationLeadTime",
+                    "The confirmation lead time cannot exceed the cascade window bound.");
+            }
         }
     }
 }

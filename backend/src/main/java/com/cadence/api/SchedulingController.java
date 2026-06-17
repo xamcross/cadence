@@ -4,6 +4,7 @@ import com.cadence.api.SchedulingDtos.InitiateRequest;
 import com.cadence.api.SchedulingDtos.InitiateResponse;
 import com.cadence.api.SchedulingDtos.RecruiterCancelResponse;
 import com.cadence.api.SchedulingDtos.RecruiterRescheduleResponse;
+import com.cadence.api.SchedulingDtos.ReleaseResponse;
 import com.cadence.api.SchedulingDtos.StatusResponse;
 import com.cadence.service.SchedulingService;
 import com.cadence.service.SessionService;
@@ -81,5 +82,21 @@ public class SchedulingController {
         SchedulingService.CancelOutcome r = service.cancelByRecruiter(
             principal.workspaceId(), principal.memberId(), candidateId, http.getRemoteAddr());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(RecruiterCancelResponse.from(r));
+    }
+
+    /**
+     * F23: recruiter one-tap release of an unconfirmed slot (US2). Reuses the F20 recruiter-cancel primitive
+     * (resolves the authoritative booking, scoped-404/409, removes events, releases the slot, notifies the
+     * candidate, audits). An authenticated in-app action (non-GET); a release after the interview start is
+     * refused (ineligible). The no-show classification for F50 is derived from the booking's confirmation fields.
+     */
+    @PostMapping("/release")
+    public ResponseEntity<ReleaseResponse> release(
+            @AuthenticationPrincipal SessionService.Principal principal,
+            @PathVariable String candidateId,
+            HttpServletRequest http) {
+        SchedulingService.CancelOutcome r = service.cancelByRecruiter(
+            principal.workspaceId(), principal.memberId(), candidateId, http.getRemoteAddr());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ReleaseResponse.from(r));
     }
 }
