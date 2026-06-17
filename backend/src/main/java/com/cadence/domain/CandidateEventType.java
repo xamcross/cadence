@@ -23,5 +23,10 @@ public enum CandidateEventType {
     // Forward-contract types (declared, not emitted by F04):
     MESSAGE_SENT,
     BOOKING_CHANGED,
-    STAGE_CHANGED
+    STAGE_CHANGED,
+    // F30 Candidate Status Page (append-only): status publish + status-token issuance/rotation. Codes only;
+    // the candidate VIEW is never audited per-request (FR-034 — a read, would flood).
+    STATUS_PUBLISHED,
+    STATUS_LINK_ISSUED,
+    STATUS_LINK_ROTATED
 }

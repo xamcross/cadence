@@ -6,6 +6,7 @@ import com.cadence.domain.ErasureReasonCode;
 import com.cadence.domain.ErasureRequest;
 import com.cadence.domain.RequestStatus;
 import com.cadence.repository.ErasureRequestRepository;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -41,7 +42,13 @@ public class ErasureRequestService {
         this.clock = clock;
     }
 
-    /** F30-forward intake: PII-free request creation. */
+    /**
+     * F30-forward intake: PII-free, IDEMPOTENT request creation (FR-022 — no second PENDING for the same
+     * candidate). The unique partial {@code {workspaceId,candidateId}} over {@code status:PENDING} index
+     * (ChangeUnit015) is the real guard: {@code insert} a fresh PENDING, and on a concurrent/duplicate open
+     * request catch {@code DuplicateKeyException} → return the existing PENDING (no second row, no second audit).
+     * A fresh PENDING after a prior RESOLVED is permitted by design; the rate-limit bounds churn.
+     */
     public ErasureRequest requestErasure(String workspaceId, String candidateId, ErasureReasonCode reason) {
         ErasureRequest r = new ErasureRequest();
         r.setWorkspaceId(workspaceId);
@@ -49,7 +56,27 @@ public class ErasureRequestService {
         r.setStatus(RequestStatus.PENDING);
         r.setReasonCode(reason);
         r.setCreatedAt(Instant.now(clock));
-        ErasureRequest saved = requests.save(r);
+        ErasureRequest saved;
+        try {
+            saved = requests.insert(r);
+        } catch (DuplicateKeyException e) {
+            // A PENDING request already exists for this candidate — idempotent: return it, no second audit.
+            ErasureRequest existing = requests
+                .findFirstByWorkspaceIdAndCandidateIdAndStatus(workspaceId, candidateId, RequestStatus.PENDING)
+                .orElse(null);
+            if (existing != null) {
+                return existing;
+            }
+            // Extremely narrow race: the existing PENDING was resolved between the clash and this read. Retry once
+            // (a fresh PENDING is now permitted); a second clash is then a genuine concurrent insert we re-read.
+            try {
+                saved = requests.insert(r);
+            } catch (DuplicateKeyException e2) {
+                return requests
+                    .findFirstByWorkspaceIdAndCandidateIdAndStatus(workspaceId, candidateId, RequestStatus.PENDING)
+                    .orElseThrow(() -> e2);
+            }
+        }
         audit.append(workspaceId, candidateId, CandidateEventType.ERASURE_REQUESTED,
             CandidateAuditOutcome.REQUESTED, null);
         return saved;

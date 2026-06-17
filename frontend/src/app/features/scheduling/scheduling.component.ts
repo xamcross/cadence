@@ -2,7 +2,14 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { InitiateResponse, SchedulingService, StatusResponse } from './scheduling.service';
+import {
+  InitiateResponse,
+  PublishStatusRequest,
+  RecruiterStatusResponse,
+  SchedulingService,
+  StatusOutcome,
+  StatusResponse
+} from './scheduling.service';
 
 /**
  * F13 recruiter "Send scheduling link" surface (§II demonstrable leg). Minimal by design — the full
@@ -58,6 +65,54 @@ import { InitiateResponse, SchedulingService, StatusResponse } from './schedulin
         </ng-container>
       </div>
       <p class="ok" *ngIf="manageMsg()" role="status">{{ manageMsg() }}</p>
+
+      <!-- F30: candidate Status panel (US2). Recruiter/Admin publishes the honest status the candidate sees
+           on /status, mirroring the server validation (in-progress requires stage + next step + date;
+           terminal requires a next-step message). Copy / rotate the candidate's status link. -->
+      <div class="status-panel" *ngIf="candidateId">
+        <h2 i18n="@@status.panel.title">Candidate status</h2>
+
+        <label>
+          <span i18n="@@status.panel.outcome">Outcome</span>
+          <select name="statusOutcome" [(ngModel)]="statusOutcome">
+            <option value="IN_PROGRESS" i18n="@@status.panel.outcome.inProgress">In progress</option>
+            <option value="COMPLETE_OFFER" i18n="@@status.panel.outcome.offer">Offer</option>
+            <option value="COMPLETE_REJECTED" i18n="@@status.panel.outcome.rejected">Not progressing</option>
+          </select>
+        </label>
+
+        <label *ngIf="statusOutcome === 'IN_PROGRESS'">
+          <span i18n="@@status.panel.stage">Current stage</span>
+          <input name="statusStage" [(ngModel)]="statusStage" />
+        </label>
+
+        <label>
+          <span i18n="@@status.panel.next">What happens next</span>
+          <textarea name="statusNextStep" [(ngModel)]="statusNextStep" rows="2"></textarea>
+        </label>
+
+        <label *ngIf="statusOutcome === 'IN_PROGRESS'">
+          <span i18n="@@status.panel.date">Expected by</span>
+          <input name="statusExpectedDate" type="date" [(ngModel)]="statusExpectedDate" />
+        </label>
+
+        <button type="button" class="status-publish" [disabled]="busy() || !statusValid()"
+                (click)="publishStatus()" i18n="@@status.panel.publish">Publish status</button>
+
+        <p class="err" *ngIf="!statusValid() && statusTouched()" role="status" i18n="@@status.panel.invalid">
+          An in-progress status needs a stage, a next step, and an expected date. A concluded status needs a closing message.
+        </p>
+        <p class="ok" *ngIf="statusMsg()" role="status">{{ statusMsg() }}</p>
+
+        <div class="status-link" *ngIf="statusLink()">
+          <span class="link-value">{{ statusLink() }}</span>
+          <button type="button" (click)="copyStatusLink()" i18n="@@status.panel.copy">Copy status link</button>
+          <button type="button" [disabled]="busy()" (click)="rotateStatusLink()"
+                  i18n="@@status.panel.rotate">Rotate link</button>
+        </div>
+        <button type="button" *ngIf="!statusLink()" (click)="loadStatus()"
+                i18n="@@status.panel.load">Load status</button>
+      </div>
     </section>
   `
 })
@@ -75,6 +130,15 @@ export class SchedulingComponent {
   readonly error = signal<string | null>(null);
   readonly statusView = signal<StatusResponse | null>(null);
   readonly manageMsg = signal<string | null>(null);
+
+  // F30 candidate-status panel state.
+  statusOutcome: StatusOutcome = 'IN_PROGRESS';
+  statusStage = '';
+  statusNextStep = '';
+  statusExpectedDate = '';
+  readonly statusLink = signal<string | null>(null);
+  readonly statusMsg = signal<string | null>(null);
+  readonly statusTouched = signal(false);
 
   send(): void {
     this.busy.set(true);
@@ -173,6 +237,93 @@ export class SchedulingComponent {
     if (code === 'no_active_booking') { return $localize`:@@scheduling.manage.noBooking:This candidate has no booked interview.`; }
     if (code === 'ineligible') { return $localize`:@@scheduling.manage.ineligible:This interview can no longer be changed — its start time has already passed.`; }
     return $localize`:@@scheduling.manage.generic:Could not complete that action — please try again.`;
+  }
+
+  // ---- F30 candidate status panel ----
+
+  /** Client validation mirroring the server rules (data-model §4): IN_PROGRESS requires stage + next step
+   *  + expected date; a terminal outcome requires a non-blank next-step (closing) message. */
+  statusValid(): boolean {
+    const next = this.statusNextStep.trim();
+    if (this.statusOutcome === 'IN_PROGRESS') {
+      return this.statusStage.trim().length > 0 && next.length > 0 && this.statusExpectedDate.trim().length > 0;
+    }
+    return next.length > 0;
+  }
+
+  publishStatus(): void {
+    this.statusTouched.set(true);
+    if (!this.candidateId || !this.statusValid()) { return; }
+    this.busy.set(true);
+    this.statusMsg.set(null);
+    const req: PublishStatusRequest = {
+      outcome: this.statusOutcome,
+      stage: this.statusOutcome === 'IN_PROGRESS' ? this.statusStage.trim() : null,
+      nextStep: this.statusNextStep.trim(),
+      expectedDate: this.statusOutcome === 'IN_PROGRESS' ? (this.statusExpectedDate || null) : null
+    };
+    this.api.publishStatus(this.candidateId, req).subscribe({
+      next: (r: RecruiterStatusResponse) => {
+        this.applyStatus(r);
+        this.statusMsg.set($localize`:@@status.panel.published:Status published — the candidate can now see it.`);
+        this.busy.set(false);
+      },
+      error: (e: HttpErrorResponse) => { this.statusMsg.set(this.statusError(e)); this.busy.set(false); }
+    });
+  }
+
+  loadStatus(): void {
+    if (!this.candidateId) { return; }
+    this.api.readStatus(this.candidateId).subscribe({
+      next: (r: RecruiterStatusResponse) => this.applyStatus(r),
+      error: (e: HttpErrorResponse) => this.statusMsg.set(this.statusError(e))
+    });
+  }
+
+  rotateStatusLink(): void {
+    if (!this.candidateId) { return; }
+    this.busy.set(true);
+    this.statusMsg.set(null);
+    this.api.rotateStatusLink(this.candidateId).subscribe({
+      next: (r) => {
+        this.statusLink.set(r.statusLink);
+        this.statusMsg.set($localize`:@@status.panel.rotated:Link rotated — the previous link no longer works.`);
+        this.busy.set(false);
+      },
+      error: (e: HttpErrorResponse) => { this.statusMsg.set(this.statusError(e)); this.busy.set(false); }
+    });
+  }
+
+  copyStatusLink(): void {
+    const link = this.statusLink();
+    if (!link) { return; }
+    // Best-effort clipboard copy; never throws into the UI.
+    navigator.clipboard?.writeText(link).then(
+      () => this.statusMsg.set($localize`:@@status.panel.copied:Status link copied to the clipboard.`),
+      () => this.statusMsg.set($localize`:@@status.panel.copyFailed:Could not copy — please copy the link manually.`)
+    );
+  }
+
+  private applyStatus(r: RecruiterStatusResponse): void {
+    this.statusLink.set(r.statusLink ?? null);
+    if (r.outcome) { this.statusOutcome = r.outcome; }
+    this.statusStage = r.stage ?? '';
+    this.statusNextStep = r.nextStep ?? '';
+    this.statusExpectedDate = r.expectedDate ?? '';
+  }
+
+  private statusError(e: HttpErrorResponse): string {
+    const code = e.error?.error;
+    if (code === 'invalid_status') {
+      return $localize`:@@status.panel.err.invalid:That status is incomplete — check the required fields.`;
+    }
+    if (e.status === 404) {
+      return $localize`:@@status.panel.err.notFound:This candidate could not be found.`;
+    }
+    if (e.status === 403) {
+      return $localize`:@@status.panel.err.forbidden:You do not have permission to change this candidate's status.`;
+    }
+    return $localize`:@@status.panel.err.generic:Could not complete that action — please try again.`;
   }
 
   private messageFor(e: HttpErrorResponse): string {

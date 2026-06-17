@@ -22,4 +22,11 @@ public interface CandidateRepository extends MongoRepository<Candidate, String> 
     /** Currently-flagged, active candidates — for the Admin review list and the flag-clear sweep. */
     List<Candidate> findByWorkspaceIdAndRetentionFlaggedTrueAndErasureState(
         String workspaceId, ErasureState erasureState);
+
+    /**
+     * F30: resolve an inbound status-page request by the keyed status-token hash (partial-unique index,
+     * ChangeUnit015). Non-workspace-scoped — the token IS the auth (the F13 {@code findByTokenHash} precedent).
+     * The caller folds "erased" into the same not-found so the view is not an existence oracle (FR-031).
+     */
+    Optional<Candidate> findByStatusTokenHash(String statusTokenHash);
 }

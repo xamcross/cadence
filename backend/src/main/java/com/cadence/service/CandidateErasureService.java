@@ -66,6 +66,18 @@ public class CandidateErasureService {
             .set("undeliverableReason", null)
             .set("undeliverableAt", null)
             .set("undeliverableClearedAt", null)
+            // F30 (research D7 / FR-024): clear the candidate-visible status + the status access token atomically
+            // within the wipe (no resurrection window). statusToken is converter-managed -> $set null, NEVER
+            // $unset (the F03 WorkspaceConfigService.unsetCredential ClassCastException trap; encrypt(null)==null
+            // makes $set null correct & null-safe). statusTokenHash is a plain hash -> $unset (removes it from the
+            // partial index, so the old status link 404s). The free-text + outcome/instant fields -> $set null.
+            .set("statusStage", null)
+            .set("statusNextStep", null)
+            .set("statusExpectedDate", null)
+            .set("statusOutcome", null)
+            .set("statusPublishedAt", null)
+            .set("statusToken", null)
+            .unset("statusTokenHash")
             .set("erasureState", ErasureState.ERASED)
             .set("erasedAt", Instant.now(clock));
         UpdateResult r = mongoTemplate.updateFirst(q, u, Candidate.class);

@@ -38,6 +38,12 @@ public class MongoPiiConfig {
                 registrar.registerConverter(Candidate.class, "name", converter);
                 registrar.registerConverter(Candidate.class, "email", converter);
                 registrar.registerConverter(Candidate.class, "phone", converter);
+                // F30: encrypt the candidate-visible recruiter free text + the reversible status access token
+                // at rest (research D1/D2). statusTokenHash is NOT registered — it is a keyed HMAC, stored as-is
+                // for the indexed inbound lookup. Same converter instance; one bean only.
+                registrar.registerConverter(Candidate.class, "statusStage", converter);
+                registrar.registerConverter(Candidate.class, "statusNextStep", converter);
+                registrar.registerConverter(Candidate.class, "statusToken", converter);
                 // F01.1: encrypt calendar OAuth secrets + the connected-account id at rest (research D2).
                 // Same converter instance; one bean only.
                 registrar.registerConverter(CalendarConnection.class, "refreshToken", converter);
