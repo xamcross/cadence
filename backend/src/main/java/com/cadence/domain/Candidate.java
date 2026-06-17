@@ -1,10 +1,12 @@
 package com.cadence.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * The candidate data-subject record (F04). The candidate never has an account (distinct from
@@ -68,6 +70,39 @@ public class Candidate {
     private Instant undeliverableClearedAt;
 
     private Instant createdAt;
+
+    // --- F30 Candidate Status Page (data-model §1) — additive, candidate-visible status -----------------
+    /** Recruiter free text — short stage label. Encrypted at rest (converter). PII; never logged. */
+    @JsonIgnore
+    @Field(value = "statusStage", write = Field.Write.NON_NULL)
+    private String statusStage;
+    /** Recruiter free text — plain-English next step / terminal message. Encrypted at rest. PII; never logged. */
+    @JsonIgnore
+    @Field(value = "statusNextStep", write = Field.Write.NON_NULL)
+    private String statusNextStep;
+    /** Required for IN_PROGRESS; nullable for terminal. Compared in the WORKSPACE zone (D5). */
+    private LocalDate statusExpectedDate;
+    /** IN_PROGRESS / COMPLETE_OFFER / COMPLETE_REJECTED. Null until first publish. */
+    private CandidateStatusOutcome statusOutcome;
+    /** Null => never published => displayState UNDER_REVIEW (FR-006). */
+    private Instant statusPublishedAt;
+    /** Internal member id (non-PII). */
+    private String statusPublishedByMemberId;
+    /**
+     * The raw status access token, AES-256-GCM at rest (converter-managed, REVERSIBLE — the F01.1 OAuth
+     * refresh-token precedent). Decrypted only to build the link (D2/D9). write=NON_NULL so an absent token
+     * is omitted from BSON. Never logged. Cleared on erasure via $set null (NOT $unset — converter trap).
+     */
+    @JsonIgnore
+    @Field(value = "statusToken", write = Field.Write.NON_NULL)
+    private String statusToken;
+    /**
+     * {@code TokenHasher.hashToken(raw)} — deterministic HMAC, partial-unique indexed; resolves inbound
+     * requests. NOT converter-managed (already a hash). write=NON_NULL so an absent token is omitted from
+     * the partial index (the F01 present-as-null lesson). Never logged. Cleared on erasure via $unset.
+     */
+    @Field(value = "statusTokenHash", write = Field.Write.NON_NULL)
+    private String statusTokenHash;
 
     public Candidate() {}
 
@@ -134,7 +169,34 @@ public class Candidate {
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    /** Deliberately omits name/email/phone — never leak candidate PII via toString()/logs (FR-023). */
+    public String getStatusStage() { return statusStage; }
+    public void setStatusStage(String statusStage) { this.statusStage = statusStage; }
+
+    public String getStatusNextStep() { return statusNextStep; }
+    public void setStatusNextStep(String statusNextStep) { this.statusNextStep = statusNextStep; }
+
+    public LocalDate getStatusExpectedDate() { return statusExpectedDate; }
+    public void setStatusExpectedDate(LocalDate statusExpectedDate) { this.statusExpectedDate = statusExpectedDate; }
+
+    public CandidateStatusOutcome getStatusOutcome() { return statusOutcome; }
+    public void setStatusOutcome(CandidateStatusOutcome statusOutcome) { this.statusOutcome = statusOutcome; }
+
+    public Instant getStatusPublishedAt() { return statusPublishedAt; }
+    public void setStatusPublishedAt(Instant statusPublishedAt) { this.statusPublishedAt = statusPublishedAt; }
+
+    public String getStatusPublishedByMemberId() { return statusPublishedByMemberId; }
+    public void setStatusPublishedByMemberId(String statusPublishedByMemberId) { this.statusPublishedByMemberId = statusPublishedByMemberId; }
+
+    public String getStatusToken() { return statusToken; }
+    public void setStatusToken(String statusToken) { this.statusToken = statusToken; }
+
+    public String getStatusTokenHash() { return statusTokenHash; }
+    public void setStatusTokenHash(String statusTokenHash) { this.statusTokenHash = statusTokenHash; }
+
+    /**
+     * Deliberately omits name/email/phone (FR-023) AND the F30 statusStage/statusNextStep (PII) +
+     * statusToken/statusTokenHash (credential) — never leak PII or a token via toString()/logs (FR-033/FR-034).
+     */
     @Override
     public String toString() {
         return "Candidate{id=" + id + ", workspaceId=" + workspaceId + ", erasureState=" + erasureState + "}";

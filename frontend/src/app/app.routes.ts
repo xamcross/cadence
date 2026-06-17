@@ -119,6 +119,14 @@ export const routes: Routes = [
       import('./features/booking/confirm-attendance.component').then((m) => m.ConfirmAttendanceComponent)
   },
   {
+    // F30 candidate status page (Flow §IX) — PUBLIC (status token in the URL, no login, no guard). Top-level
+    // sibling of the guarded shell so authGuard never fires (the candidate has no session), mirroring
+    // /schedule, /booking, /confirm. Inherits the global /_headers CSP + Referrer-Policy: no-referrer.
+    path: 'status',
+    loadComponent: () =>
+      import('./features/status/candidate-status.component').then((m) => m.CandidateStatusComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

@@ -180,6 +180,10 @@ cadence:
     reaper-interval-ms: 60000
     # F23 No-Show Defense (Flow A4) — the candidate attendance-confirmation page path.
     spa-confirm-base-path: /confirm
+  # F30 Candidate Status Page. The candidate status-link is {spaBaseUrl}{spa-status-base-path}?token=...
+  # The per-IP rate limit reuses cadence.scheduling.rate-limit-per-minute (no new key).
+  status:
+    spa-status-base-path: /status
   # F23 No-Show Defense cascade. Global defaults; a per-workspace override on WorkspaceConfig wins.
   noshow:
     confirmation-lead-time: PT24H

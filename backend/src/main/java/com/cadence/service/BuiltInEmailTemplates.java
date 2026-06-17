@@ -31,7 +31,9 @@ public class BuiltInEmailTemplates {
             "Your {{stage_name}} interview is confirmed",
             "Hi {{candidate_name}},\n\nYour interview is confirmed for {{interview_date}} at "
                 + "{{interview_time}} ({{time_zone}}).\nLocation: {{location}}\n\n"
-                + "Need to change it? {{reschedule_link}}\n\nBest,\n{{recruiter_name}}"));
+                + "Need to change it? {{reschedule_link}}\n\n"
+                // F30: the candidate can track their ongoing process from the confirmation onward.
+                + "Track your application status any time: {{status_link}}\n\nBest,\n{{recruiter_name}}"));
         defaults.put(EmailMessageType.REMINDER_24H, new Content(
             "Please confirm your interview",
             "Hi {{candidate_name}},\n\nThis is a reminder that your {{stage_name}} interview is on "

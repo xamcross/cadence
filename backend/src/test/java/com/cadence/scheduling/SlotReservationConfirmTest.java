@@ -14,24 +14,29 @@ import com.cadence.domain.PanelBookingResult.MemberOutcome;
 import com.cadence.domain.PanelBookingResult.PanelOutcome;
 import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.SchedulingStatus;
+import com.cadence.domain.EmailMessageType;
 import com.cadence.integration.EmailSender;
 import com.cadence.service.AvailabilityService;
 import com.cadence.service.CalendarEventService;
+import com.cadence.service.CandidateStatusService;
 import com.cadence.service.EmailDispatchService;
 import com.cadence.service.SlotReservationService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -48,6 +53,7 @@ class SlotReservationConfirmTest extends SchedulingItBase {
     private static final String REQ_MEMBER = "111111111111111111111111";
 
     @Autowired SlotReservationService service;
+    @Autowired CandidateStatusService statusService; // real bean — provisions the candidate status link
     @MockBean AvailabilityService availability;
     @MockBean CalendarEventService calendar;
     @MockBean EmailDispatchService dispatch;
@@ -91,6 +97,32 @@ class SlotReservationConfirmTest extends SchedulingItBase {
         assertThat(after.getStatus()).isEqualTo(SchedulingStatus.BOOKED);
         assertThat(after.getChosenSlotId()).isEqualTo("0");
         verify(calendar, times(1)).createPanelEvents(eq(WS), any(), anyList(), any());
+    }
+
+    @Test
+    void happyConfirm_confirmationCarriesRealStatusLink_notMissingMarker() {
+        // F30 regression: the CONFIRMATION email's merge context MUST carry a real status_link
+        // (/status?token=...), never the F21 [[missing:status_link]] marker. statusService is the
+        // real bean here, so statusLinkFor provisions + resolves the candidate's actual link.
+        freeAtConfirm();
+        panelOutcome(PanelOutcome.CREATED);
+        Seeded seeded = seedReady();
+
+        service.confirm(seeded.rawToken, "0", "9.9.9.9");
+
+        // Capture the consent-gated candidate CONFIRMATION dispatch's nonPii merge context.
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> ctx = ArgumentCaptor.forClass(Map.class);
+        verify(dispatch, times(1)).enqueue(eq(WS), eq("cand1"), eq(EmailMessageType.CONFIRMATION),
+            eq("BASE"), any(), ctx.capture(), isNull());
+
+        Map<String, String> merge = ctx.getValue();
+        // The real status link the candidate would resolve to.
+        String expectedLink = statusService.statusLinkFor(WS, "cand1");
+        assertThat(merge).containsKey("status_link");
+        assertThat(merge.get("status_link")).isEqualTo(expectedLink);
+        assertThat(merge.get("status_link")).contains("/status?token=");
+        assertThat(merge.get("status_link")).doesNotContain("[[missing");
     }
 
     @Test

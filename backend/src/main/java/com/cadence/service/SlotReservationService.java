@@ -87,6 +87,7 @@ public class SlotReservationService {
     private final TokenHasher hasher;
     private final MongoTemplate mongo;
     private final Clock clock;
+    private final CandidateStatusService statusService;
 
     public SlotReservationService(SchedulingRequestRepository requests, InterviewSlotClaimRepository claims,
                                   InterviewTemplateRepository templates, ContactPermissionGate gate,
@@ -95,7 +96,8 @@ public class SlotReservationService {
                                   AuthAuditService audit, CandidateAuditService candidateAudit,
                                   RecruiterNotificationService notifications, CandidateRateLimiter rateLimiter,
                                   RuleEngine ruleEngine, SchedulingProperties props, AuthProperties authProps,
-                                  TokenHasher hasher, MongoTemplate mongo, Clock clock) {
+                                  TokenHasher hasher, MongoTemplate mongo, Clock clock,
+                                  CandidateStatusService statusService) {
         this.requests = requests;
         this.claims = claims;
         this.templates = templates;
@@ -114,6 +116,7 @@ public class SlotReservationService {
         this.hasher = hasher;
         this.mongo = mongo;
         this.clock = clock;
+        this.statusService = statusService;
     }
 
     public record SlotProjection(String slotId, Instant start, Instant end, String zoneId) {}
@@ -376,6 +379,10 @@ public class SlotReservationService {
         // (permitted for CONFIRMATION in MergeTokenCatalogue). TLS body only — never persisted/logged.
         candidateCtx.put("reschedule_link", manageLink(rawManageToken));
         try {
+            // F30 (D9): the candidate's lifecycle status-page link rides the CONFIRMATION {{status_link}} token
+            // (permitted for CONFIRMATION in MergeTokenCatalogue). statusLinkFor provisions the token via an
+            // atomic CAS; a failure is caught below so the booking still stands (FR-018). TLS body only.
+            candidateCtx.put("status_link", statusService.statusLinkFor(req.getWorkspaceId(), req.getCandidateId()));
             // scheduledFor=now (the commit instant) discriminates reschedule rounds on the F22 idempotency key
             // (each round commits at a distinct instant — FR-014); tests advance the clock between rounds.
             dispatch.enqueue(req.getWorkspaceId(), req.getCandidateId(),

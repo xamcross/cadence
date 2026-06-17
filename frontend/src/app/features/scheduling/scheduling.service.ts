@@ -30,6 +30,33 @@ export interface StatusResponse {
   escalated?: boolean;
 }
 
+/** F30 candidate-status outcome — mirrors the server `CandidateStatusOutcome` enum. */
+export type StatusOutcome = 'IN_PROGRESS' | 'COMPLETE_OFFER' | 'COMPLETE_REJECTED';
+
+/** F30 publish-status request (contract C). */
+export interface PublishStatusRequest {
+  outcome: StatusOutcome;
+  stage?: string | null;
+  nextStep: string;
+  expectedDate?: string | null; // ISO date — required for IN_PROGRESS
+}
+
+/** F30 recruiter status read (contract D) — decrypted status + the current candidate status link. */
+export interface RecruiterStatusResponse {
+  displayState?: string | null;
+  outcome?: StatusOutcome | null;
+  stage?: string | null;
+  nextStep?: string | null;
+  expectedDate?: string | null;
+  statusLink: string;
+  publishedAt?: string | null;
+}
+
+/** F30 rotate-link response (contract E). */
+export interface RotateLinkResponse {
+  statusLink: string;
+}
+
 /** F13 recruiter scheduling API (contract A). */
 @Injectable({ providedIn: 'root' })
 export class SchedulingService {
@@ -66,5 +93,25 @@ export class SchedulingService {
   release(candidateId: string): Observable<{ status: string; at: string; cleanupIncomplete: boolean }> {
     return this.http.post<{ status: string; at: string; cleanupIncomplete: boolean }>(
       `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/scheduling/release`, {});
+  }
+
+  // ---- F30 candidate status (contracts C/D/E) ----
+
+  /** F30: publish/update the candidate's honest status (Recruiter/Admin). */
+  publishStatus(candidateId: string, req: PublishStatusRequest): Observable<RecruiterStatusResponse> {
+    return this.http.put<RecruiterStatusResponse>(
+      `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/status`, req);
+  }
+
+  /** F30: read the persisted status + the current candidate status link (re-derived). */
+  readStatus(candidateId: string): Observable<RecruiterStatusResponse> {
+    return this.http.get<RecruiterStatusResponse>(
+      `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/status`);
+  }
+
+  /** F30: rotate the status link — the previous link stops resolving (SC-011). */
+  rotateStatusLink(candidateId: string): Observable<RotateLinkResponse> {
+    return this.http.post<RotateLinkResponse>(
+      `${this.base}/internal/candidates/${encodeURIComponent(candidateId)}/status/rotate-link`, {});
   }
 }

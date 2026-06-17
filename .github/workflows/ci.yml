@@ -187,6 +187,20 @@ jobs:
           fi
           echo "F23 no-show scan passed — no candidate PII / confirm-token found in test output."
 
+      - name: PII scan (F30 candidate status page) — no status free text / status-token in logs (SC-006)
+        run: |
+          # F30's StatusLogPiiScanTest drives a status publish, a candidate view, an erasure submit, and a wipe
+          # with high-entropy stage / next-step sentinels and asserts none reach Cadence's logs / the persisted
+          # candidates doc / the audit log / the erasure request (the recruiter free text is encrypted at rest,
+          # the status token stored hashed/encrypted, only ids / .name() are logged; the decrypted status link
+          # never reaches a logger or DeadLetterService). CI re-checks the sentinels in the captured output.
+          if grep -qE 'SENTINELF30STAGE_zz9|SENTINELF30NEXT_zz9' test-output.txt; then
+            echo "ERROR: an F30 candidate status free-text sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF30STAGE_zz9|SENTINELF30NEXT_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F30 status-page scan passed — no candidate status free text / token found in test output."
+
       - name: No-SMS/WhatsApp/waitlist scope guard — the MVP no-show cascade is email-only (F23 SC-012)
         run: |
           # F23 FR-023/SC-012: the cascade is email-only and ships no waitlist auto-invitation. Guard against a
