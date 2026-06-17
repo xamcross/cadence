@@ -23,5 +23,9 @@ public enum RecruiterNotificationType {
     // F23 No-Show Defense (append-only — value-free). The SINGLE coarse escalation alert: covers both a
     // candidate non-response AND a not-contactable booking, so it never discloses WHY (no GDPR/contactability
     // oracle to the recruiter, research D5). The one-tap "release slot" prompt keys off this.
-    INTERVIEW_UNCONFIRMED
+    INTERVIEW_UNCONFIRMED,
+    // F31 SLA Nudge Engine (append-only — value-free): a candidate breached the silence window and a holding
+    // draft is queued for one-click recruiter approval. Workspace-scoped (any active Admin/Recruiter sees it),
+    // so the "no assignable recruiter" fallback is inherent (research D11).
+    SLA_DRAFT_PENDING
 }

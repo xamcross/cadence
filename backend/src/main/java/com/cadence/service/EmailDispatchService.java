@@ -73,6 +73,7 @@ public class EmailDispatchService {
     private final DeadLetterService deadLetters;
     private final RecruiterNotificationService notifications;
     private final EmailDispatchMetrics metrics;
+    private final CandidateActivityService activity;
     private final EmailDeliveryProperties props;
     private final Clock clock;
 
@@ -80,7 +81,8 @@ public class EmailDispatchService {
                                 EmailTemplateService templates, CandidateRepository candidates,
                                 MailSenderSelector senders, EmailSender emailSender, AuthAuditService audit,
                                 DeadLetterService deadLetters, RecruiterNotificationService notifications,
-                                EmailDispatchMetrics metrics, EmailDeliveryProperties props, Clock clock) {
+                                EmailDispatchMetrics metrics, CandidateActivityService activity,
+                                EmailDeliveryProperties props, Clock clock) {
         this.repo = repo;
         this.mongo = mongo;
         this.gate = gate;
@@ -92,6 +94,7 @@ public class EmailDispatchService {
         this.deadLetters = deadLetters;
         this.notifications = notifications;
         this.metrics = metrics;
+        this.activity = activity;
         this.props = props;
         this.clock = clock;
     }
@@ -293,6 +296,10 @@ public class EmailDispatchService {
                 return new DispatchResult(dispatchId, st, rs, false);
             }
             metrics.incSent();
+            // F31 (research D1, site 1): an outbound candidate email is a qualifying activity — advance the
+            // canonical last-meaningful-activity instant (ACTIVE-guarded helper; NOT a fold into the SENT $set,
+            // which is on EmailDispatch.class). Clears the candidate's SLA silence.
+            activity.advanceLastContact(claimed.getWorkspaceId(), claimed.getCandidateId(), sentAt);
             audit.record(AuthEventType.EMAIL_DISPATCH_SENT, claimed.getWorkspaceId(), claimed.getCandidateId(),
                 claimed.getMessageType().name(), null);
             log.info("email dispatch sent {} {}",

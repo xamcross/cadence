@@ -88,6 +88,7 @@ public class SlotReservationService {
     private final MongoTemplate mongo;
     private final Clock clock;
     private final CandidateStatusService statusService;
+    private final CandidateActivityService activity;
 
     public SlotReservationService(SchedulingRequestRepository requests, InterviewSlotClaimRepository claims,
                                   InterviewTemplateRepository templates, ContactPermissionGate gate,
@@ -97,7 +98,7 @@ public class SlotReservationService {
                                   RecruiterNotificationService notifications, CandidateRateLimiter rateLimiter,
                                   RuleEngine ruleEngine, SchedulingProperties props, AuthProperties authProps,
                                   TokenHasher hasher, MongoTemplate mongo, Clock clock,
-                                  CandidateStatusService statusService) {
+                                  CandidateStatusService statusService, CandidateActivityService activity) {
         this.requests = requests;
         this.claims = claims;
         this.templates = templates;
@@ -117,6 +118,7 @@ public class SlotReservationService {
         this.mongo = mongo;
         this.clock = clock;
         this.statusService = statusService;
+        this.activity = activity;
     }
 
     public record SlotProjection(String slotId, Instant start, Instant end, String zoneId) {}
@@ -310,6 +312,10 @@ public class SlotReservationService {
                     calendar.cancelBooking(req.getWorkspaceId(), req.getId());
                     throw new SchedulingExceptions.SlotTakenException();
                 }
+                // F31 (research D1, sites 3+4): a booking/reschedule commit is a qualifying activity — advance
+                // the canonical last-meaningful-activity instant (clears SLA silence). Covers initial + reschedule
+                // (a reschedule confirm also wins this BOOKING->BOOKED CAS for the new round).
+                activity.advanceLastContact(booked.getWorkspaceId(), booked.getCandidateId(), now);
                 if (req.getMode() == SchedulingMode.RESCHEDULE) {
                     if (!forwardCommitParent(booked, now)) {
                         // The parent was concurrently cancelled/superseded (a cancel raced this confirm). The

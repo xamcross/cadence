@@ -201,6 +201,19 @@ jobs:
           fi
           echo "F30 status-page scan passed — no candidate status free text / token found in test output."
 
+      - name: PII scan — F31 SLA nudge (no candidate name / status token in test output, SC-007)
+        run: |
+          # F31 FR-024/FR-025/SC-007: the SLA draft is PII-free at rest (ids/enums/instants), the dispatch row
+          # carries no recipient/body, and the decrypted status link materialises only transiently into the merge
+          # context (never logged/persisted/dead-lettered). SlaNudgeLogPiiScanTest seeds the SENTINELF31NAME sentinel
+          # and asserts absence at rest; CI re-checks it in the captured stdout (the backstop).
+          if grep -qE 'SENTINELF31NAME_zz9' test-output.txt; then
+            echo "ERROR: an F31 candidate name sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF31NAME_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F31 SLA-nudge scan passed — no candidate name / status token found in test output."
+
       - name: No-SMS/WhatsApp/waitlist scope guard — the MVP no-show cascade is email-only (F23 SC-012)
         run: |
           # F23 FR-023/SC-012: the cascade is email-only and ships no waitlist auto-invitation. Guard against a

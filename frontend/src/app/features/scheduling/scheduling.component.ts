@@ -10,6 +10,7 @@ import {
   StatusOutcome,
   StatusResponse
 } from './scheduling.service';
+import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nudge.service';
 
 /**
  * F13 recruiter "Send scheduling link" surface (§II demonstrable leg). Minimal by design — the full
@@ -113,11 +114,48 @@ import {
         <button type="button" *ngIf="!statusLink()" (click)="loadStatus()"
                 i18n="@@status.panel.load">Load status</button>
       </div>
+
+      <!-- F31: SLA nudge panel (US2/US3). The candidate's green/amber/red communication-health badge plus the
+           queued holding-message draft; the recruiter previews and approves (one consent-gated send) or dismisses.
+           Internal screen (Lighthouse/WCAG N/A — F50/F51 precedent). No auto-send. -->
+      <div class="sla-nudge-panel" *ngIf="candidateId">
+        <h2 i18n="@@sla.panel.title">Communication SLA</h2>
+        <button type="button" (click)="loadSla()" i18n="@@sla.panel.load">Check SLA status</button>
+        <ng-container *ngIf="sla() as s">
+          <span class="sla-badge" [class.green]="s.slaState === 'GREEN'" [class.amber]="s.slaState === 'AMBER'"
+                [class.red]="s.slaState === 'RED'">{{ slaLabel(s.slaState) }}</span>
+
+          <div class="sla-draft" *ngIf="s.openDraftId">
+            <p i18n="@@sla.panel.draftPending">A holding message is queued for your approval.</p>
+            <button type="button" [disabled]="slaBusy()" (click)="previewDraft()"
+                    i18n="@@sla.panel.preview">Preview draft</button>
+            <div class="sla-preview" *ngIf="draftPreview() as p">
+              <p class="subject">{{ p.subject }}</p>
+              <p class="body" style="white-space: pre-wrap">{{ p.body }}</p>
+              <p class="warn" *ngIf="p.missingFields.length" role="status" i18n="@@sla.panel.missing">
+                Some details are missing and shown as placeholders — fill in the candidate's status first.
+              </p>
+            </div>
+            <button type="button" class="sla-approve" [disabled]="slaBusy()" (click)="approveDraft(s.openDraftId)"
+                    i18n="@@sla.panel.approve">Approve and send</button>
+            <button type="button" class="sla-dismiss" [disabled]="slaBusy()" (click)="dismissDraft(s.openDraftId)"
+                    i18n="@@sla.panel.dismiss">Dismiss</button>
+          </div>
+        </ng-container>
+        <p class="ok" *ngIf="slaMsg()" role="status">{{ slaMsg() }}</p>
+      </div>
     </section>
   `
 })
 export class SchedulingComponent {
   private readonly api = inject(SchedulingService);
+  private readonly slaApi = inject(SlaNudgeService);
+
+  // F31 SLA nudge panel state.
+  readonly sla = signal<CandidateSla | null>(null);
+  readonly draftPreview = signal<DraftPreview | null>(null);
+  readonly slaBusy = signal(false);
+  readonly slaMsg = signal<string | null>(null);
 
   candidateId = '';
   templateId = '';
@@ -332,5 +370,69 @@ export class SchedulingComponent {
     if (code === 'not_contactable') { return $localize`:@@scheduling.err.notContactable:This candidate cannot currently be contacted.`; }
     if (code === 'unschedulable_required_member') { return $localize`:@@scheduling.err.unschedulable:A required interviewer's calendar is not connected.`; }
     return $localize`:@@scheduling.err.generic:Could not send the scheduling link.`;
+  }
+
+  // ---- F31 SLA nudge panel ----
+
+  slaLabel(state: SlaState): string {
+    switch (state) {
+      case 'GREEN': return $localize`:@@sla.badge.green:Within SLA`;
+      case 'AMBER': return $localize`:@@sla.badge.amber:Nearing SLA breach`;
+      case 'RED': return $localize`:@@sla.badge.red:Overdue — in silence`;
+      default: return state;
+    }
+  }
+
+  loadSla(): void {
+    if (!this.candidateId) { return; }
+    this.slaMsg.set(null);
+    this.draftPreview.set(null);
+    this.slaApi.getSla(this.candidateId).subscribe({
+      next: (s) => this.sla.set(s),
+      error: (e: HttpErrorResponse) => { this.sla.set(null); this.slaMsg.set(this.slaError(e)); }
+    });
+  }
+
+  previewDraft(): void {
+    if (!this.candidateId) { return; }
+    this.slaBusy.set(true);
+    this.slaApi.previewDraft(this.candidateId).subscribe({
+      next: (p) => { this.draftPreview.set(p); this.slaBusy.set(false); },
+      error: (e: HttpErrorResponse) => { this.slaMsg.set(this.slaError(e)); this.slaBusy.set(false); }
+    });
+  }
+
+  approveDraft(draftId: string): void {
+    this.slaBusy.set(true);
+    this.slaMsg.set(null);
+    this.slaApi.approve(draftId).subscribe({
+      next: () => {
+        this.slaBusy.set(false);
+        this.draftPreview.set(null);
+        this.loadSla(); // refresh the badge first (it clears slaMsg) ...
+        this.slaMsg.set($localize`:@@sla.panel.approved:Holding message sent — the candidate is no longer in silence.`); // ... then set the result
+      },
+      error: (e: HttpErrorResponse) => { this.slaMsg.set(this.slaError(e)); this.slaBusy.set(false); }
+    });
+  }
+
+  dismissDraft(draftId: string): void {
+    this.slaBusy.set(true);
+    this.slaMsg.set(null);
+    this.slaApi.dismiss(draftId).subscribe({
+      next: () => {
+        this.slaBusy.set(false);
+        this.draftPreview.set(null);
+        this.loadSla(); // refresh the badge first (it clears slaMsg) ...
+        this.slaMsg.set($localize`:@@sla.panel.dismissed:Draft dismissed — nothing was sent.`); // ... then set the result
+      },
+      error: (e: HttpErrorResponse) => { this.slaMsg.set(this.slaError(e)); this.slaBusy.set(false); }
+    });
+  }
+
+  private slaError(e: HttpErrorResponse): string {
+    if (e.status === 404) { return $localize`:@@sla.panel.err.notFound:No SLA information for this candidate.`; }
+    if (e.status === 403) { return $localize`:@@sla.panel.err.forbidden:You do not have permission to view this.`; }
+    return $localize`:@@sla.panel.err.generic:Could not complete that action — please try again.`;
   }
 }
