@@ -8,6 +8,7 @@ import {
   SchedulingService,
   StatusResponse
 } from './scheduling.service';
+import { ActionResult, CandidateSla, DraftPreview, SlaNudgeService } from './sla-nudge.service';
 
 /**
  * F13 US1 (§II): the recruiter surface sends a link (happy path), surfaces a 409 not-contactable, and
@@ -23,12 +24,23 @@ describe('SchedulingComponent', () => {
     status: 'PENDING_SELECTION', sentAt: '2026-06-16T10:00:00Z', expiresAt: '2026-06-19T10:00:00Z', chosenStart: null
   };
 
-  function setup(initiate: SchedulingService['initiate'], overrides: Partial<SchedulingService> = {}) {
+  function setup(initiate: SchedulingService['initiate'], overrides: Partial<SchedulingService> = {},
+                 slaOverrides: Partial<SlaNudgeService> = {}) {
     const stub: Partial<SchedulingService> = { initiate, status: () => of(sentStatus), ...overrides };
+    const slaStub: Partial<SlaNudgeService> = {
+      getSla: () => of({ candidateId: 'cand1', slaState: 'GREEN', lastActivityAt: null, openDraftId: null }),
+      previewDraft: () => of({ messageType: 'SLA_HOLDING', subject: 's', body: 'b', missingFields: [] }),
+      approve: () => of({ draftId: 'd1', result: 'SENT_ENQUEUED' }),
+      dismiss: () => of({ draftId: 'd1', result: 'DISMISSED' }),
+      ...slaOverrides
+    };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [SchedulingComponent],
-      providers: [{ provide: SchedulingService, useValue: stub }]
+      providers: [
+        { provide: SchedulingService, useValue: stub },
+        { provide: SlaNudgeService, useValue: slaStub }
+      ]
     });
     const fixture = TestBed.createComponent(SchedulingComponent);
     return fixture.componentInstance;
@@ -181,6 +193,50 @@ describe('SchedulingComponent', () => {
       expect(readSpy).toHaveBeenCalledWith('cand1');
       expect(c.statusLink()).toBe('https://app.example/status?token=abc');
       expect(c.statusStage).toBe('Onsite');
+    });
+  });
+
+  // ---- F31 SLA nudge panel (T040) ----
+
+  describe('F31 SLA nudge panel', () => {
+    const redWithDraft: CandidateSla = {
+      candidateId: 'cand1', slaState: 'RED', lastActivityAt: '2026-06-01T10:00:00Z', openDraftId: 'd1'
+    };
+
+    it('loadSla renders the candidate green/amber/red state', () => {
+      const c = setup(() => of(initiated), {}, { getSla: () => of(redWithDraft) });
+      c.candidateId = 'cand1';
+      c.loadSla();
+      expect(c.sla()?.slaState).toBe('RED');
+      expect(c.sla()?.openDraftId).toBe('d1');
+      expect(c.slaLabel('RED')).toContain('silence');
+    });
+
+    it('approve sends the holding message and clears the preview', () => {
+      const approveSpy = jasmine.createSpy('approve').and.returnValue(of({ draftId: 'd1', result: 'SENT_ENQUEUED' }));
+      const c = setup(() => of(initiated), {}, { getSla: () => of(redWithDraft), approve: approveSpy as unknown as SlaNudgeService['approve'] });
+      c.candidateId = 'cand1';
+      c.approveDraft('d1');
+      expect(approveSpy).toHaveBeenCalledWith('d1');
+      expect(c.slaMsg()).toContain('sent');
+      expect(c.draftPreview()).toBeNull();
+    });
+
+    it('dismiss sends nothing and notes it', () => {
+      const dismissSpy = jasmine.createSpy('dismiss').and.returnValue(of({ draftId: 'd1', result: 'DISMISSED' }));
+      const c = setup(() => of(initiated), {}, { getSla: () => of(redWithDraft), dismiss: dismissSpy as unknown as SlaNudgeService['dismiss'] });
+      c.candidateId = 'cand1';
+      c.dismissDraft('d1');
+      expect(dismissSpy).toHaveBeenCalledWith('d1');
+      expect(c.slaMsg()).toContain('dismissed');
+    });
+
+    it('preview surfaces a missing-field warning', () => {
+      const preview: DraftPreview = { messageType: 'SLA_HOLDING', subject: 's', body: 'b', missingFields: ['expected_date'] };
+      const c = setup(() => of(initiated), {}, { getSla: () => of(redWithDraft), previewDraft: () => of(preview) });
+      c.candidateId = 'cand1';
+      c.previewDraft();
+      expect(c.draftPreview()?.missingFields).toContain('expected_date');
     });
   });
 });

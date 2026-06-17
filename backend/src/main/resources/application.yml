@@ -192,6 +192,15 @@ cadence:
     cascade-sweep-batch-limit: 200
     # Fixed delay for the NoShowDefenseScheduler @Scheduled worker (read directly by @Scheduled).
     cascade-interval-ms: 60000
+  # F31 SLA Nudge Engine. The silence window itself is per-workspace (WorkspaceConfig.slaSilenceWindowDays);
+  # these are the global knobs for the amber margin, the default window (configured-but-zero fallback), and
+  # the scan worker. Draft-for-approval only; no auto-send (FR-010).
+  sla:
+    amber-margin-days: 1
+    default-window-days: 5
+    scan-batch-limit: 500
+    # Fixed delay for the SlaNudgeScheduler @Scheduled worker (read directly by @Scheduled).
+    scan-interval-ms: 300000
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.

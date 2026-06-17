@@ -154,7 +154,10 @@ public class CandidateStatusService {
             .set("statusNextStep", trimToNull(req.nextStep()))
             .set("statusExpectedDate", req.outcome() == CandidateStatusOutcome.IN_PROGRESS ? req.expectedDate() : null)
             .set("statusPublishedAt", now)
-            .set("statusPublishedByMemberId", actorMemberId);
+            .set("statusPublishedByMemberId", actorMemberId)
+            // F31 (research D1, site 2): a status publish is a qualifying activity — fold the canonical
+            // last-meaningful-activity advance into the same atomic ACTIVE-guarded $set (clears SLA silence).
+            .set("lastContactAt", now);
         UpdateResult r = mongo.updateFirst(
             Query.query(Criteria.where("_id").is(candidateId).and("workspaceId").is(workspaceId)
                 .and("erasureState").is(ErasureState.ACTIVE)),

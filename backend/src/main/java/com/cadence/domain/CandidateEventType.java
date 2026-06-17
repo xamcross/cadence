@@ -28,5 +28,9 @@ public enum CandidateEventType {
     // the candidate VIEW is never audited per-request (FR-034 — a read, would flood).
     STATUS_PUBLISHED,
     STATUS_LINK_ISSUED,
-    STATUS_LINK_ROTATED
+    STATUS_LINK_ROTATED,
+    // F31 SLA Nudge Engine (append-only): recruiter actioned an SLA holding draft. Codes only; draft creation
+    // by the scan is not candidate-audited (value-free scheduler log only).
+    SLA_DRAFT_APPROVED,
+    SLA_DRAFT_DISMISSED
 }

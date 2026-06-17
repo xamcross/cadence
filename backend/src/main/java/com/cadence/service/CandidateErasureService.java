@@ -39,11 +39,15 @@ public class CandidateErasureService {
     private final MongoTemplate mongoTemplate;
     private final Clock clock;
     private final CandidateAuditService audit;
+    private final SlaDraftInvalidator slaDraftInvalidator;
 
-    public CandidateErasureService(MongoTemplate mongoTemplate, Clock clock, CandidateAuditService audit) {
+    public CandidateErasureService(MongoTemplate mongoTemplate, Clock clock, CandidateAuditService audit,
+                                   SlaDraftInvalidator slaDraftInvalidator) {
         this.mongoTemplate = mongoTemplate;
         this.clock = clock;
         this.audit = audit;
+        // F31 cycle-break: depend on the NARROW interface, not the concrete SlaNudgeService (data-model section 9).
+        this.slaDraftInvalidator = slaDraftInvalidator;
     }
 
     /**
@@ -83,6 +87,9 @@ public class CandidateErasureService {
         UpdateResult r = mongoTemplate.updateFirst(q, u, Candidate.class);
         if (r.getMatchedCount() == 1) {
             supersedeLiveScheduling(workspaceId, candidateId);
+            // F31 (research D8 / FR-021): best-effort invalidate any open SLA draft so an erased subject is not
+            // surfaced for an SLA send. The AUTHORITATIVE no-message guard remains the send-time consent gate.
+            slaDraftInvalidator.invalidateOpenDraft(workspaceId, candidateId);
             audit.append(workspaceId, candidateId, CandidateEventType.ERASURE_COMPLETED, reason, actorMemberId);
             return true;
         }

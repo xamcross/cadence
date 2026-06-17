@@ -2,6 +2,7 @@ package com.cadence.repository;
 
 import com.cadence.domain.Candidate;
 import com.cadence.domain.ErasureState;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.Instant;
@@ -18,6 +19,14 @@ public interface CandidateRepository extends MongoRepository<Candidate, String> 
     /** Retention scan predicate: over-age, not-yet-erased (uses the {workspaceId,lastContactAt} index). */
     List<Candidate> findByWorkspaceIdAndErasureStateAndLastContactAtBefore(
         String workspaceId, ErasureState erasureState, Instant threshold);
+
+    /**
+     * F31 SLA breach/silence scan: the SAME predicate, paginated so the per-workspace read is bounded
+     * (the F23 page-cap precedent — SC-013). Index-backed on {workspaceId,lastContactAt} (ChangeUnit001).
+     * Distinct overload — the 3-arg method above is left unchanged for RetentionService.
+     */
+    List<Candidate> findByWorkspaceIdAndErasureStateAndLastContactAtBefore(
+        String workspaceId, ErasureState erasureState, Instant threshold, Pageable pageable);
 
     /** Currently-flagged, active candidates — for the Admin review list and the flag-clear sweep. */
     List<Candidate> findByWorkspaceIdAndRetentionFlaggedTrueAndErasureState(
