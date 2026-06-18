@@ -1,5 +1,6 @@
 package com.cadence.config;
 
+import com.cadence.domain.AtsConnection;
 import com.cadence.domain.CalendarConnection;
 import com.cadence.domain.Candidate;
 import com.cadence.domain.FeedbackRequest;
@@ -63,6 +64,11 @@ public class MongoPiiConfig {
                 // escalating reminders can re-send the SAME link; tokenHash (the HMAC) is NOT registered — it is a
                 // keyed hash stored as-is for the inbound lookup. Same converter instance; one bean only.
                 registrar.registerConverter(FeedbackRequest.class, "token", converter);
+                // F40: encrypt the Greenhouse API key (write-only secret, the WorkspaceConfig.emailProviderCredential
+                // precedent) and the imported candidate's raw stage label (PII-adjacent free text, FR-022). Both
+                // cleared on disconnect/erasure via $set null (NEVER $unset — the F03 ClassCastException trap).
+                registrar.registerConverter(AtsConnection.class, "apiKey", converter);
+                registrar.registerConverter(Candidate.class, "atsStageLabel", converter);
             }));
     }
 }

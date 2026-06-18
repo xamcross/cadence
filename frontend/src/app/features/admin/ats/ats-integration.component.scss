@@ -1,0 +1,42 @@
+.ats {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.badge {
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: #e0e0e0;
+  font-size: 0.85rem;
+}
+
+.badge.ok {
+  background: #d4edda;
+}
+
+.badge.warn {
+  background: #fff3cd;
+}
+
+.warn-text {
+  color: #8a6d3b;
+}
+
+.error {
+  color: #a94442;
+}
+
+.connect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.connect input,
+.connect button,
+.disconnect {
+  min-height: 44px;
+}

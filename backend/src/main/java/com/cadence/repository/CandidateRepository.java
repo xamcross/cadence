@@ -2,6 +2,7 @@ package com.cadence.repository;
 
 import com.cadence.domain.Candidate;
 import com.cadence.domain.ErasureState;
+import com.cadence.integration.AtsProvider;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
@@ -38,4 +39,12 @@ public interface CandidateRepository extends MongoRepository<Candidate, String> 
      * The caller folds "erased" into the same not-found so the view is not an existence oracle (FR-031).
      */
     Optional<Candidate> findByStatusTokenHash(String statusTokenHash);
+
+    /**
+     * F40: resolve an imported candidate by the authoritative ATS reconcile key (the unique PARTIAL index
+     * {workspaceId,atsProvider,atsExternalRef}, ChangeUnit018). NO erasure filter — the caller resolves first,
+     * then guards the update on erasureState==ACTIVE (the resolve-then-guarded-write resurrection defense).
+     */
+    Optional<Candidate> findByWorkspaceIdAndAtsProviderAndAtsExternalRef(
+        String workspaceId, AtsProvider atsProvider, String atsExternalRef);
 }

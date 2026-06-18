@@ -41,15 +41,18 @@ public class CandidateErasureService {
     private final CandidateAuditService audit;
     private final SlaDraftInvalidator slaDraftInvalidator;
     private final FeedbackInvalidator feedbackInvalidator;
+    private final AtsWriteBackInvalidator atsWriteBackInvalidator;
 
     public CandidateErasureService(MongoTemplate mongoTemplate, Clock clock, CandidateAuditService audit,
-                                   SlaDraftInvalidator slaDraftInvalidator, FeedbackInvalidator feedbackInvalidator) {
+                                   SlaDraftInvalidator slaDraftInvalidator, FeedbackInvalidator feedbackInvalidator,
+                                   AtsWriteBackInvalidator atsWriteBackInvalidator) {
         this.mongoTemplate = mongoTemplate;
         this.clock = clock;
         this.audit = audit;
-        // F31/F32 cycle-break: depend on the NARROW interfaces, not the concrete services (data-model section 9/10).
+        // F31/F32/F40 cycle-break: depend on the NARROW interfaces, not the concrete services (data-model section 9/10).
         this.slaDraftInvalidator = slaDraftInvalidator;
         this.feedbackInvalidator = feedbackInvalidator;
+        this.atsWriteBackInvalidator = atsWriteBackInvalidator;
     }
 
     /**
@@ -84,6 +87,12 @@ public class CandidateErasureService {
             .set("statusPublishedAt", null)
             .set("statusToken", null)
             .unset("statusTokenHash")
+            // F40 (FR-015): clear the imported PII-adjacent fields. atsStageLabel is converter-managed -> $set null
+            // (NEVER $unset). atsExternalJobTitle is plain free text -> $set null. RETAIN atsProvider/atsExternalRef/
+            // atsExternalJobId — the non-PII reconcile anchor that makes a later poll a guarded no-op (the resolve-
+            // then-guarded-write resurrection defense in AtsSyncService), NOT a re-creating insert.
+            .set("atsStageLabel", null)
+            .set("atsExternalJobTitle", null)
             .set("erasureState", ErasureState.ERASED)
             .set("erasedAt", Instant.now(clock));
         UpdateResult r = mongoTemplate.updateFirst(q, u, Candidate.class);
@@ -97,6 +106,9 @@ public class CandidateErasureService {
             // resurrection window: supersedeLiveScheduling already took bookings off BOOKED, so generation
             // cannot re-create a request; the token drop + STATUS-before-TIME resolution are the structural guard.
             feedbackInvalidator.invalidateForCandidate(workspaceId, candidateId);
+            // F40 (FR-015): cancel any PENDING ATS write-backs for the erased candidate so no scheduling
+            // activity is pushed for them post-erasure. Best-effort; the enqueue path also skips erased candidates.
+            atsWriteBackInvalidator.cancelPendingForCandidate(workspaceId, candidateId);
             audit.append(workspaceId, candidateId, CandidateEventType.ERASURE_COMPLETED, reason, actorMemberId);
             return true;
         }

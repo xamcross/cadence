@@ -1,0 +1,62 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+
+export interface AtsHealth {
+  provider: string;
+  status: string;
+  credentialSet: boolean;
+  lastVerifiedAt: string | null;
+  lastSyncAt: string | null;
+  degraded: boolean;
+  deadLetterCount: number;
+}
+
+export interface AtsSyncStatus {
+  lastSyncAt: string | null;
+  lastOutcome: string | null;
+  processed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+}
+
+export interface AtsDeadLetter {
+  writeBackId: string;
+  candidateId: string;
+  type: string;
+  attemptCount: number;
+  lastOutcomeCategory: string | null;
+  updatedAt: string | null;
+}
+
+/**
+ * F40 ATS integration API client. The Greenhouse API key is write-only — it is sent on connect() but is
+ * NEVER present in any response (only credentialSet). Internal Admin screen (no candidate PII surface).
+ */
+@Injectable({ providedIn: 'root' })
+export class AtsService {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiBaseUrl}/internal/ats`;
+
+  getHealth(): Observable<AtsHealth> {
+    return this.http.get<AtsHealth>(`${this.base}/connection`);
+  }
+
+  connect(apiKey: string): Observable<AtsHealth> {
+    return this.http.post<AtsHealth>(`${this.base}/connection`, { apiKey });
+  }
+
+  disconnect(): Observable<void> {
+    return this.http.delete<void>(`${this.base}/connection`);
+  }
+
+  syncStatus(): Observable<AtsSyncStatus> {
+    return this.http.get<AtsSyncStatus>(`${this.base}/sync-status`);
+  }
+
+  deadLetters(): Observable<AtsDeadLetter[]> {
+    return this.http.get<AtsDeadLetter[]>(`${this.base}/dead-letters`);
+  }
+}

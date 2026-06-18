@@ -62,6 +62,7 @@ public class SchedulingService {
     private final AuthAuditService audit;
     private final AuthProperties authProps;
     private final SchedulingProperties props;
+    private final AtsWriteBackService atsWriteBacks;
     private final Clock clock;
 
     public SchedulingService(RuleEngine ruleEngine, InterviewTemplateRepository templates,
@@ -69,7 +70,7 @@ public class SchedulingService {
                              SchedulingRequestRepository requests, SlotReservationService reservation,
                              MongoTemplate mongo, TokenHasher hasher,
                              EmailDispatchService dispatch, AuthAuditService audit, AuthProperties authProps,
-                             SchedulingProperties props, Clock clock) {
+                             SchedulingProperties props, AtsWriteBackService atsWriteBacks, Clock clock) {
         this.ruleEngine = ruleEngine;
         this.templates = templates;
         this.candidates = candidates;
@@ -82,6 +83,7 @@ public class SchedulingService {
         this.audit = audit;
         this.authProps = authProps;
         this.props = props;
+        this.atsWriteBacks = atsWriteBacks;
         this.clock = clock;
     }
 
@@ -176,6 +178,9 @@ public class SchedulingService {
                 StructuredArguments.kv("schedulingRequestId", saved.getId()),
                 StructuredArguments.kv("errorType", e.getClass().getSimpleName()));
         }
+
+        // F40: write the link-sent event to the ATS timeline (best-effort; no-op if the candidate is not ATS-linked).
+        atsWriteBacks.enqueue(workspaceId, candidateId, com.cadence.domain.AtsWriteBackType.LINK_SENT, now);
 
         audit.record(AuthEventType.SCHEDULING_LINK_SENT, workspaceId, actorMemberId, "link_sent", ip);
         log.info("scheduling link sent {} {} {}",
