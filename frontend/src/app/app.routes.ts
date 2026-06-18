@@ -142,6 +142,14 @@ export const routes: Routes = [
       import('./features/admin/ats/ats-integration.component').then((m) => m.AtsIntegrationComponent)
   },
   {
+    // F42 standalone CSV import — upload candidates, poll status, resolve duplicates. Admin OR Recruiter
+    // internal screen (no candidate-facing §IX gate — the F50/F51 precedent).
+    path: 'admin/csv-import',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
+    loadComponent: () =>
+      import('./features/admin/csv-import/csv-import.component').then((m) => m.CsvImportComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

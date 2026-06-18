@@ -71,6 +71,38 @@ public class CandidateService {
         return saved;
     }
 
+    /**
+     * F42: create a CSV-imported candidate. Reuses the encrypt + emailHash + GDPR-default + RECORD_CREATED
+     * audit body of {@link #create}, then stamps the CSV provenance (origin/importJobId) and the CSV content
+     * labels (importStageLabel encrypted, importRequisitionLabel plaintext) before persisting. NO lawful basis
+     * is set, so the contact gate stays deny:no_basis until one is recorded (FR-019). Native/ATS callers are
+     * unaffected — this is an additive overload.
+     */
+    public Candidate createImported(String workspaceId, String name, String email, String phone,
+                                    String stageLabel, String requisitionLabel,
+                                    String importJobId, String actorMemberId) {
+        Instant now = Instant.now(clock);
+        Candidate c = new Candidate();
+        c.setWorkspaceId(workspaceId);
+        c.setName(name);
+        c.setEmail(email);
+        c.setPhone(phone);
+        c.setEmailHash(crypto.emailHash(email));
+        c.setErasureState(ErasureState.ACTIVE);
+        c.setBasisWithdrawn(false);
+        c.setRetentionFlagged(false);
+        c.setLastContactAt(now);
+        c.setCreatedAt(now);
+        c.setOrigin(com.cadence.domain.CandidateOrigin.CSV_IMPORT);
+        c.setImportJobId(importJobId);
+        c.setImportStageLabel(stageLabel);
+        c.setImportRequisitionLabel(requisitionLabel);
+        Candidate saved = candidates.save(c);
+        audit.append(workspaceId, saved.getId(), CandidateEventType.RECORD_CREATED,
+            CandidateAuditOutcome.CREATED, actorMemberId);
+        return saved;
+    }
+
     /** US1: record (or re-record) the email lawful basis on an ACTIVE candidate. Targeted $set; audited only when matched. */
     public void recordBasis(String workspaceId, String candidateId, LawfulBasis basis, String actorMemberId) {
         Query q = Query.query(Criteria.where("_id").is(candidateId).and("workspaceId").is(workspaceId)
