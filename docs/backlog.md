@@ -566,6 +566,8 @@ Three core MVP metrics: **time-to-schedule**, **no-show rate**, **current silenc
 
 **Role access matrix** (server-side enforced): Admin ✓ full, Recruiter ✓ full, Read-only ✓ view-only (no export), Hiring Manager ✓ own requisitions only, Interviewer ✗. *(Security ISSUE-4.)*
 
+> **Erratum (2026-06-18, spec 024-core-dashboard)**: The Hiring Manager "✓ own requisitions only" row is **deferred to F51**. There is no candidate→requisition→assignment link in the codebase today (confirmed against current source; the documented F32/F40 precedent), so per-requisition scoping cannot be built in F50 without a stub (§II) or pulling F51 forward (§I YAGNI). For the MVP the dashboard is **workspace-scoped only** and the Hiring Manager is **denied** dashboard access (rather than shown unscoped cross-requisition data, which would violate the C3 minimum-exposure gate). The effective F50 access matrix is therefore Admin ✓ full, Recruiter ✓ full, Read-only ✓ view-only, **Hiring Manager ✗ (deferred to F51)**, Interviewer ✗. F51 — which owns the requisition linkage — restores HM scoped access. Stakeholder confirmation to be recorded at `/speckit.plan`.
+
 **User stories**:
 - US-F50-1: As a Recruiter/Admin, I can view time-to-schedule (median and per-requisition) for a user-selectable window so that I can track scheduling velocity.
 - US-F50-2: As a Recruiter/Admin, I can see the no-show rate for the selected window.

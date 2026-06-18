@@ -89,4 +89,32 @@ public interface SchedulingRequestRepository extends MongoRepository<SchedulingR
      */
     @Query("{ 'status': 'BOOKED', 'feedbackGeneratedAt': null, 'bookedStartAt': { $gt: ?0, $lte: ?1 } }")
     List<SchedulingRequest> findFeedbackGenerationDue(Instant lowerBound, Instant cutoff, Pageable pageable);
+
+    // --- F50 Core Dashboard (data-model section F; index-backed by ChangeUnit021) ---
+
+    /**
+     * No-show denominator: live BOOKED interviews whose start is in the window AND has already passed
+     * ({@code $gt windowStart, $lte now}). A future-dated interview ({@code bookedStartAt > now}) is excluded
+     * (it cannot be a no-show); a CANCELLED/RESCHEDULED row is excluded by {@code status:BOOKED} (final state,
+     * one row per lineage -> no double-count). A Mongo {@code count} -- no documents loaded (FR-005).
+     */
+    @Query(value = "{ 'workspaceId': ?0, 'status': 'BOOKED', 'bookedStartAt': { $gt: ?1, $lte: ?2 } }",
+        count = true)
+    long countNoShowDenominator(String workspaceId, Instant windowStart, Instant now);
+
+    /** No-show numerator: the qualifying denominator subset stamped no-show ({@code noShowAt != null}; FR-004). */
+    @Query(value = "{ 'workspaceId': ?0, 'status': 'BOOKED', 'noShowAt': { $ne: null }, "
+        + "'bookedStartAt': { $gt: ?1, $lte: ?2 } }", count = true)
+    long countNoShows(String workspaceId, Instant windowStart, Instant now);
+
+    /**
+     * Time-to-schedule sample: live BOOKED requests confirmed within the window (windowed on {@code bookedAt}).
+     * PROJECTED to {@code {sentAt, bookedAt}} only -- never loads {@code offeredSlots}/the encrypted
+     * {@code locationText} -- and {@link Pageable}-capped ({@code medianSampleCap}, a DoS backstop). One row per
+     * lineage ({@code status:BOOKED}, the final live round) -> reschedule rounds are not double-counted (FR-003).
+     */
+    @Query(value = "{ 'workspaceId': ?0, 'status': 'BOOKED', 'bookedAt': { $gt: ?1, $lte: ?2 } }",
+        fields = "{ 'sentAt': 1, 'bookedAt': 1 }")
+    List<SchedulingRequest> findBookedForVelocity(String workspaceId, Instant windowStart, Instant now,
+                                                  Pageable pageable);
 }

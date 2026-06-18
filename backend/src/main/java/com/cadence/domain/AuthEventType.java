@@ -59,5 +59,8 @@ public enum AuthEventType {
     // slot RELEASE reuses SCHEDULING_CANCELLED (it is a recruiter-initiated cancel).
     NOSHOW_CONFIRMATION_REQUESTED,
     NOSHOW_ATTENDANCE_CONFIRMED,
-    NOSHOW_UNCONFIRMED_ESCALATED
+    NOSHOW_UNCONFIRMED_ESCALATED,
+    // F50 Core Dashboard (append-only — never reorder). The CSV export is a deliberate PII egress, so it is
+    // recorded as an attributable event; the outcome carries window + row count only (no candidate names — FR-019b).
+    DASHBOARD_EXPORTED
 }
