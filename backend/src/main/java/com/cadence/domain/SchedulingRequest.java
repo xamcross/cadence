@@ -136,6 +136,14 @@ public class SchedulingRequest {
     /** Stage-3 stamp: the interview start was reached unconfirmed — the MVP no-show signal for F50 (FR-016). */
     private Instant noShowAt;
 
+    /**
+     * F32 stamp: feedback requests have been generated for this occurrence (data-model §3). Null until the
+     * generation CAS sets it once; {@code write=NON_NULL} so a null is omitted from BSON. Makes generation
+     * fire exactly once per occurrence across overlapping/replayed sweeps.
+     */
+    @Field(value = "feedbackGeneratedAt", write = Field.Write.NON_NULL)
+    private Instant feedbackGeneratedAt;
+
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -230,6 +238,9 @@ public class SchedulingRequest {
 
     public Instant getNoShowAt() { return noShowAt; }
     public void setNoShowAt(Instant noShowAt) { this.noShowAt = noShowAt; }
+
+    public Instant getFeedbackGeneratedAt() { return feedbackGeneratedAt; }
+    public void setFeedbackGeneratedAt(Instant feedbackGeneratedAt) { this.feedbackGeneratedAt = feedbackGeneratedAt; }
 
     /** Resolve the lineage root id (an INITIAL row roots on itself). */
     public String resolveRootRequestId() { return rootRequestId != null ? rootRequestId : id; }

@@ -77,4 +77,16 @@ public interface SchedulingRequestRepository extends MongoRepository<SchedulingR
     /** Cascade stage 3: BOOKED, unconfirmed, start reached, no-show not yet stamped. */
     @Query("{ 'status': 'BOOKED', 'candidateConfirmedAt': null, 'noShowAt': null, 'bookedStartAt': { $lte: ?0 } }")
     List<SchedulingRequest> findNoShowDue(Instant now, Pageable pageable);
+
+    // --- F32 Interviewer Feedback generation (explicit @Query + Pageable cap — the F12 lesson) ---
+
+    /**
+     * Generation scan (research D2): BOOKED occurrences whose start has passed by {@code generationDelay}
+     * (so the interview has plausibly ended) and within the query window floor, not yet generated. The
+     * {@code {status,bookedStartAt}} index (ChangeUnit014) covers status + the range; {@code feedbackGeneratedAt:
+     * null} is a bounded in-memory residual (the F23 {@code confirmationRequestedAt:null} precedent). A
+     * CANCELLED / RESCHEDULED occurrence is excluded by {@code status:BOOKED} (FR-006).
+     */
+    @Query("{ 'status': 'BOOKED', 'feedbackGeneratedAt': null, 'bookedStartAt': { $gt: ?0, $lte: ?1 } }")
+    List<SchedulingRequest> findFeedbackGenerationDue(Instant lowerBound, Instant cutoff, Pageable pageable);
 }

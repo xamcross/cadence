@@ -71,8 +71,8 @@ class WorkspaceSettingsIntegrationTest extends WorkspaceItBase {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch go = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
-        pool.submit(() -> race(ready, go, new WorkspaceDtos.SettingsPatch(null, null, null, 7, null, null, null)));
-        pool.submit(() -> race(ready, go, new WorkspaceDtos.SettingsPatch("Beta", null, null, null, null, null, null)));
+        pool.submit(() -> race(ready, go, new WorkspaceDtos.SettingsPatch(null, null, null, 7, null, null, null, null, null)));
+        pool.submit(() -> race(ready, go, new WorkspaceDtos.SettingsPatch("Beta", null, null, null, null, null, null, null, null)));
         ready.await();
         go.countDown();
         pool.shutdown();
@@ -92,7 +92,7 @@ class WorkspaceSettingsIntegrationTest extends WorkspaceItBase {
         CountDownLatch go = new CountDownLatch(1);
         for (int i = 0; i < n; i++) {
             int sla = 1 + i; // distinct valid SLA values
-            pool.submit(() -> race(ready, go, new WorkspaceDtos.SettingsPatch(null, null, null, sla, null, null, null)));
+            pool.submit(() -> race(ready, go, new WorkspaceDtos.SettingsPatch(null, null, null, sla, null, null, null, null, null)));
         }
         ready.await();
         go.countDown();

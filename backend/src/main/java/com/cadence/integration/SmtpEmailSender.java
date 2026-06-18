@@ -94,6 +94,31 @@ public class SmtpEmailSender implements EmailSender {
             toAddress = m.getEmail(); // converter-decrypted plaintext; never logged
             subject = substitute(OperationalEmailTemplates.INTERVIEW_CONFIRMATION_SUBJECT, mergeFields);
             bodyTemplate = OperationalEmailTemplates.INTERVIEW_CONFIRMATION_BODY;
+        } else if (OperationalEmailTemplates.FEEDBACK_REQUEST_ID.equals(templateId)) {
+            // F32: interviewer scorecard request (sent to an internal panel member via the non-consent-gated
+            // member-mail path). The per-recipient unique scorecard link rides mergeFields {link} + {stage}.
+            Member m = members.findByIdOptional(toInternalId).orElse(null);
+            if (m == null) {
+                log.warn("Operational email: member not found",
+                    StructuredArguments.kv("templateId", templateId));
+                return;
+            }
+            workspaceId = m.getWorkspaceId();
+            toAddress = m.getEmail(); // converter-decrypted plaintext; never logged
+            subject = OperationalEmailTemplates.FEEDBACK_REQUEST_SUBJECT;
+            bodyTemplate = OperationalEmailTemplates.FEEDBACK_REQUEST_BODY;
+        } else if (OperationalEmailTemplates.FEEDBACK_REMINDER_ID.equals(templateId)) {
+            // F32: escalating scorecard reminder. Subject + body carry {urgency} (the level marker).
+            Member m = members.findByIdOptional(toInternalId).orElse(null);
+            if (m == null) {
+                log.warn("Operational email: member not found",
+                    StructuredArguments.kv("templateId", templateId));
+                return;
+            }
+            workspaceId = m.getWorkspaceId();
+            toAddress = m.getEmail(); // converter-decrypted plaintext; never logged
+            subject = substitute(OperationalEmailTemplates.FEEDBACK_REMINDER_SUBJECT, mergeFields);
+            bodyTemplate = OperationalEmailTemplates.FEEDBACK_REMINDER_BODY;
         } else {
             log.warn("Operational email: unknown templateId",
                 StructuredArguments.kv("templateId", templateId));

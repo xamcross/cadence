@@ -40,14 +40,16 @@ public class CandidateErasureService {
     private final Clock clock;
     private final CandidateAuditService audit;
     private final SlaDraftInvalidator slaDraftInvalidator;
+    private final FeedbackInvalidator feedbackInvalidator;
 
     public CandidateErasureService(MongoTemplate mongoTemplate, Clock clock, CandidateAuditService audit,
-                                   SlaDraftInvalidator slaDraftInvalidator) {
+                                   SlaDraftInvalidator slaDraftInvalidator, FeedbackInvalidator feedbackInvalidator) {
         this.mongoTemplate = mongoTemplate;
         this.clock = clock;
         this.audit = audit;
-        // F31 cycle-break: depend on the NARROW interface, not the concrete SlaNudgeService (data-model section 9).
+        // F31/F32 cycle-break: depend on the NARROW interfaces, not the concrete services (data-model section 9/10).
         this.slaDraftInvalidator = slaDraftInvalidator;
+        this.feedbackInvalidator = feedbackInvalidator;
     }
 
     /**
@@ -90,6 +92,11 @@ public class CandidateErasureService {
             // F31 (research D8 / FR-021): best-effort invalidate any open SLA draft so an erased subject is not
             // surfaced for an SLA send. The AUTHORITATIVE no-message guard remains the send-time consent gate.
             slaDraftInvalidator.invalidateOpenDraft(workspaceId, candidateId);
+            // F32 (research D8 / FR-023): wipe the candidate's scorecard content (PENDING -> INVALIDATED;
+            // SUBMITTED -> content nulled, status kept) + drop the token so links 404. Best-effort, no
+            // resurrection window: supersedeLiveScheduling already took bookings off BOOKED, so generation
+            // cannot re-create a request; the token drop + STATUS-before-TIME resolution are the structural guard.
+            feedbackInvalidator.invalidateForCandidate(workspaceId, candidateId);
             audit.append(workspaceId, candidateId, CandidateEventType.ERASURE_COMPLETED, reason, actorMemberId);
             return true;
         }

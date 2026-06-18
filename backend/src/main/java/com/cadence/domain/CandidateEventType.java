@@ -32,5 +32,10 @@ public enum CandidateEventType {
     // F31 SLA Nudge Engine (append-only): recruiter actioned an SLA holding draft. Codes only; draft creation
     // by the scan is not candidate-audited (value-free scheduler log only).
     SLA_DRAFT_APPROVED,
-    SLA_DRAFT_DISMISSED
+    SLA_DRAFT_DISMISSED,
+    // F32 Interviewer Feedback (append-only): an interviewer submitted a scorecard; or a candidate erasure
+    // invalidated/wiped the candidate's feedback. Codes only; request generation + reminders are value-free
+    // scheduler logs, not candidate-audited.
+    SCORECARD_SUBMITTED,
+    FEEDBACK_INVALIDATED
 }

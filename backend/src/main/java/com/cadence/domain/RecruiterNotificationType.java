@@ -27,5 +27,8 @@ public enum RecruiterNotificationType {
     // F31 SLA Nudge Engine (append-only — value-free): a candidate breached the silence window and a holding
     // draft is queued for one-click recruiter approval. Workspace-scoped (any active Admin/Recruiter sees it),
     // so the "no assignable recruiter" fallback is inherent (research D11).
-    SLA_DRAFT_PENDING
+    SLA_DRAFT_PENDING,
+    // F32 Interviewer Feedback (append-only — value-free): an interviewer's scorecard cannot be collected
+    // (member deactivated/removed). Workspace-scoped so the fallback is inherent (FR-009).
+    FEEDBACK_UNCOLLECTIBLE
 }

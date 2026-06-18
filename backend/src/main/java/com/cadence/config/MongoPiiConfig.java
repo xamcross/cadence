@@ -2,6 +2,7 @@ package com.cadence.config;
 
 import com.cadence.domain.CalendarConnection;
 import com.cadence.domain.Candidate;
+import com.cadence.domain.FeedbackRequest;
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
 import com.cadence.domain.OAuthFlowState;
@@ -54,6 +55,14 @@ public class MongoPiiConfig {
                 // survive to the candidate's async confirm; same converter instance; one bean only. The
                 // never-return guarantee is a SEPARATE control (@JsonIgnore + on no candidate DTO).
                 registrar.registerConverter(SchedulingRequest.class, "locationText", converter);
+                // F32: encrypt the submitted scorecard JSON at rest (research D14). It is candidate-assessment
+                // PII; one encrypted field, cleared with $set null on candidate erasure (NEVER $unset — the F03
+                // ClassCastException trap). Same converter instance; one bean only.
+                registrar.registerConverter(FeedbackRequest.class, "scorecardPayload", converter);
+                // F32: the scorecard token is stored reversibly-encrypted (the F30 statusToken dual-store) so the
+                // escalating reminders can re-send the SAME link; tokenHash (the HMAC) is NOT registered — it is a
+                // keyed hash stored as-is for the inbound lookup. Same converter instance; one bean only.
+                registrar.registerConverter(FeedbackRequest.class, "token", converter);
             }));
     }
 }

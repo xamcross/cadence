@@ -214,6 +214,32 @@ jobs:
           fi
           echo "F31 SLA-nudge scan passed — no candidate name / status token found in test output."
 
+      - name: PII scan — F32 interviewer feedback (no scorecard text / candidate name in test output, SC-014)
+        run: |
+          # F32 FR-028/FR-029/SC-014: the scorecard content is encrypted at rest (one converter field), the
+          # feedbackRequests doc carries no plaintext content, and audit/dead-letter are value-free (cause-class
+          # only). FeedbackLogPiiScanTest seeds these sentinels and asserts absence at rest; CI re-checks the
+          # captured stdout (the backstop).
+          if grep -qE 'SENTINELF32TEXTzz9|SENTINELF32NAMEzz9' test-output.txt; then
+            echo "ERROR: an F32 scorecard / candidate name sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF32TEXTzz9|SENTINELF32NAMEzz9' test-output.txt
+            exit 1
+          fi
+          echo "F32 interviewer-feedback scan passed — no scorecard text / candidate name found in test output."
+
+      - name: No-voice-capture scope guard — interviewer feedback is a form only (F32 SC-019)
+        run: |
+          # F32 SC-019: voice-to-scorecard capture is deferred to v1.5. Guard against a future contributor
+          # introducing a voice/transcription dependency into the feedback sources (the F23 scope-guard precedent).
+          if grep -rniE '\b(voice|transcribe|whisper|twilio)\b' \
+              backend/src/main/java/com/cadence/service/FeedbackService.java \
+              backend/src/main/java/com/cadence/scheduler/FeedbackScheduler.java \
+              backend/src/main/java/com/cadence/api/ScorecardTokenController.java; then
+            echo "ERROR: a voice/transcription reference appeared in the F32 feedback sources — deferred to v1.5 (SC-019)."
+            exit 1
+          fi
+          echo "F32 scope guard passed — no voice-to-scorecard path in the feedback sources."
+
       - name: No-SMS/WhatsApp/waitlist scope guard — the MVP no-show cascade is email-only (F23 SC-012)
         run: |
           # F23 FR-023/SC-012: the cascade is email-only and ships no waitlist auto-invitation. Guard against a

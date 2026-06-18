@@ -45,6 +45,33 @@ public final class OperationalEmailTemplates {
         + "Location: {location}<br><br>"
         + "This event has been placed on your calendar automatically.";
 
+    /**
+     * templateId "feedback-request" (F32 — sent to an interviewer, an internal member, via the non-consent-gated
+     * member-mail path). Single placeholder {@code {link}} (the candidate-class scorecard URL), substituted in
+     * {@code SmtpEmailSender}. No candidate PII.
+     */
+    public static final String FEEDBACK_REQUEST_ID = "feedback-request";
+    public static final String FEEDBACK_REQUEST_SUBJECT = "Please share your interview feedback";
+    public static final String FEEDBACK_REQUEST_BODY =
+        "You recently interviewed a candidate.<br><br>"
+        + "Please take a couple of minutes to complete your scorecard:<br>"
+        + "<a href=\"{link}\">{link}</a><br><br>"
+        + "No login is required.";
+
+    /**
+     * templateId "feedback-reminder" (F32 — escalating reminder to an interviewer). Placeholders {@code {link}}
+     * and {@code {urgency}} (the reminder level marker). Every {@code {key}} MUST be supplied at the call site
+     * (the operational {@code substitute} leaves an unknown key literal — no F21 missing-field warning on this
+     * path; FR-011).
+     */
+    public static final String FEEDBACK_REMINDER_ID = "feedback-reminder";
+    public static final String FEEDBACK_REMINDER_SUBJECT = "Reminder ({urgency}): your interview feedback is needed";
+    public static final String FEEDBACK_REMINDER_BODY =
+        "This is reminder {urgency}: your interview scorecard is still outstanding.<br><br>"
+        + "Please complete it here:<br>"
+        + "<a href=\"{link}\">{link}</a><br><br>"
+        + "No login is required.";
+
     /** The dead-letter / scheduler system alert (F00.2 sendSystemAlert). */
     public static final String SYSTEM_ALERT_SUBJECT = "Cadence scheduler task failed";
     public static final String SYSTEM_ALERT_BODY =

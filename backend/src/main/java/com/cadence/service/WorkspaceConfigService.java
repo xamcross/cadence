@@ -175,6 +175,19 @@ public class WorkspaceConfigService {
                 audits.put("escalation_deadline", null);
             }
         }
+        // F32: per-workspace feedback settings. Independent positivity only (no cross-field ordering, unlike
+        // F23). maxReminders stays GLOBAL (FeedbackProperties) for the MVP — the documented default discharges
+        // FR-012's maximum; per-workspace max is deferred.
+        if (patch.feedbackSubmissionDeadline() != null) {
+            requirePositiveDuration(patch.feedbackSubmissionDeadline(), "feedbackSubmissionDeadline", errors);
+            update.set("feedbackSubmissionDeadline", patch.feedbackSubmissionDeadline());
+            audits.put("feedback_submission_deadline", null);
+        }
+        if (patch.feedbackReminderInterval() != null) {
+            requirePositiveDuration(patch.feedbackReminderInterval(), "feedbackReminderInterval", errors);
+            update.set("feedbackReminderInterval", patch.feedbackReminderInterval());
+            audits.put("feedback_reminder_interval", null);
+        }
         if (!errors.isEmpty()) {
             throw new WorkspaceExceptions.ValidationException(errors);
         }
@@ -355,6 +368,13 @@ public class WorkspaceConfigService {
                 errors.put("confirmationLeadTime",
                     "The confirmation lead time cannot exceed the cascade window bound.");
             }
+        }
+    }
+
+    /** F32 (FR-013): a per-workspace feedback Duration must be positive when supplied. */
+    private void requirePositiveDuration(Duration d, String field, Map<String, String> errors) {
+        if (d == null || d.isZero() || d.isNegative()) {
+            errors.put(field, "Must be a positive duration.");
         }
     }
 }

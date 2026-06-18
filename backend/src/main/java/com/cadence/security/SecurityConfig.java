@@ -54,7 +54,10 @@ public class SecurityConfig {
     @Order(2)
     SecurityFilterChain publicApiSecurityChain(HttpSecurity http) throws Exception {
         return http
-            .securityMatcher("/api/public/**", "/api/candidate/**")
+            // /api/feedback/** (F32): the interviewer scorecard token page is no-login by design (the real
+            // gate is the write-only 256-bit token + single-use CAS). Same permitAll/STATELESS/CSRF-exempt
+            // posture as the candidate chain; does NOT widen the @Order(4) authenticated/401 contract.
+            .securityMatcher("/api/public/**", "/api/candidate/**", "/api/feedback/**")
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
