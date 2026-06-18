@@ -128,6 +128,24 @@ public class Candidate {
     /** Last successful inbound ATS update for this candidate. */
     private Instant atsSyncedAt;
 
+    // --- F42 CSV import (data-model section 3) — additive provenance + CSV content. origin/importJobId are
+    // non-PII and RETAINED on erasure (the ATS reconcile-anchor precedent). importStageLabel is PII-adjacent
+    // free text -> encrypted (MongoPiiConfig) + cleared via $set null on erasure (NEVER $unset — the F03 trap).
+    // importRequisitionLabel is a requisition attribute (not candidate PII) -> plaintext, cleared on erasure.
+    // All four are write=NON_NULL so a native/ATS candidate omits them from BSON and does not collide on the
+    // partial-unique {workspaceId,emailHash} over origin:CSV_IMPORT index (the F01 present-as-null lesson).
+    @Field(value = "origin", write = Field.Write.NON_NULL)
+    private CandidateOrigin origin;
+    @Field(value = "importJobId", write = Field.Write.NON_NULL)
+    private String importJobId;
+    /** CSV stage free text. Encrypted at rest (converter). PII-adjacent; never logged. Cleared $set null on erasure. */
+    @JsonIgnore
+    @Field(value = "importStageLabel", write = Field.Write.NON_NULL)
+    private String importStageLabel;
+    /** CSV requisition reference (free text). Not candidate PII; kept out of logs by discipline. Cleared on erasure. */
+    @Field(value = "importRequisitionLabel", write = Field.Write.NON_NULL)
+    private String importRequisitionLabel;
+
     public Candidate() {}
 
     public String getId() { return id; }
@@ -234,6 +252,18 @@ public class Candidate {
 
     public Instant getAtsSyncedAt() { return atsSyncedAt; }
     public void setAtsSyncedAt(Instant atsSyncedAt) { this.atsSyncedAt = atsSyncedAt; }
+
+    public CandidateOrigin getOrigin() { return origin; }
+    public void setOrigin(CandidateOrigin origin) { this.origin = origin; }
+
+    public String getImportJobId() { return importJobId; }
+    public void setImportJobId(String importJobId) { this.importJobId = importJobId; }
+
+    public String getImportStageLabel() { return importStageLabel; }
+    public void setImportStageLabel(String importStageLabel) { this.importStageLabel = importStageLabel; }
+
+    public String getImportRequisitionLabel() { return importRequisitionLabel; }
+    public void setImportRequisitionLabel(String importRequisitionLabel) { this.importRequisitionLabel = importRequisitionLabel; }
 
     /**
      * Deliberately omits name/email/phone (FR-023) AND the F30 statusStage/statusNextStep (PII) +
