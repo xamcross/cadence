@@ -127,6 +127,14 @@ export const routes: Routes = [
       import('./features/status/candidate-status.component').then((m) => m.CandidateStatusComponent)
   },
   {
+    // F32 interviewer scorecard page (Flow §IX) — PUBLIC (write-only feedback token in the URL, no login, no
+    // guard). Top-level sibling of the guarded shell (the candidate-class no-login pattern, mirroring /status,
+    // /schedule). Inherits the global /_headers CSP + Referrer-Policy: no-referrer.
+    path: 'feedback',
+    loadComponent: () =>
+      import('./features/feedback/scorecard-page.component').then((m) => m.ScorecardPageComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

@@ -171,6 +171,23 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 404, { error: 'not_found' });
     }
 
+    // Stub the F32 interviewer scorecard API: GET -> canned blank FORM state (no PII); POST -> SUBMITTED. So
+    // the Lighthouse gate measures the real content-bearing form, not the SPA-fallback invalid state.
+    if (path.startsWith('/api/feedback/')) {
+      if (req.method === 'POST') {
+        return sendJson(res, 200, { state: 'SUBMITTED' });
+      }
+      if (path.includes(DEMO_TOKEN)) {
+        return sendJson(res, 200, {
+          state: 'FORM',
+          interviewLabel: 'Interview on 2030-01-06',
+          recommendationOptions: ['STRONG_YES', 'YES', 'NO', 'STRONG_NO'],
+          ratingDimensions: ['Technical skills', 'Communication']
+        });
+      }
+      return sendJson(res, 200, { state: 'USED' });
+    }
+
     // Stub the F03 public branding endpoints the candidate status page composes (logo + brand colour only).
     if (path === '/api/public/workspace/branding') {
       return sendJson(res, 200, cannedBranding());

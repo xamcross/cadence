@@ -201,6 +201,21 @@ cadence:
     scan-batch-limit: 500
     # Fixed delay for the SlaNudgeScheduler @Scheduled worker (read directly by @Scheduled).
     scan-interval-ms: 300000
+  # F32 Interviewer Feedback. The per-workspace deadline + reminder cadence live on WorkspaceConfig (nullable);
+  # these are the global defaults + the post-interview generation offset, token TTL, scan cadence/cap, and the
+  # generation query window floor. generation-delay (research D2): bookedEndAt is not denormalized, so the
+  # "occurred" trigger is bookedStartAt + this offset (covers interview length).
+  feedback:
+    generation-delay: PT3H
+    submission-deadline: PT24H
+    reminder-interval: PT24H
+    max-reminders: 3
+    token-ttl: PT72H
+    scan-batch-limit: 500
+    generation-query-lower-bound: PT720H
+    spa-feedback-base-path: /feedback
+    # Fixed delay for the FeedbackScheduler @Scheduled worker (read directly by @Scheduled).
+    scan-interval: PT5M
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.

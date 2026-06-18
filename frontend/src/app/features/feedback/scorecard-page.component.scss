@@ -1,0 +1,84 @@
+.scorecard {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.state-heading {
+  font-size: 1.5rem;
+  margin-block-end: 1rem;
+}
+
+.state-heading:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
+
+fieldset {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin-block-end: 1.25rem;
+  padding: 0.75rem 1rem;
+}
+
+legend {
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+
+.radio,
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px; /* WCAG 2.5.8 target size */
+  padding: 0.25rem 0;
+}
+
+.rating .dim {
+  flex: 1;
+}
+
+select,
+textarea {
+  font: inherit;
+  min-height: 44px;
+  padding: 0.4rem 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.comment {
+  display: block;
+  margin-block-end: 1.25rem;
+}
+
+.comment span {
+  display: block;
+  font-weight: 600;
+  margin-block-end: 0.35rem;
+}
+
+.action {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.6rem 1.2rem;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid #1a3d7c;
+  background: #1a3d7c;
+  color: #fff;
+}
+
+.action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #8a1f1f;
+  font-weight: 600;
+}

@@ -64,6 +64,13 @@ public class WorkspaceConfig {
     private Duration confirmationLeadTime;
     private Duration unconfirmedEscalationDeadline;
 
+    /**
+     * F32 Interviewer Feedback per-workspace settings (data-model §8). Nullable — {@code null} means the
+     * {@code FeedbackProperties} global default applies. Validated at save: each {@code > 0} (FR-013).
+     */
+    private Duration feedbackSubmissionDeadline;
+    private Duration feedbackReminderInterval;
+
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -116,6 +123,12 @@ public class WorkspaceConfig {
 
     public Duration getUnconfirmedEscalationDeadline() { return unconfirmedEscalationDeadline; }
     public void setUnconfirmedEscalationDeadline(Duration unconfirmedEscalationDeadline) { this.unconfirmedEscalationDeadline = unconfirmedEscalationDeadline; }
+
+    public Duration getFeedbackSubmissionDeadline() { return feedbackSubmissionDeadline; }
+    public void setFeedbackSubmissionDeadline(Duration feedbackSubmissionDeadline) { this.feedbackSubmissionDeadline = feedbackSubmissionDeadline; }
+
+    public Duration getFeedbackReminderInterval() { return feedbackReminderInterval; }
+    public void setFeedbackReminderInterval(Duration feedbackReminderInterval) { this.feedbackReminderInterval = feedbackReminderInterval; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

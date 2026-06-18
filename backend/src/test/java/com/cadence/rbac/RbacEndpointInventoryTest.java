@@ -31,7 +31,11 @@ class RbacEndpointInventoryTest extends BaseIntegrationTest {
         // F22 (research D4): the inbound provider bounce webhook is unauthenticated-by-design — the real
         // gate is the in-controller HMAC signature, not a session/role. Its dedicated permitAll chain
         // (SecurityConfig @Order(3)) routes it; the handler additionally carries @PreAuthorize("permitAll()").
-        "/api/webhooks/email/");
+        "/api/webhooks/email/",
+        // F32 (research D11): the interviewer scorecard token endpoints are no-login by design — the real
+        // gate is the write-only 256-bit token + single-use CAS, not a session/role. Routed by the @Order(2)
+        // public chain (/api/feedback/**). The internal recruiter read carries @PreAuthorize, still enforced.
+        "/api/feedback/");
 
     @Autowired
     RequestMappingHandlerMapping mapping;
