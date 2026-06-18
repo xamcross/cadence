@@ -115,6 +115,7 @@ scripts\db-migrate.ps1               # Verify Atlas reachable
 - **Secrets**: Never in source or `fly.toml`; always via `fly secrets set`
 - **Line endings**: LF for Dockerfile/yml/conf/env files; CRLF for .ps1/.cmd/.bat (enforced by .gitattributes)
 - **Scripts**: All .ps1 files MUST be pure ASCII — no em-dashes, curly quotes, or non-ASCII punctuation (Principle V)
+- **Commit hygiene (stale-index trap)**: `git commit` snapshots the **staged index**, NOT the working tree. After any further edits (review-loop fixes, encoding fixes, last-minute changes), an earlier `git add` is stale, so the commit silently omits them. ALWAYS `git add -A` (or `git commit -a`) **immediately before** `git commit`, then verify with `git status` showing a **clean** working tree (no `M`/`A` lines remaining) before pushing. NEVER rely on a `git add` run earlier in the session (e.g. one done for a byte-scan). If a commit/PR is later found to be missing changes, the working tree will show them as still-modified — re-stage and `git commit --amend` (if unmerged, `--force-with-lease` push) or add a follow-up commit/PR (if already merged). This exact bug shipped the pre-review F42 snapshot in #20; the review fixes had to follow in #21.
 
 ## Implementation Notes (001-project-scaffold)
 
