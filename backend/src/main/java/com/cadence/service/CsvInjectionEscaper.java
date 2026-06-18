@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CsvInjectionEscaper {
 
-    private static final char BOM = '﻿';
+    private static final char BOM = (char) 0xFEFF;
 
     /** @return the value safe to emit into a spreadsheet/CSV cell; verbatim values are never mutated in storage. */
     public String escapeForSpreadsheet(String value) {
@@ -28,9 +28,10 @@ public class CsvInjectionEscaper {
 
     private static boolean needsFormulaPrefix(String value) {
         int i = 0;
-        // Skip a leading BOM and leading SPACES only (a "  =cmd" payload is still dangerous). Do NOT skip tab
-        // or CR — those are themselves injection triggers, so a "\t=cmd" / "\rcmd" value must be neutralized.
-        while (i < value.length() && (value.charAt(i) == BOM || value.charAt(i) == ' ')) {
+        // Skip a leading BOM, SPACE, or NEWLINE (a "  =cmd" / "\n=cmd" payload is still dangerous). Do NOT skip
+        // tab or CR — those are themselves injection triggers, so a "\t=cmd" / "\rcmd" value must be neutralized.
+        while (i < value.length()
+            && (value.charAt(i) == BOM || value.charAt(i) == ' ' || value.charAt(i) == '\n')) {
             i++;
         }
         if (i >= value.length()) {

@@ -42,4 +42,27 @@ class CsvImportRestartIT extends CsvImportItBase {
         assertThat(candidates.findAll()).hasSize(2); // resumed, no lost rows, no duplicates
         assertThat(job(jobId).getStatus()).isEqualTo(CsvImportJobStatus.COMPLETED);
     }
+
+    @Test
+    void staleResolvingJob_isRecoveredToAwaiting() {
+        // A recruiter resolve that died mid-apply leaves a stale RESOLVING job. The orphan reaper must recover
+        // it to AWAITING_DUPLICATE_DECISION so the decision can be retried (the new RESOLVING recovery path).
+        // A first import seeds the existing candidate; a second import of the same email is flagged a duplicate
+        // -> the job reaches AWAITING. Then force RESOLVING with a stale updatedAt and sweep to recover.
+        uploadAndProcess("name,email\nDup,dup@example.com\n");
+        String jobId = uploadAndProcess("name,email\nDup,dup@example.com\n");
+        assertThat(job(jobId).getStatus()).isEqualTo(CsvImportJobStatus.AWAITING_DUPLICATE_DECISION);
+
+        mongoTemplate.updateFirst(
+            org.springframework.data.mongodb.core.query.Query.query(
+                org.springframework.data.mongodb.core.query.Criteria.where("_id").is(jobId)),
+            new org.springframework.data.mongodb.core.query.Update()
+                .set("status", CsvImportJobStatus.RESOLVING)
+                .set("updatedAt", java.time.Instant.now().minusSeconds(3600)),
+            com.cadence.domain.CsvImportJob.class);
+
+        importScheduler.sweep(); // recoverStale(RESOLVING -> AWAITING)
+
+        assertThat(job(jobId).getStatus()).isEqualTo(CsvImportJobStatus.AWAITING_DUPLICATE_DECISION);
+    }
 }

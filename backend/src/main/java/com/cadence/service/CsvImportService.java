@@ -27,7 +27,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
 
 /**
  * F42 CSV import orchestration: {@link #accept} (store blob + insert job, 202), {@link #status} (workspace-
@@ -117,11 +117,24 @@ public class CsvImportService {
      */
     public CsvImportDtos.JobStatusResponse resolve(String workspaceId, String actorMemberId, String jobId,
                                                    CsvImportDtos.ResolveRequest req) {
-        CsvImportJob job = jobs.findByWorkspaceIdAndId(workspaceId, jobId)
-            .orElseThrow(RbacExceptions.ScopedNotFoundException::new);
-        if (job.getStatus() != CsvImportJobStatus.AWAITING_DUPLICATE_DECISION) {
+        // Existence check first (no-oracle 404 for unknown/cross-workspace).
+        if (jobs.findByWorkspaceIdAndId(workspaceId, jobId).isEmpty()) {
+            throw new RbacExceptions.ScopedNotFoundException();
+        }
+        // Atomically CLAIM the job out of AWAITING into a transient RESOLVING owner state — this serializes the
+        // recruiter resolve against the TTL reaper (which only acts on AWAITING). If the claim matches nothing
+        // (already EXPIRED/COMPLETED by the reaper, or not awaiting) -> 409, no partial work (the BLOCKER fix).
+        CsvImportJob job = mongoTemplate.findAndModify(
+            Query.query(Criteria.where("_id").is(jobId).and("workspaceId").is(workspaceId)
+                .and("status").is(CsvImportJobStatus.AWAITING_DUPLICATE_DECISION)),
+            new Update().set("status", CsvImportJobStatus.RESOLVING).set("updatedAt", Instant.now(clock)),
+            org.springframework.data.mongodb.core.FindAndModifyOptions.options().returnNew(true),
+            CsvImportJob.class);
+        if (job == null) {
             throw new CsvImportExceptions.InvalidStateException();
         }
+        // Parse the blob ONCE (not per merged row — the O(K*fileSize) fix); merges read cells from this map.
+        Map<Integer, CsvRow> rowsByNumber = processor.rowsByNumber(job);
         String defaultAction = req == null ? null : normalize(req.defaultAction());
         java.util.Map<Integer, String> perRow = new java.util.HashMap<>();
         if (req != null && req.decisions() != null) {
@@ -144,7 +157,7 @@ public class CsvImportService {
                 continue; // left pending until decided (or TTL skip-default)
             }
             if ("MERGE".equals(action)) {
-                applyMerge(job, r, actorMemberId);
+                applyMerge(job, r, rowsByNumber.get(r.getRowNumber()), actorMemberId);
             } else {
                 r.setStatus(CsvImportRowStatus.SKIPPED);
             }
@@ -155,7 +168,11 @@ public class CsvImportService {
         processor.recount(job);
         Instant now = Instant.now(clock);
         job.setUpdatedAt(now);
-        if (!stillPending) {
+        if (stillPending) {
+            // Decisions partially applied — return to AWAITING (out of the transient RESOLVING claim) so the
+            // recruiter can finish (or the TTL reaper can skip-default the rest). Blob retained for later merges.
+            job.setStatus(CsvImportJobStatus.AWAITING_DUPLICATE_DECISION);
+        } else {
             job.setStatus(CsvImportJobStatus.COMPLETED);
             job.setCompletedAt(now);
             processor.disposeBlob(job);
@@ -164,14 +181,12 @@ public class CsvImportService {
         return toResponse(job);
     }
 
-    private void applyMerge(CsvImportJob job, CsvImportRowResult r, String actorMemberId) {
-        Optional<CsvRow> cells = processor.findRow(job, r.getRowNumber());
-        if (r.getExistingCandidateId() == null || cells.isEmpty()) {
+    private void applyMerge(CsvImportJob job, CsvImportRowResult r, CsvRow row, String actorMemberId) {
+        if (r.getExistingCandidateId() == null || row == null) {
             // Cannot recover the row/target — fail safe to skip (never resurrect, never guess).
             r.setStatus(CsvImportRowStatus.SKIPPED);
             return;
         }
-        CsvRow row = cells.get();
         Update u = new Update();
         boolean any = false;
         if (notBlank(row.name())) { u.set("name", row.name()); any = true; }

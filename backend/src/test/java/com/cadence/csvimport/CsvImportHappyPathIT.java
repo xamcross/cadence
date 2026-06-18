@@ -64,6 +64,16 @@ class CsvImportHappyPathIT extends CsvImportItBase {
     }
 
     @Test
+    void formulaAndSignLedCells_areStoredVerbatim_notMutated() {
+        // FR-018/SC-006: cells are stored VERBATIM at ingestion (neutralization is export-only). A legitimate
+        // +-led phone / --led name must NOT be corrupted with a leading quote.
+        uploadAndProcess("name,email,phone\n-Bob,bob@example.com,+15550100\n");
+        Candidate c = candidates.findAll().get(0);
+        assertThat(c.getName()).isEqualTo("-Bob");      // not "'-Bob"
+        assertThat(c.getPhone()).isEqualTo("+15550100"); // not "'+15550100"
+    }
+
+    @Test
     void importedCandidate_pii_isCiphertextAtRest() {
         uploadAndProcess("name,email,phone\nMarie Curie,marie@example.com,+15550111\n");
         Document raw = mongoTemplate.getCollection("candidates").find().first();

@@ -1,11 +1,15 @@
 package com.cadence.csvimport;
 
 import com.cadence.api.CsvImportDtos;
+import com.cadence.api.CsvImportExceptions;
 import com.cadence.domain.CsvImportJobStatus;
 import com.cadence.domain.CsvImportRowStatus;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * F42 US2: per-row validation + whole-file reject + status surface. SC-003 (100% valid imported, every invalid
@@ -100,5 +104,44 @@ class CsvImportValidationIT extends CsvImportItBase {
         assertThat(candidates.findAll()).isEmpty();
         assertThat(job(jobId).getStatus()).isEqualTo(CsvImportJobStatus.COMPLETED);
         assertThat(job(jobId).getRejectionReason()).isNull();
+    }
+
+    @Test
+    void malformedRow_isPerRowError_notWholeFileCrash() {
+        // A valid row + an unterminated-quote row: the valid row imports; the malformed row is a per-row
+        // MALFORMED_ROW result (value-free, logical row number); the file is not crashed (FR-009).
+        String csv = "name,email\nAda,ada@example.com\n\"Bad,bad@example.com\n";
+        String jobId = uploadAndProcess(csv);
+        assertThat(candidates.findAll()).hasSize(1);
+        assertThat(job(jobId).getStatus()).isEqualTo(CsvImportJobStatus.COMPLETED);
+        assertThat(job(jobId).getRowResults()).anySatisfy(r -> {
+            assertThat(r.getStatus()).isEqualTo(CsvImportRowStatus.REJECTED);
+            assertThat(r.getReason().name()).isEqualTo("MALFORMED_ROW");
+        });
+    }
+
+    @Test
+    void overSizeFile_isRejectedBeforeProcessing() {
+        // The test profile in-service gate is 64KB; an over-size upload throws InvalidImportException (-> 400),
+        // committing nothing (SC-009 size leg).
+        byte[] big = new byte[70_000];
+        java.util.Arrays.fill(big, (byte) 'a');
+        assertThatThrownBy(() -> importService.accept(WS, ACTOR, "big.csv", big, "text/csv", null))
+            .isInstanceOf(CsvImportExceptions.InvalidImportException.class);
+        assertThat(jobs.findAll()).isEmpty();
+        assertThat(candidates.findAll()).isEmpty();
+    }
+
+    @Test
+    void perIpRateLimit_throws429AfterThreshold() {
+        // The test profile cap is 5/min; the 6th upload from the same IP is refused (advisory limiter).
+        String ip = "203.0.113.9";
+        for (int i = 0; i < 5; i++) {
+            importService.accept(WS, ACTOR, "c.csv", "name,email\nA,a@example.com\n".getBytes(StandardCharsets.UTF_8),
+                "text/csv", ip);
+        }
+        assertThatThrownBy(() -> importService.accept(WS, ACTOR, "c.csv",
+            "name,email\nA,a@example.com\n".getBytes(StandardCharsets.UTF_8), "text/csv", ip))
+            .isInstanceOf(CsvImportExceptions.RateLimitedException.class);
     }
 }
