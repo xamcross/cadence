@@ -150,6 +150,15 @@ export const routes: Routes = [
       import('./features/admin/csv-import/csv-import.component').then((m) => m.CsvImportComponent)
   },
   {
+    // F50 Core Dashboard — time-to-schedule, no-show rate, current silence list + CSV export. Admin OR
+    // Recruiter OR Read-only (read); export is Admin/Recruiter only (server-enforced; the button is hidden for
+    // Read-only). Internal screen — no candidate-facing §IX gate (the F50/F51 precedent).
+    path: 'admin/dashboard',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY')],
+    loadComponent: () =>
+      import('./features/admin/dashboard/dashboard.component').then((m) => m.DashboardComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

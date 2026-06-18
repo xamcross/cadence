@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,4 +48,11 @@ public interface CandidateRepository extends MongoRepository<Candidate, String> 
      */
     Optional<Candidate> findByWorkspaceIdAndAtsProviderAndAtsExternalRef(
         String workspaceId, AtsProvider atsProvider, String atsExternalRef);
+
+    /**
+     * F50: batch name-load for the CAPPED dashboard silence list (data-model section F). Called only on the
+     * truncated id set (<= silenceListCap) so the per-request name-decrypt is bounded (FR-010/FR-012). _id-backed,
+     * no new index.
+     */
+    List<Candidate> findByWorkspaceIdAndIdIn(String workspaceId, Collection<String> ids);
 }

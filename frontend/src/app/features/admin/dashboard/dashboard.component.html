@@ -1,0 +1,68 @@
+<section class="dashboard">
+  <header class="dashboard__head">
+    <h1>{{ title }}</h1>
+    <div class="dashboard__controls">
+      <div class="dashboard__windows" role="group" [attr.aria-label]="title">
+        @for (w of windows; track w) {
+          <button
+            type="button"
+            class="window-btn"
+            [class.window-btn--active]="w === window()"
+            [attr.aria-pressed]="w === window()"
+            (click)="selectWindow(w)">
+            {{ windowLabels[w] }}
+          </button>
+        }
+      </div>
+      @if (canExport()) {
+        <button type="button" class="export-btn" (click)="onExport()">{{ exportLabel }}</button>
+      }
+    </div>
+  </header>
+
+  @if (error()) {
+    <p class="dashboard__error" role="alert">{{ errorMsg }}</p>
+  }
+
+  @if (snapshot(); as snap) {
+    <div class="dashboard__metrics">
+      <article class="metric">
+        <h2>{{ ttsTitle }}</h2>
+        @if (snap.timeToSchedule.hasData) {
+          <p class="metric__value">{{ snap.timeToSchedule.medianHours }} {{ hoursUnit }}</p>
+          <p class="metric__detail">{{ snap.timeToSchedule.sampleCount }}</p>
+        } @else {
+          <p class="metric__empty">{{ noData }}</p>
+        }
+      </article>
+
+      <article class="metric">
+        <h2>{{ noShowTitle }}</h2>
+        @if (snap.noShow.applicable) {
+          <p class="metric__value">{{ (snap.noShow.rate! * 100) | number:'1.1-1' }}%</p>
+          <p class="metric__detail">{{ snap.noShow.noShowCount }} / {{ snap.noShow.qualifyingCount }}</p>
+        } @else {
+          <p class="metric__empty">{{ notApplicable }}</p>
+        }
+      </article>
+
+      <article class="metric metric--silence">
+        <h2>{{ silenceTitle }}</h2>
+        @if (snap.silenceList.length > 0) {
+          <ul class="silence-list">
+            @for (row of snap.silenceList; track row.candidateId) {
+              <li class="silence-row" [class.silence-row--red]="row.severity === 'RED'"
+                  [class.silence-row--amber]="row.severity === 'AMBER'">
+                <span class="silence-row__name">{{ row.candidateName }}</span>
+                <span class="silence-row__sev">{{ row.severity }}</span>
+                <span class="silence-row__days">{{ row.daysSilent }} {{ daysSilentSuffix }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="metric__empty">{{ silenceEmpty }}</p>
+        }
+      </article>
+    </div>
+  }
+</section>

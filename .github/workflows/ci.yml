@@ -258,6 +258,19 @@ jobs:
           fi
           echo "F42 CSV-import scan passed — no candidate name / email / phone / formula sentinel found in test output."
 
+      - name: Dashboard PII scan — silence-list name never logged (F50 SC-009)
+        run: |
+          # F50 SC-009: the dashboard's only PII path is the silence-list candidate-name join (the velocity
+          # metrics are PII-free by construction). DashboardLogPiiScanTest drives a render with a high-entropy
+          # name sentinel and asserts it never reaches the logs/audit (it DOES appear in the CSV cell — the
+          # deliberate egress). CI re-checks the captured stdout (the backstop).
+          if grep -qE 'SENTINELF50NAME_zz9' test-output.txt; then
+            echo "ERROR: an F50 dashboard candidate-name sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF50NAME_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F50 dashboard scan passed — no candidate-name sentinel found in test output."
+
       - name: No-voice-capture scope guard — interviewer feedback is a form only (F32 SC-019)
         run: |
           # F32 SC-019: voice-to-scorecard capture is deferred to v1.5. Guard against a future contributor
