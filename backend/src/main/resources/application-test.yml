@@ -30,3 +30,15 @@ cadence:
     rate-limit-per-minute: 5
     # Park the SchedulingReaper background fire far out; tests drive sweep() directly via the test clock.
     reaper-interval-ms: 3600000
+  # F42 test overrides. Small limits + fast TTL for deterministic tests; the background sweep is parked far out
+  # so tests drive CsvImportScheduler.sweep() directly (the expiresAt/updatedAt are stamped into the past, not
+  # wall-clock slept — the F23 lesson).
+  import:
+    max-file-size: 64KB
+    max-row-count: 200
+    max-field-length: 4096
+    reject-ratio: 0.80
+    sweep-fixed-delay: PT1H
+    sweep-batch-limit: 20
+    job-ttl: PT2S
+    processing-threshold: PT3S

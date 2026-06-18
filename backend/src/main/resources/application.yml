@@ -12,10 +12,13 @@ spring:
     name: cadence-backend
   servlet:
     multipart:
-      # F03 logo upload. Cap at 2 MB so the in-service 1 MB validateLogo gate is the authoritative
-      # limit and a >1 MB file still reaches the handler to be refused with a clean 400 (FR-012).
-      max-file-size: 2MB
-      max-request-size: 2MB
+      # F03 logo upload (1 MB in-service gate) + F42 CSV import (5 MB in-service gate). BOTH caps are set
+      # ABOVE the larger in-service gate (the F03/D9 lesson) so an over-size file still reaches the handler
+      # for a clean 400 rather than a container 500. max-request-size must be raised too — a 5 MB part trips
+      # the request-size cap first regardless of max-file-size. The F03 logo's own 1 MB BrandingService gate
+      # is independent of these caps, so raising them does not weaken it.
+      max-file-size: 6MB
+      max-request-size: 6MB
   security:
     oauth2:
       client:
@@ -238,6 +241,20 @@ cadence:
     poll-interval-ms: 300000
     writeback-interval-ms: 30000
     reaper-interval-ms: 60000
+  # F42 Standalone CSV Import. The upload endpoint returns 202 + a jobId; a @Scheduled sweep parses/validates/
+  # imports each job asynchronously (no broker, §IV). max-file-size is the in-service gate (the multipart caps
+  # above sit higher — D9); reject-ratio is the >80% whole-file reject threshold; job-ttl bounds an unresolved
+  # duplicate decision (defaults remaining to skip + disposes the raw blob); processing-threshold > sweep-fixed-
+  # delay + max per-job time (the F22 reaper invariant). sweep-fixed-delay is read directly by @Scheduled.
+  import:
+    max-file-size: 5MB
+    max-row-count: 10000
+    max-field-length: 4096
+    reject-ratio: 0.80
+    sweep-fixed-delay: PT5S
+    sweep-batch-limit: 20
+    job-ttl: PT24H
+    processing-threshold: PT15M
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.

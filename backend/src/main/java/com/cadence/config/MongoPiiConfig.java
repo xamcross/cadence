@@ -3,6 +3,7 @@ package com.cadence.config;
 import com.cadence.domain.AtsConnection;
 import com.cadence.domain.CalendarConnection;
 import com.cadence.domain.Candidate;
+import com.cadence.domain.CsvImportFile;
 import com.cadence.domain.FeedbackRequest;
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
@@ -69,6 +70,12 @@ public class MongoPiiConfig {
                 // cleared on disconnect/erasure via $set null (NEVER $unset — the F03 ClassCastException trap).
                 registrar.registerConverter(AtsConnection.class, "apiKey", converter);
                 registrar.registerConverter(Candidate.class, "atsStageLabel", converter);
+                // F42: encrypt the raw uploaded CSV bytes (base64 String — the converter is String->String and
+                // cannot encrypt a byte[]) and the imported candidate's stage label (PII-adjacent free text).
+                // CsvImportFile.dataBase64 is disposed on terminal/TTL; Candidate.importStageLabel is cleared via
+                // $set null on erasure (NEVER $unset — the F03 ClassCastException trap). Same converter; one bean.
+                registrar.registerConverter(CsvImportFile.class, "dataBase64", converter);
+                registrar.registerConverter(Candidate.class, "importStageLabel", converter);
             }));
     }
 }

@@ -93,6 +93,11 @@ public class CandidateErasureService {
             // then-guarded-write resurrection defense in AtsSyncService), NOT a re-creating insert.
             .set("atsStageLabel", null)
             .set("atsExternalJobTitle", null)
+            // F42 (FR-022): clear the CSV-imported content. importStageLabel is converter-managed -> $set null
+            // (NEVER $unset — the F03 trap); importRequisitionLabel is plain free text -> $set null. RETAIN
+            // origin/importJobId — non-PII provenance, like the ATS reconcile anchor.
+            .set("importStageLabel", null)
+            .set("importRequisitionLabel", null)
             .set("erasureState", ErasureState.ERASED)
             .set("erasedAt", Instant.now(clock));
         UpdateResult r = mongoTemplate.updateFirst(q, u, Candidate.class);

@@ -244,6 +244,20 @@ jobs:
           fi
           echo "ATS scan passed — no candidate name / API key / provider body / minimization field found in test output."
 
+      - name: PII scan — F42 CSV import (no candidate name / email / phone / formula cell in test output, SC-005)
+        run: |
+          # F42 FR-016/FR-017/SC-005: imported candidate PII is encrypted at rest, the raw uploaded blob is
+          # encrypted + disposed on terminal/TTL, and the csvImportJobs rowResults are value-free (row number +
+          # field + reason enum + ids only). CsvImportLogPiiScanTest drives a mixed import with high-entropy
+          # name/email/formula sentinels and asserts none reach the persisted job doc. CI re-checks the captured
+          # stdout (the backstop). originalFilename is recruiter-chosen + deliberately excluded (never logged).
+          if grep -qE 'SENTINELF42NAME_zz9|sentinelf42email_zz9|SENTINELF42PHONE_zz9|SENTINELF42FORMULA_zz9' test-output.txt; then
+            echo "ERROR: an F42 candidate name / email / phone / formula-injection sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF42NAME_zz9|sentinelf42email_zz9|SENTINELF42PHONE_zz9|SENTINELF42FORMULA_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F42 CSV-import scan passed — no candidate name / email / phone / formula sentinel found in test output."
+
       - name: No-voice-capture scope guard — interviewer feedback is a form only (F32 SC-019)
         run: |
           # F32 SC-019: voice-to-scorecard capture is deferred to v1.5. Guard against a future contributor
