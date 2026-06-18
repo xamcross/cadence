@@ -120,11 +120,8 @@ public class CsvImportProcessor {
             return;
         }
 
-        // Commit phase. Re-runnable: rebuild the intra-file seen-set + reuse already-recorded results.
-        Map<Integer, CsvImportRowResult> existing = new LinkedHashMap<>();
-        for (CsvImportRowResult rr : job.getRowResults()) {
-            existing.put(rr.getRowNumber(), rr);
-        }
+        // Commit phase. Re-runnable: the per-row create is idempotent via findOwnImport + the partial-unique
+        // index (a resumed/orphaned re-run never double-creates), and the intra-file seen-set collapses dupes.
         Set<String> seenEmailHashes = new HashSet<>();
         List<CsvImportRowResult> results = new ArrayList<>();
         boolean anyPending = false;
@@ -167,28 +164,27 @@ public class CsvImportProcessor {
     }
 
     /**
-     * Resolve a single duplicate row by number (the merge path needs the original cells). Returns the parsed
-     * {@link CsvRow} or empty if the blob/row is gone. Confines the parser to this class for the resolve flow.
+     * Parse the blob ONCE into a {@code rowNumber -> CsvRow} map for the resolve/merge flow (avoids the
+     * O(K*fileSize) re-parse-per-row cost). Empty if the blob is gone. Confines the parser to this class.
      */
-    public Optional<CsvRow> findRow(CsvImportJob job, int rowNumber) {
+    public Map<Integer, CsvRow> rowsByNumber(CsvImportJob job) {
         CsvImportFile file = files.findByJobId(job.getId()).orElse(null);
         if (file == null) {
-            return Optional.empty();
+            return Map.of();
         }
-        return parse(file).rows.stream()
-            .filter(pr -> pr.failure == null && pr.rowNumber == rowNumber)
-            .map(pr -> pr.row)
-            .findFirst();
+        Map<Integer, CsvRow> out = new LinkedHashMap<>();
+        for (ParsedRow pr : parse(file).rows) {
+            if (pr.failure == null && pr.row != null) {
+                out.put(pr.rowNumber, pr.row);
+            }
+        }
+        return out;
     }
 
-    /** Dispose the raw blob and null the job's fileId (idempotent). */
+    /** Dispose the raw blob and null the job's fileId (idempotent; deleteByJobId is a no-op if absent). */
     public void disposeBlob(CsvImportJob job) {
-        if (job.getFileId() != null) {
-            files.deleteByJobId(job.getId());
-            job.setFileId(null);
-        } else {
-            files.findByJobId(job.getId()).ifPresent(f -> files.deleteByJobId(job.getId()));
-        }
+        files.deleteByJobId(job.getId());
+        job.setFileId(null);
     }
 
     /** Recompute the counters from rowResults (deterministic; safe across replays). */
@@ -341,7 +337,7 @@ public class CsvImportProcessor {
     }
 
     private static String stripBom(String s) {
-        return (!s.isEmpty() && s.charAt(0) == '﻿') ? s.substring(1) : s;
+        return (!s.isEmpty() && s.charAt(0) == (char) 0xFEFF) ? s.substring(1) : s;
     }
 
     private static String blankToNull(String s) {

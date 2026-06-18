@@ -70,6 +70,10 @@ public class CsvImportScheduler {
 
     @PostConstruct
     void registerReplay() {
+        // Operational invariant (D8, documented in ImportProperties): processing-threshold must exceed the REAL
+        // sweep interval + max per-job time so the orphan/RESOLVING recovery never races a live worker. It is NOT
+        // asserted at startup because the test profile deliberately parks sweep-fixed-delay far out (tests drive
+        // sweep() directly), which would make a naive threshold>sweep-delay check spuriously fail.
         checkpoints.registerReplayAction(TASK_NAME, this::sweep);
     }
 
@@ -134,7 +138,18 @@ public class CsvImportScheduler {
         Instant now = Instant.now(clock);
         List<CsvImportJob> expired = jobs.findExpiredAwaiting(CsvImportJobStatus.AWAITING_DUPLICATE_DECISION, now,
             PageRequest.of(0, props.getSweepBatchLimit()));
-        for (CsvImportJob job : expired) {
+        for (CsvImportJob candidate : expired) {
+            // Atomically CLAIM AWAITING -> EXPIRED so the reaper never clobbers a concurrent recruiter resolve
+            // (which first flips AWAITING -> RESOLVING). Only the CAS winner disposes the blob + skip-defaults.
+            CsvImportJob job = mongoTemplate.findAndModify(
+                Query.query(Criteria.where("_id").is(candidate.getId())
+                    .and("status").is(CsvImportJobStatus.AWAITING_DUPLICATE_DECISION)),
+                new Update().set("status", CsvImportJobStatus.EXPIRED).set("updatedAt", now).set("completedAt", now),
+                FindAndModifyOptions.options().returnNew(true),
+                CsvImportJob.class);
+            if (job == null) {
+                continue; // resolve won the race — leave it alone
+            }
             for (CsvImportRowResult r : job.getRowResults()) {
                 if (r.getStatus() == CsvImportRowStatus.DUPLICATE_PENDING) {
                     r.setStatus(CsvImportRowStatus.SKIPPED); // safe default for an abandoned decision
@@ -142,26 +157,32 @@ public class CsvImportScheduler {
             }
             processor.recount(job);
             processor.disposeBlob(job);
-            job.setStatus(CsvImportJobStatus.EXPIRED);
-            job.setUpdatedAt(now);
-            job.setCompletedAt(now);
             jobs.save(job);
         }
     }
 
     private void requeueOrphans() {
         Instant threshold = Instant.now(clock).minus(props.getProcessingThreshold());
-        List<CsvImportJob> orphans = jobs.findOrphanedProcessing(CsvImportJobStatus.PROCESSING, threshold,
+        // A worker that died mid-process leaves a stale PROCESSING job -> re-queue to ACCEPTED so the next sweep
+        // RESUMES it (process() re-runs idempotently: the partial-unique index prevents double candidates,
+        // everything else is deterministic recompute).
+        recoverStale(CsvImportJobStatus.PROCESSING, CsvImportJobStatus.ACCEPTED, threshold);
+        // A recruiter resolve that died mid-apply leaves a stale RESOLVING job -> recover to AWAITING so the
+        // decision can be retried (or the TTL reaper can skip-default it).
+        recoverStale(CsvImportJobStatus.RESOLVING, CsvImportJobStatus.AWAITING_DUPLICATE_DECISION, threshold);
+    }
+
+    private void recoverStale(CsvImportJobStatus from, CsvImportJobStatus to, Instant threshold) {
+        List<CsvImportJob> orphans = jobs.findOrphanedProcessing(from, threshold,
             PageRequest.of(0, props.getSweepBatchLimit()));
         for (CsvImportJob job : orphans) {
-            // Re-queue (NOT FAILED) so the next sweep resumes it — process() re-runs idempotently (the
-            // partial-unique index prevents double candidates; deterministic recompute for the rest).
             UpdateResult r = mongoTemplate.updateFirst(
-                Query.query(Criteria.where("_id").is(job.getId()).and("status").is(CsvImportJobStatus.PROCESSING)),
-                new Update().set("status", CsvImportJobStatus.ACCEPTED).set("updatedAt", Instant.now(clock)),
+                Query.query(Criteria.where("_id").is(job.getId()).and("status").is(from)),
+                new Update().set("status", to).set("updatedAt", Instant.now(clock)),
                 CsvImportJob.class);
             if (r.getModifiedCount() == 1) {
-                log.warn("Re-queued orphaned CSV import job {}", StructuredArguments.kv("jobId", job.getId()));
+                log.warn("Recovered stale CSV import job {} {}",
+                    StructuredArguments.kv("jobId", job.getId()), StructuredArguments.kv("from", from.name()));
             }
         }
     }

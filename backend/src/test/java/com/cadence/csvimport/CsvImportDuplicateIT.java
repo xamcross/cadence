@@ -91,6 +91,30 @@ class CsvImportDuplicateIT extends CsvImportItBase {
     }
 
     @Test
+    void mergeOntoAtsLinkedRecord_preservesAtsKeys() {
+        // FR-014/SC-014: a CSV merge updates content fields only and never touches the ATS reconciliation key.
+        Candidate existing = candidateService.create(WS, "Old", "dup@example.com", null,
+            Optional.of(LawfulBasis.CONSENT), ACTOR);
+        mongoTemplate.updateFirst(
+            org.springframework.data.mongodb.core.query.Query.query(
+                org.springframework.data.mongodb.core.query.Criteria.where("_id").is(existing.getId())),
+            new org.springframework.data.mongodb.core.query.Update()
+                .set("atsProvider", com.cadence.integration.AtsProvider.GREENHOUSE)
+                .set("atsExternalRef", "gh_app:42"),
+            Candidate.class);
+
+        String jobId = uploadAndProcess("name,email\nNew Name,dup@example.com\n");
+        int row = job(jobId).getRowResults().get(0).getRowNumber();
+        importService.resolve(WS, "resolver", jobId,
+            new CsvImportDtos.ResolveRequest(List.of(new CsvImportDtos.Decision(row, "MERGE")), null));
+
+        Candidate after = candidates.findByWorkspaceIdAndId(WS, existing.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("New Name");                          // content merged
+        assertThat(after.getAtsProvider()).isEqualTo(com.cadence.integration.AtsProvider.GREENHOUSE); // key intact
+        assertThat(after.getAtsExternalRef()).isEqualTo("gh_app:42");               // key intact
+    }
+
+    @Test
     void mergeRacingErasure_noResurrection() {
         Candidate existing = candidateService.create(WS, "Erase Me", "dup@example.com", null,
             Optional.of(LawfulBasis.CONSENT), ACTOR);

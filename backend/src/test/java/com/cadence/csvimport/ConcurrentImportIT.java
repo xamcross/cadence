@@ -49,6 +49,15 @@ class ConcurrentImportIT extends CsvImportItBase {
         }
 
         assertThat(candidates.findAll()).hasSize(1);
+
+        // Non-vacuous: exactly one job IMPORTED the row; the loser flagged it DUPLICATE_PENDING (the
+        // DuplicateKeyException re-resolve branch). Re-read both jobs.
+        CsvImportJob a = jobs.findById(jobA.getId()).orElseThrow();
+        CsvImportJob b = jobs.findById(jobB.getId()).orElseThrow();
+        long imported = (a.getImportedCount() == 1 ? 1 : 0) + (b.getImportedCount() == 1 ? 1 : 0);
+        long pending = (a.getDuplicatePendingCount() == 1 ? 1 : 0) + (b.getDuplicatePendingCount() == 1 ? 1 : 0);
+        assertThat(imported).isEqualTo(1);
+        assertThat(pending).isEqualTo(1);
     }
 
     private CsvImportJob newAcceptedJob(String csv) {

@@ -89,6 +89,19 @@ class CsvImportContractTest extends CsvImportItBase {
     }
 
     @Test
+    void status_realJobFromAnotherWorkspace_isIndistinguishable404() throws Exception {
+        // A REAL job exists under WS; a member of a different workspace must get the same 404 as for an unknown
+        // id (no cross-workspace existence oracle, SC-015).
+        String jobId = uploadAndProcess("name,email\nAda,ada@example.com\n");
+        Member other = memberService.create("other-ws", "other@example.com", "other@example.com",
+            Role.RECRUITER, null, null);
+        Cookie otherCookie = new Cookie("cad_session", sessionService.issue(other).jwt());
+        mvc.perform(get("/api/internal/import/" + jobId + "/status").cookie(otherCookie))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error", is("not_found")));
+    }
+
+    @Test
     void resolve_onNonAwaitingJob_is409() throws Exception {
         Cookie admin = cookie(Role.ADMIN);
         // Upload under WS via the service helper, then process to COMPLETED (not awaiting).

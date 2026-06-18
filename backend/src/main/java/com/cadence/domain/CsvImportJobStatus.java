@@ -10,6 +10,10 @@ public enum CsvImportJobStatus {
     ACCEPTED,
     PROCESSING,
     AWAITING_DUPLICATE_DECISION,
+    /** Transient owner state: a recruiter resolve has atomically claimed an AWAITING job, serializing it
+     *  against the TTL reaper. Returns to AWAITING (decisions remain) or COMPLETED; a stale RESOLVING (a
+     *  crashed resolve) is recovered to AWAITING by the orphan reaper. */
+    RESOLVING,
     COMPLETED,
     REJECTED,
     FAILED,
