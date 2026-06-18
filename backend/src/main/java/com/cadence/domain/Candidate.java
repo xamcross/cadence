@@ -1,5 +1,6 @@
 package com.cadence.domain;
 
+import com.cadence.integration.AtsProvider;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -104,6 +105,29 @@ public class Candidate {
     @Field(value = "statusTokenHash", write = Field.Write.NON_NULL)
     private String statusTokenHash;
 
+    // --- F40 ATS integration (data-model section 4) — additive ATS-link fields. All write=NON_NULL so a
+    // native (non-imported) candidate omits them from BSON and does NOT collide on the partial-unique
+    // {workspaceId,atsProvider,atsExternalRef} index (the F01 present-as-null lesson). atsExternalRef is the
+    // authoritative reconcile key and is RETAINED on erasure (the resurrection anchor — see CandidateErasureService).
+    @Field(value = "atsProvider", write = Field.Write.NON_NULL)
+    private AtsProvider atsProvider;
+    @Field(value = "atsExternalRef", write = Field.Write.NON_NULL)
+    private String atsExternalRef;
+    @Field(value = "atsExternalJobId", write = Field.Write.NON_NULL)
+    private String atsExternalJobId;
+    /** Requisition title — NOT candidate PII; kept out of logs by discipline. Cleared on erasure. */
+    @Field(value = "atsExternalJobTitle", write = Field.Write.NON_NULL)
+    private String atsExternalJobTitle;
+    /**
+     * Raw external pipeline-stage label (free text). PII-adjacent (FR-022 no-log); encrypted at rest via the
+     * registered converter (MongoPiiConfig). @JsonIgnore + omitted from toString. Cleared on erasure via $set null.
+     */
+    @JsonIgnore
+    @Field(value = "atsStageLabel", write = Field.Write.NON_NULL)
+    private String atsStageLabel;
+    /** Last successful inbound ATS update for this candidate. */
+    private Instant atsSyncedAt;
+
     public Candidate() {}
 
     public String getId() { return id; }
@@ -192,6 +216,24 @@ public class Candidate {
 
     public String getStatusTokenHash() { return statusTokenHash; }
     public void setStatusTokenHash(String statusTokenHash) { this.statusTokenHash = statusTokenHash; }
+
+    public AtsProvider getAtsProvider() { return atsProvider; }
+    public void setAtsProvider(AtsProvider atsProvider) { this.atsProvider = atsProvider; }
+
+    public String getAtsExternalRef() { return atsExternalRef; }
+    public void setAtsExternalRef(String atsExternalRef) { this.atsExternalRef = atsExternalRef; }
+
+    public String getAtsExternalJobId() { return atsExternalJobId; }
+    public void setAtsExternalJobId(String atsExternalJobId) { this.atsExternalJobId = atsExternalJobId; }
+
+    public String getAtsExternalJobTitle() { return atsExternalJobTitle; }
+    public void setAtsExternalJobTitle(String atsExternalJobTitle) { this.atsExternalJobTitle = atsExternalJobTitle; }
+
+    public String getAtsStageLabel() { return atsStageLabel; }
+    public void setAtsStageLabel(String atsStageLabel) { this.atsStageLabel = atsStageLabel; }
+
+    public Instant getAtsSyncedAt() { return atsSyncedAt; }
+    public void setAtsSyncedAt(Instant atsSyncedAt) { this.atsSyncedAt = atsSyncedAt; }
 
     /**
      * Deliberately omits name/email/phone (FR-023) AND the F30 statusStage/statusNextStep (PII) +

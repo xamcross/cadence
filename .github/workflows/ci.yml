@@ -286,6 +286,17 @@ jobs:
           fi
           echo "Calendar base-URL guard passed — neither provider client has a hardcoded host."
 
+      - name: ATS base-URL guard — the Greenhouse client must not hardcode the provider host (F40 D7)
+        run: |
+          # GreenhouseAtsClient builds every URI from cadence.ats.greenhouse.base-url so tests point at the
+          # StubGreenhouse and never hit real Greenhouse. A host literal in the CLIENT would defeat that (the
+          # overridable default lives in AtsProperties/application.yml, which is fine).
+          if grep -nE 'harvest\.greenhouse|greenhouse\.io' backend/src/main/java/com/cadence/integration/GreenhouseAtsClient.java; then
+            echo "ERROR: GreenhouseAtsClient.java hardcodes the Greenhouse host — use cadence.ats.greenhouse.base-url."
+            exit 1
+          fi
+          echo "ATS base-URL guard passed — the Greenhouse client has no hardcoded host."
+
       - name: Principle V scan — check scripts for non-ASCII characters
         run: |
           # LC_ALL=C forces byte-accurate matching of raw high bytes (0x80-0xFF). Without it,

@@ -171,12 +171,17 @@ public class NoShowCascadeService {
 
     // ===================================== Cascade stage 3: no-show =====================================
 
-    /** Stage 3 (FR-016): CAS-stamp the no-show signal when the start is reached unconfirmed (data for F50). */
-    public void stampNoShow(SchedulingRequest req, Instant now) {
-        mongo.findAndModify(
+    /**
+     * Stage 3 (FR-016): CAS-stamp the no-show signal when the start is reached unconfirmed (data for F50).
+     * Returns the stamped row (the CAS winner) so the caller can enqueue the F40 ATS write-back, or null when
+     * the CAS did not match (already confirmed/cancelled/stamped) — so the write-back fires at most once.
+     */
+    public SchedulingRequest stampNoShow(SchedulingRequest req, Instant now) {
+        return mongo.findAndModify(
             Query.query(Criteria.where("_id").is(req.getId()).and("status").is(SchedulingStatus.BOOKED)
                 .and("candidateConfirmedAt").is(null).and("noShowAt").is(null)),
             new Update().set("noShowAt", now).set("updatedAt", now),
+            FindAndModifyOptions.options().returnNew(true),
             SchedulingRequest.class);
     }
 

@@ -5,6 +5,8 @@ import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.WorkspaceConfig;
 import com.cadence.repository.SchedulingRequestRepository;
 import com.cadence.repository.WorkspaceConfigRepository;
+import com.cadence.domain.AtsWriteBackType;
+import com.cadence.service.AtsWriteBackService;
 import com.cadence.service.NoShowCascadeService;
 import jakarta.annotation.PostConstruct;
 import net.logstash.logback.argument.StructuredArguments;
@@ -45,16 +47,18 @@ public class NoShowDefenseScheduler {
     private final SchedulingRequestRepository requests;
     private final WorkspaceConfigRepository workspaceConfigs;
     private final NoShowCascadeService cascade;
+    private final AtsWriteBackService atsWriteBacks;
     private final NoShowProperties props;
     private final Clock clock;
 
     public NoShowDefenseScheduler(SchedulerCheckpointService checkpoints, SchedulingRequestRepository requests,
                                   WorkspaceConfigRepository workspaceConfigs, NoShowCascadeService cascade,
-                                  NoShowProperties props, Clock clock) {
+                                  AtsWriteBackService atsWriteBacks, NoShowProperties props, Clock clock) {
         this.checkpoints = checkpoints;
         this.requests = requests;
         this.workspaceConfigs = workspaceConfigs;
         this.cascade = cascade;
+        this.atsWriteBacks = atsWriteBacks;
         this.props = props;
         this.clock = clock;
     }
@@ -102,8 +106,13 @@ public class NoShowDefenseScheduler {
 
             // Stage 3: no-show stamp (start already reached — no per-workspace offset).
             for (SchedulingRequest req : requests.findNoShowDue(now, page)) {
-                cascade.stampNoShow(req, now);
-                noShow++;
+                SchedulingRequest stamped = cascade.stampNoShow(req, now);
+                if (stamped != null) {
+                    noShow++;
+                    // F40: write the no-show to the ATS timeline (best-effort; only the CAS winner enqueues).
+                    atsWriteBacks.enqueue(stamped.getWorkspaceId(), stamped.getCandidateId(),
+                        AtsWriteBackType.NO_SHOW, stamped.getBookedStartAt());
+                }
             }
 
             if (requested + escalated + noShow > 0) {

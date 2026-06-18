@@ -94,6 +94,7 @@ public class FeedbackService implements FeedbackInvalidator {
     private final AuthProperties authProps;
     private final DeadLetterService deadLetter;
     private final ObjectMapper objectMapper;
+    private final AtsWriteBackService atsWriteBacks;
     private final Clock clock;
 
     public FeedbackService(FeedbackRequestRepository feedback, SchedulingRequestRepository scheduling,
@@ -102,7 +103,7 @@ public class FeedbackService implements FeedbackInvalidator {
                            MemberService members, RecruiterNotificationService notifications,
                            CandidateAuditService audit, CandidateRateLimiter rateLimiter, TokenHasher hasher,
                            FeedbackProperties props, AuthProperties authProps, DeadLetterService deadLetter,
-                           ObjectMapper objectMapper, Clock clock) {
+                           ObjectMapper objectMapper, AtsWriteBackService atsWriteBacks, Clock clock) {
         this.feedback = feedback;
         this.scheduling = scheduling;
         this.claims = claims;
@@ -118,6 +119,7 @@ public class FeedbackService implements FeedbackInvalidator {
         this.authProps = authProps;
         this.deadLetter = deadLetter;
         this.objectMapper = objectMapper;
+        this.atsWriteBacks = atsWriteBacks;
         this.clock = clock;
     }
 
@@ -290,6 +292,9 @@ public class FeedbackService implements FeedbackInvalidator {
         }
         audit.append(won.getWorkspaceId(), won.getCandidateId(), CandidateEventType.SCORECARD_SUBMITTED,
             CandidateAuditOutcome.RECORDED, won.getInterviewerMemberId());
+        // F40: write the feedback-submitted signal to the ATS timeline (ids only, NEVER the scorecard payload).
+        atsWriteBacks.enqueue(won.getWorkspaceId(), won.getCandidateId(),
+            com.cadence.domain.AtsWriteBackType.FEEDBACK_SUBMITTED, now);
         log.info("scorecard submitted {} {}",
             StructuredArguments.kv("interviewEventId", won.getInterviewEventId()),
             StructuredArguments.kv("interviewerMemberId", won.getInterviewerMemberId()));

@@ -135,6 +135,13 @@ export const routes: Routes = [
       import('./features/feedback/scorecard-page.component').then((m) => m.ScorecardPageComponent)
   },
   {
+    // F40 ATS integration (Greenhouse) — connect/sync status/dead-letters. Admin-only internal screen.
+    path: 'admin/ats',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/ats/ats-integration.component').then((m) => m.AtsIntegrationComponent)
+  },
+  {
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],

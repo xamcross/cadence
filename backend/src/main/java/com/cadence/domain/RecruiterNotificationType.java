@@ -30,5 +30,10 @@ public enum RecruiterNotificationType {
     SLA_DRAFT_PENDING,
     // F32 Interviewer Feedback (append-only — value-free): an interviewer's scorecard cannot be collected
     // (member deactivated/removed). Workspace-scoped so the fallback is inherent (FR-009).
-    FEEDBACK_UNCOLLECTIBLE
+    FEEDBACK_UNCOLLECTIBLE,
+    // F40 Greenhouse ATS (append-only — value-free). Workspace-scoped operator alerts.
+    /** An ATS write-back exhausted its retries and was dead-lettered (FR-018). */
+    ATS_WRITEBACK_FAILED,
+    /** An ATS inbound sync failed for a workspace; the connection is degraded (FR-019). */
+    ATS_SYNC_FAILED
 }

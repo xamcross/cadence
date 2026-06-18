@@ -89,6 +89,7 @@ public class SlotReservationService {
     private final Clock clock;
     private final CandidateStatusService statusService;
     private final CandidateActivityService activity;
+    private final AtsWriteBackService atsWriteBacks;
 
     public SlotReservationService(SchedulingRequestRepository requests, InterviewSlotClaimRepository claims,
                                   InterviewTemplateRepository templates, ContactPermissionGate gate,
@@ -98,7 +99,8 @@ public class SlotReservationService {
                                   RecruiterNotificationService notifications, CandidateRateLimiter rateLimiter,
                                   RuleEngine ruleEngine, SchedulingProperties props, AuthProperties authProps,
                                   TokenHasher hasher, MongoTemplate mongo, Clock clock,
-                                  CandidateStatusService statusService, CandidateActivityService activity) {
+                                  CandidateStatusService statusService, CandidateActivityService activity,
+                                  AtsWriteBackService atsWriteBacks) {
         this.requests = requests;
         this.claims = claims;
         this.templates = templates;
@@ -119,6 +121,7 @@ public class SlotReservationService {
         this.clock = clock;
         this.statusService = statusService;
         this.activity = activity;
+        this.atsWriteBacks = atsWriteBacks;
     }
 
     public record SlotProjection(String slotId, Instant start, Instant end, String zoneId) {}
@@ -329,8 +332,14 @@ public class SlotReservationService {
                         "rescheduled", null);
                     candidateAudit.append(req.getWorkspaceId(), req.getCandidateId(),
                         CandidateEventType.BOOKING_CHANGED, CandidateAuditOutcome.BOOKING_RESCHEDULED, "CANDIDATE");
+                    // F40: write the reschedule to the ATS timeline (best-effort, keyed on the new interview start).
+                    atsWriteBacks.enqueue(booked.getWorkspaceId(), booked.getCandidateId(),
+                        com.cadence.domain.AtsWriteBackType.RESCHEDULED, booked.getBookedStartAt());
                 } else {
                     audit.record(AuthEventType.SCHEDULING_BOOKED, req.getWorkspaceId(), "CANDIDATE", "booked", null);
+                    // F40: write the booking to the ATS timeline (best-effort, keyed on the interview start).
+                    atsWriteBacks.enqueue(booked.getWorkspaceId(), booked.getCandidateId(),
+                        com.cadence.domain.AtsWriteBackType.CONFIRMED, booked.getBookedStartAt());
                 }
                 sendConfirmations(booked, template, slot, zone, now, rawManage);
                 log.info("scheduling booked {} {} {}",
@@ -554,6 +563,9 @@ public class SlotReservationService {
         audit.record(AuthEventType.SCHEDULING_CANCELLED, booking.getWorkspaceId(), actor, "cancelled", null);
         candidateAudit.append(booking.getWorkspaceId(), booking.getCandidateId(),
             CandidateEventType.BOOKING_CHANGED, CandidateAuditOutcome.BOOKING_CANCELLED, actor);
+        // F40: write the cancellation to the ATS timeline (best-effort, keyed on the cancelled interview start).
+        atsWriteBacks.enqueue(booking.getWorkspaceId(), booking.getCandidateId(),
+            com.cadence.domain.AtsWriteBackType.CANCELLED, booking.getBookedStartAt());
         if (candidateInitiated) {
             notifications.notify(booking.getWorkspaceId(), booking.getCandidateId(),
                 RecruiterNotificationType.INTERVIEW_CANCELLED_BY_CANDIDATE);

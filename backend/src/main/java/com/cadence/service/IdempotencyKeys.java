@@ -1,5 +1,6 @@
 package com.cadence.service;
 
+import com.cadence.domain.AtsWriteBackType;
 import com.cadence.domain.EmailMessageType;
 
 import java.nio.charset.StandardCharsets;
@@ -22,6 +23,29 @@ public final class IdempotencyKeys {
                                      long scheduledForEpochMillis) {
         String typeName = type.name();
         String millis = Long.toString(scheduledForEpochMillis);
+        String joined = workspaceId.length() + ":" + workspaceId
+            + ":" + candidateId.length() + ":" + candidateId
+            + ":" + typeName.length() + ":" + typeName
+            + ":" + millis.length() + ":" + millis;
+        byte[] digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256").digest(joined.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+        return base32hex(digest);
+    }
+
+    /**
+     * F40 ATS write-back idempotency key — {@code sha256(workspaceId | candidateId | type | eventAtEpochMillis)}
+     * base32hex, LENGTH-PREFIXED (the same anti-collision discipline). The key is derived from the deterministic
+     * originating event instant ({@code eventAt}), NOT enqueue time, so a re-enqueue of the same logical event
+     * collides on the unique {workspaceId,idempotencyKey} index (exactly-once). No PII — ids + a numeric instant.
+     */
+    public static String atsWriteBackKey(String workspaceId, String candidateId, AtsWriteBackType type,
+                                         long eventAtEpochMillis) {
+        String typeName = type.name();
+        String millis = Long.toString(eventAtEpochMillis);
         String joined = workspaceId.length() + ":" + workspaceId
             + ":" + candidateId.length() + ":" + candidateId
             + ":" + typeName.length() + ":" + typeName

@@ -216,6 +216,26 @@ cadence:
     spa-feedback-base-path: /feedback
     # Fixed delay for the FeedbackScheduler @Scheduled worker (read directly by @Scheduled).
     scan-interval: PT5M
+  # F40 Greenhouse ATS connector (AtsProperties prefix cadence.ats). The per-workspace API key is stored
+  # encrypted in atsConnections (NOT a global secret). base-url defaults to live Greenhouse; tests override it
+  # to the StubGreenhouse via @DynamicPropertySource (integration-pending). The *-interval-ms knobs are read
+  # directly by @Scheduled (poll <= 5 min, FR-009). reaper-threshold > read-timeout + max-backoff (F22 invariant).
+  ats:
+    greenhouse:
+      base-url: ${CADENCE_ATS_GREENHOUSE_BASE_URL:https://harvest.greenhouse.io}
+    poll-interval: PT5M
+    connect-timeout: PT5S
+    read-timeout: PT10S
+    retry-max-attempts: 3
+    retry-base-backoff: PT2S
+    sync-page-limit: 100
+    writeback-batch-limit: 100
+    reaper-threshold: PT10M
+    ops-alert-address: ${CADENCE_ATS_OPS_ALERT_ADDRESS:ops@localhost}
+    # Fixed delays for the @Scheduled workers (read directly by @Scheduled).
+    poll-interval-ms: 300000
+    writeback-interval-ms: 30000
+    reaper-interval-ms: 60000
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.
