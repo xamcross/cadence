@@ -28,10 +28,12 @@ import org.springframework.test.context.DynamicPropertySource;
 abstract class AtsItBase extends BaseIntegrationTest {
 
     protected static final StubGreenhouse stub = new StubGreenhouse();
+    protected static final StubLever leverStub = new StubLever();
 
     @DynamicPropertySource
     static void atsProps(DynamicPropertyRegistry r) {
         r.add("cadence.ats.greenhouse.base-url", stub::baseUrl);
+        r.add("cadence.ats.lever.base-url", leverStub::baseUrl);
         r.add("cadence.ats.retry-base-backoff", () -> "PT0S");
     }
 
@@ -50,20 +52,34 @@ abstract class AtsItBase extends BaseIntegrationTest {
     @BeforeEach
     void cleanAts() {
         stub.reset();
+        leverStub.reset();
         mongoTemplate.remove(new Query(), AtsConnection.class);
         mongoTemplate.remove(new Query(), AtsWriteBack.class);
         mongoTemplate.remove(new Query(), AtsSyncRun.class);
         mongoTemplate.remove(new Query(), Candidate.class);
     }
 
-    /** Connect a workspace against the stub (verifies via GET /v1/jobs -> 200) and return the CONNECTED row. */
+    /** Connect a workspace against the Greenhouse stub (verifies via GET /v1/jobs -> 200) and return the CONNECTED row. */
     protected AtsConnection connect(String workspaceId) {
         connectionService.connect(workspaceId, AtsProvider.GREENHOUSE, "test-key-" + workspaceId);
-        return connections.findByWorkspaceId(workspaceId).orElseThrow();
+        return connections.findByWorkspaceIdAndProvider(workspaceId, AtsProvider.GREENHOUSE).orElseThrow();
     }
 
-    /** Run one inbound sync for the workspace's connection. */
+    /** Connect a workspace against the Lever stub and return the CONNECTED row. */
+    protected AtsConnection connectLever(String workspaceId) {
+        connectionService.connect(workspaceId, AtsProvider.LEVER, "lever-key-" + workspaceId);
+        return connections.findByWorkspaceIdAndProvider(workspaceId, AtsProvider.LEVER).orElseThrow();
+    }
+
+    /** Run one inbound sync for the workspace's Greenhouse connection. */
     protected void sync(String workspaceId) {
-        syncService.syncWorkspace(connections.findByWorkspaceId(workspaceId).orElseThrow());
+        syncService.syncWorkspace(
+            connections.findByWorkspaceIdAndProvider(workspaceId, AtsProvider.GREENHOUSE).orElseThrow());
+    }
+
+    /** Run one inbound sync for the workspace's Lever connection. */
+    protected void syncLever(String workspaceId) {
+        syncService.syncWorkspace(
+            connections.findByWorkspaceIdAndProvider(workspaceId, AtsProvider.LEVER).orElseThrow());
     }
 }

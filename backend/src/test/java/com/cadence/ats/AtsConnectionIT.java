@@ -18,15 +18,15 @@ class AtsConnectionIT extends AtsItBase {
         assertThatThrownBy(() -> connectionService.connect(WS, AtsProvider.GREENHOUSE, "bad-key"))
             .isInstanceOf(AtsExceptions.VerificationFailedException.class);
         // No usable connection stored, and the bad key never persisted (SC-010).
-        assertThat(connections.findByWorkspaceId(WS)).isEmpty();
+        assertThat(connections.findByWorkspaceIdAndProvider(WS, AtsProvider.GREENHOUSE)).isEmpty();
     }
 
     @Test
     void disconnectDestroysTheKeyAndStopsBeingCredentialSet() {
         connect(WS);
-        assertThat(connectionService.health(WS).credentialSet()).isTrue();
-        connectionService.disconnect(WS);
-        assertThat(connectionService.health(WS).credentialSet()).isFalse();
+        assertThat(connectionService.health(WS, AtsProvider.GREENHOUSE).credentialSet()).isTrue();
+        connectionService.disconnect(WS, AtsProvider.GREENHOUSE);
+        assertThat(connectionService.health(WS, AtsProvider.GREENHOUSE).credentialSet()).isFalse();
         // Raw read: apiKey is cleared at rest (not present / null).
         var raw = mongoTemplate.getCollection("atsConnections").find().first();
         assertThat(raw).isNotNull();

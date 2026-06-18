@@ -20,6 +20,7 @@ import java.time.Duration;
 public class AtsProperties {
 
     private final Greenhouse greenhouse = new Greenhouse();
+    private final Lever lever = new Lever();
     private Duration pollInterval = Duration.ofMinutes(5);
     private Duration connectTimeout = Duration.ofSeconds(5);
     private Duration readTimeout = Duration.ofSeconds(10);
@@ -31,6 +32,8 @@ public class AtsProperties {
     private String opsAlertAddress = "ops@localhost";
 
     public Greenhouse getGreenhouse() { return greenhouse; }
+
+    public Lever getLever() { return lever; }
 
     public Duration getPollInterval() { return pollInterval; }
     public void setPollInterval(Duration pollInterval) { this.pollInterval = pollInterval; }
@@ -62,6 +65,13 @@ public class AtsProperties {
     /** Greenhouse Harvest API base URL (F40). Pointed at the in-test JDK HttpServer stub via @DynamicPropertySource. */
     public static class Greenhouse {
         private String baseUrl = "https://harvest.greenhouse.io";
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+    }
+
+    /** Lever Data API base URL (F41). Pointed at the in-test JDK HttpServer stub via @DynamicPropertySource. */
+    public static class Lever {
+        private String baseUrl = "https://api.lever.co";
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     }

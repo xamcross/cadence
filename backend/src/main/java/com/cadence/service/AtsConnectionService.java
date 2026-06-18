@@ -20,16 +20,19 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Manages the per-workspace Greenhouse connection (F40, US1). {@code connect} verifies the credential against
- * the provider FIRST (no usable connection on failure — SC-010), then stores the API key encrypted via a
- * targeted {@code $set} (the {@code WorkspaceConfigService.setEmailConfig} precedent — the registered converter
- * encrypts the value at rest). {@code disconnect} clears the key via {@code $set null} (NEVER {@code $unset} —
- * the F03 ClassCastException trap) and cancels pending write-backs. The key is NEVER returned/logged (FR-003).
+ * Manages the per-(workspace, provider) ATS connection (F40/F41, US1) — a workspace may hold one Greenhouse and
+ * one Lever connection. {@code connect} verifies the credential against the provider FIRST (no usable connection
+ * on failure — SC-010), then stores the API key encrypted via a targeted {@code $set} (the
+ * {@code WorkspaceConfigService.setEmailConfig} precedent — the registered converter encrypts the value at rest).
+ * {@code disconnect} clears that provider's key via {@code $set null} (NEVER {@code $unset} — the F03
+ * ClassCastException trap) and cancels only that provider's pending write-backs. The key is NEVER returned/logged
+ * (FR-003).
  */
 @Service
 public class AtsConnectionService {
@@ -80,10 +83,10 @@ public class AtsConnectionService {
             throw new AtsExceptions.VerificationFailedException();
         }
         Instant now = Instant.now(clock);
-        // Upsert one connection per workspace; the converter encrypts apiKey on the $set value at rest.
+        // Upsert one connection per (workspace, provider); the converter encrypts apiKey on the $set value at rest.
         try {
             mongo.upsert(
-                Query.query(Criteria.where("workspaceId").is(workspaceId)),
+                Query.query(Criteria.where("workspaceId").is(workspaceId).and("provider").is(provider)),
                 new Update()
                     .set("workspaceId", workspaceId)
                     .set("provider", provider)
@@ -95,36 +98,50 @@ public class AtsConnectionService {
                     .setOnInsert("createdAt", now),
                 AtsConnection.class);
         } catch (org.springframework.dao.DuplicateKeyException e) {
-            // Concurrent first-connect raced the unique {workspaceId} index — treat as the idempotent success it
-            // is (both verified the same provider). Re-read and return the winner's health (data-model section 5).
+            // Concurrent first-connect raced the unique {workspaceId, provider} index — treat as the idempotent
+            // success it is (both verified the same provider). Re-read and return the winner's health.
         }
-        return health(workspaceId);
+        return health(workspaceId, provider);
     }
 
-    /** Disconnect: destroy the key (encrypted-field $set null), stop sync/write-back, cancel pending write-backs. */
-    public void disconnect(String workspaceId) {
+    /** Disconnect one provider: destroy its key ($set null), stop its sync/write-back, cancel its pending write-backs. */
+    public void disconnect(String workspaceId, AtsProvider provider) {
         Instant now = Instant.now(clock);
         mongo.updateFirst(
-            Query.query(Criteria.where("workspaceId").is(workspaceId)),
+            Query.query(Criteria.where("workspaceId").is(workspaceId).and("provider").is(provider)),
             new Update()
                 .set("apiKey", null) // converter-managed -> $set null, NEVER $unset (F03 trap)
                 .set("status", AtsConnectionStatus.DISCONNECTED)
                 .set("syncCursor", null)
                 .set("updatedAt", now),
             AtsConnection.class);
-        writeBacks.cancelPendingForWorkspace(workspaceId);
+        // Cancel only THIS provider's pending write-backs; a coexisting provider's queue is untouched (SC-015).
+        writeBacks.cancelPendingForWorkspaceAndProvider(workspaceId, provider);
     }
 
-    /** Current health (never the key). Returns an INTEGRATION_PENDING default if no connection exists. */
-    public Health health(String workspaceId) {
-        AtsConnection c = connections.findByWorkspaceId(workspaceId).orElse(null);
+    /** Health for every provider (the both-providers Admin status surface, SC-011). */
+    public List<Health> listHealth(String workspaceId) {
+        List<Health> out = new ArrayList<>(AtsProvider.values().length);
+        for (AtsProvider provider : AtsProvider.values()) {
+            out.add(health(workspaceId, provider));
+        }
+        return out;
+    }
+
+    /**
+     * Current health for one provider (never the key). Returns an INTEGRATION_PENDING default carrying the
+     * REQUESTED provider if no connection exists. The dead-letter count is scoped to this provider (SC-011).
+     */
+    public Health health(String workspaceId, AtsProvider provider) {
+        AtsConnection c = connections.findByWorkspaceIdAndProvider(workspaceId, provider).orElse(null);
         long deadLetters = mongo.count(
             Query.query(Criteria.where("workspaceId").is(workspaceId)
+                .and("provider").is(provider)
                 .and("status").is(AtsWriteBackStatus.DEAD_LETTER)),
             AtsWriteBack.class);
         if (c == null) {
-            return new Health(AtsProvider.GREENHOUSE, AtsConnectionStatus.INTEGRATION_PENDING, false,
-                null, null, false, deadLetters);
+            return new Health(provider, AtsConnectionStatus.INTEGRATION_PENDING, false,
+                null, null, deadLetters > 0, deadLetters);
         }
         boolean degraded = c.getStatus() == AtsConnectionStatus.ERROR
             || c.getStatus() == AtsConnectionStatus.NEEDS_REAUTH || deadLetters > 0;

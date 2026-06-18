@@ -80,7 +80,8 @@ public class AtsSyncService {
     public void syncWorkspace(AtsConnection conn) {
         Instant started = Instant.now(clock);
         String workspaceId = conn.getWorkspaceId();
-        AtsConnector connector = connectors.get(conn.getProvider());
+        AtsProvider provider = conn.getProvider();
+        AtsConnector connector = connectors.get(provider);
         if (connector == null || conn.getApiKey() == null) {
             return; // not deliverable; nothing to do
         }
@@ -92,7 +93,7 @@ public class AtsSyncService {
             AtsFetchResult result = connector.fetchCandidates(workspaceId, conn.getApiKey(), conn.getSyncCursor());
             for (AtsCandidateRecord rec : result.records()) {
                 processed++;
-                Outcome o = reconcile(workspaceId, rec, Instant.now(clock));
+                Outcome o = reconcile(workspaceId, provider, rec, Instant.now(clock));
                 switch (o) {
                     case CREATED -> created++;
                     case UPDATED -> updated++;
@@ -100,11 +101,11 @@ public class AtsSyncService {
                 }
             }
             Instant finished = Instant.now(clock);
-            mongo.updateFirst(Query.query(Criteria.where("workspaceId").is(workspaceId)),
+            mongo.updateFirst(Query.query(Criteria.where("workspaceId").is(workspaceId).and("provider").is(provider)),
                 new Update().set("status", AtsConnectionStatus.CONNECTED).set("lastSyncAt", finished)
                     .set("lastErrorCategory", null).set("syncCursor", result.nextCursor()).set("updatedAt", finished),
                 AtsConnection.class);
-            recordRun(workspaceId, started, finished, "SUCCESS", processed, created, updated, skipped, null);
+            recordRun(workspaceId, provider, started, finished, "SUCCESS", processed, created, updated, skipped, null);
             if (processed > 0) {
                 log.info("ATS sync ok {} {} {} {} {}",
                     StructuredArguments.kv("workspaceId", workspaceId),
@@ -117,10 +118,10 @@ public class AtsSyncService {
             Instant finished = Instant.now(clock);
             AtsConnectionStatus newStatus = e.isNeedsReauth()
                 ? AtsConnectionStatus.NEEDS_REAUTH : AtsConnectionStatus.ERROR;
-            mongo.updateFirst(Query.query(Criteria.where("workspaceId").is(workspaceId)),
+            mongo.updateFirst(Query.query(Criteria.where("workspaceId").is(workspaceId).and("provider").is(provider)),
                 new Update().set("status", newStatus).set("lastErrorCategory", e.getCategory()).set("updatedAt", finished),
                 AtsConnection.class);
-            recordRun(workspaceId, started, finished, "FAILED", processed, created, updated, skipped, e.getCategory());
+            recordRun(workspaceId, provider, started, finished, "FAILED", processed, created, updated, skipped, e.getCategory());
             deadLetters.recordFailure("ats-sync", new IllegalStateException("ats_sync_failed: " + e.getCategory()), null);
             notifications.notify(workspaceId, null, RecruiterNotificationType.ATS_SYNC_FAILED);
             log.warn("ATS sync failed {} {} {}",
@@ -133,10 +134,10 @@ public class AtsSyncService {
     private enum Outcome { CREATED, UPDATED, SKIPPED }
 
     /** Resolve-then-guarded-write (the resurrection defense — NEVER a single upsert with erasureState in the filter). */
-    private Outcome reconcile(String workspaceId, AtsCandidateRecord rec, Instant now) {
-        // (1) Resolve by the authoritative external ref (NO erasure filter).
+    private Outcome reconcile(String workspaceId, AtsProvider provider, AtsCandidateRecord rec, Instant now) {
+        // (1) Resolve by the authoritative external ref (NO erasure filter), scoped to THIS provider.
         Optional<Candidate> existing = candidates.findByWorkspaceIdAndAtsProviderAndAtsExternalRef(
-            workspaceId, AtsProvider.GREENHOUSE, rec.externalRef());
+            workspaceId, provider, rec.externalRef());
         // (2) Else adopt a native candidate (no external ref) by email hash.
         if (existing.isEmpty() && rec.email() != null && !rec.email().isBlank()) {
             String emailHash = crypto.emailHash(rec.email());
@@ -150,7 +151,7 @@ public class AtsSyncService {
                 Query.query(Criteria.where("_id").is(existing.get().getId())
                     .and("erasureState").is(ErasureState.ACTIVE)),
                 new Update()
-                    .set("atsProvider", AtsProvider.GREENHOUSE)
+                    .set("atsProvider", provider)
                     .set("atsExternalRef", rec.externalRef())
                     .set("atsExternalJobId", rec.externalJobId())
                     .set("atsExternalJobTitle", rec.externalJobTitle())
@@ -167,7 +168,7 @@ public class AtsSyncService {
         c.setPhone(rec.phone());
         c.setEmailHash(rec.email() == null || rec.email().isBlank() ? null : crypto.emailHash(rec.email()));
         c.setErasureState(ErasureState.ACTIVE);
-        c.setAtsProvider(AtsProvider.GREENHOUSE);
+        c.setAtsProvider(provider);
         c.setAtsExternalRef(rec.externalRef());
         c.setAtsExternalJobId(rec.externalJobId());
         c.setAtsExternalJobTitle(rec.externalJobTitle());
@@ -181,7 +182,7 @@ public class AtsSyncService {
         } catch (DuplicateKeyException dup) {
             // A concurrent sweep inserted the same (workspace,provider,ref) — re-resolve and guarded-update.
             Optional<Candidate> raced = candidates.findByWorkspaceIdAndAtsProviderAndAtsExternalRef(
-                workspaceId, AtsProvider.GREENHOUSE, rec.externalRef());
+                workspaceId, provider, rec.externalRef());
             if (raced.isPresent()) {
                 long matched = mongo.updateFirst(
                     Query.query(Criteria.where("_id").is(raced.get().getId()).and("erasureState").is(ErasureState.ACTIVE)),
@@ -195,10 +196,11 @@ public class AtsSyncService {
         }
     }
 
-    private void recordRun(String workspaceId, Instant started, Instant finished, String outcome,
+    private void recordRun(String workspaceId, AtsProvider provider, Instant started, Instant finished, String outcome,
                            int processed, int created, int updated, int skipped, String errorCategory) {
         AtsSyncRun run = new AtsSyncRun();
         run.setWorkspaceId(workspaceId);
+        run.setProvider(provider);
         run.setStartedAt(started);
         run.setFinishedAt(finished);
         run.setOutcome(outcome);

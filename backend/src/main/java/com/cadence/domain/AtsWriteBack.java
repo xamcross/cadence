@@ -1,5 +1,6 @@
 package com.cadence.domain;
 
+import com.cadence.integration.AtsProvider;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -30,6 +31,15 @@ public class AtsWriteBack {
 
     /** Internal candidate ObjectId hex only (non-PII). */
     private String candidateId;
+
+    /**
+     * The target ATS provider (F41 routing key) — set at enqueue from the candidate's {@code atsProvider}.
+     * {@code claimAndDeliver} loads {@code findByWorkspaceIdAndProvider(workspaceId, provider)} and delivers via
+     * this provider's connector, so a write-back can only ever reach its candidate's provider of record.
+     * {@code @Field(write=NON_NULL)} (rows are always provider-bound; defensive).
+     */
+    @Field(value = "provider", write = Field.Write.NON_NULL)
+    private AtsProvider provider;
 
     /** The external application id the activity targets. */
     private String atsExternalRef;
@@ -71,6 +81,9 @@ public class AtsWriteBack {
     public String getCandidateId() { return candidateId; }
     public void setCandidateId(String candidateId) { this.candidateId = candidateId; }
 
+    public AtsProvider getProvider() { return provider; }
+    public void setProvider(AtsProvider provider) { this.provider = provider; }
+
     public String getAtsExternalRef() { return atsExternalRef; }
     public void setAtsExternalRef(String atsExternalRef) { this.atsExternalRef = atsExternalRef; }
 
@@ -108,7 +121,7 @@ public class AtsWriteBack {
     @Override
     public String toString() {
         return "AtsWriteBack{id=" + id + ", workspaceId=" + workspaceId + ", candidateId=" + candidateId
-            + ", atsExternalRef=" + atsExternalRef + ", type=" + type + ", status=" + status
+            + ", provider=" + provider + ", atsExternalRef=" + atsExternalRef + ", type=" + type + ", status=" + status
             + ", attemptCount=" + attemptCount + ", eventAt=" + eventAt + ", nextAttemptAt=" + nextAttemptAt
             + ", lastOutcomeCategory=" + lastOutcomeCategory + "}";
     }

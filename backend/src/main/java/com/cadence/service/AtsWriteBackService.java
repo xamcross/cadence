@@ -94,6 +94,7 @@ public class AtsWriteBackService implements AtsWriteBackInvalidator {
             AtsWriteBack w = new AtsWriteBack();
             w.setWorkspaceId(workspaceId);
             w.setCandidateId(candidateId);
+            w.setProvider(c.getAtsProvider()); // F41 routing key — the candidate's provider of record
             w.setAtsExternalRef(c.getAtsExternalRef());
             w.setType(type);
             w.setIdempotencyKey(key);
@@ -124,7 +125,9 @@ public class AtsWriteBackService implements AtsWriteBackInvalidator {
         if (claimed == null) {
             return; // lost the claim / not due
         }
-        AtsConnection conn = connections.findByWorkspaceId(claimed.getWorkspaceId()).orElse(null);
+        // Route by the row's provider (F41) — load THIS provider's connection, never the wrong one.
+        AtsConnection conn = connections.findByWorkspaceIdAndProvider(
+            claimed.getWorkspaceId(), claimed.getProvider()).orElse(null);
         AtsConnector connector = conn == null ? null : connectors.get(conn.getProvider());
         if (conn == null || conn.getStatus() != AtsConnectionStatus.CONNECTED
             || conn.getApiKey() == null || connector == null) {
@@ -151,7 +154,10 @@ public class AtsWriteBackService implements AtsWriteBackInvalidator {
             if (e.isNeedsReauth()) {
                 // Flip the connection and HOLD (do not dead-letter / do not consume the retry budget on a fixable
                 // creds issue — review B1): the write-back delivers once the Admin re-authorizes (D6).
-                mongo.updateFirst(Query.query(Criteria.where("workspaceId").is(conn.getWorkspaceId())),
+                // Provider-scoped flip (F41 confused-deputy fix): flip ONLY this provider's connection, never the
+                // coexisting provider's — a Lever auth failure must not flip the Greenhouse connection (SC-014).
+                mongo.updateFirst(Query.query(Criteria.where("workspaceId").is(conn.getWorkspaceId())
+                        .and("provider").is(conn.getProvider())),
                     new Update().set("status", AtsConnectionStatus.NEEDS_REAUTH)
                         .set("lastErrorCategory", "auth").set("updatedAt", Instant.now(clock)),
                     AtsConnection.class);
@@ -245,6 +251,15 @@ public class AtsWriteBackService implements AtsWriteBackInvalidator {
     public void cancelPendingForWorkspace(String workspaceId) {
         mongo.updateMulti(
             Query.query(Criteria.where("workspaceId").is(workspaceId).and("status").is(AtsWriteBackStatus.PENDING)),
+            new Update().set("status", AtsWriteBackStatus.CANCELLED).set("updatedAt", Instant.now(clock)),
+            AtsWriteBack.class);
+    }
+
+    @Override
+    public void cancelPendingForWorkspaceAndProvider(String workspaceId, AtsProvider provider) {
+        mongo.updateMulti(
+            Query.query(Criteria.where("workspaceId").is(workspaceId).and("provider").is(provider)
+                .and("status").is(AtsWriteBackStatus.PENDING)),
             new Update().set("status", AtsWriteBackStatus.CANCELLED).set("updatedAt", Instant.now(clock)),
             AtsWriteBack.class);
     }

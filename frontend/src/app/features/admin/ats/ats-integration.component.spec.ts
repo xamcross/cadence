@@ -1,31 +1,28 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AtsIntegrationComponent } from './ats-integration.component';
-import { AtsService, AtsHealth, AtsSyncStatus, AtsDeadLetter } from './ats.service';
+import { AtsService, AtsHealth } from './ats.service';
 
 /**
- * F40 ATS integration admin screen. Verifies status rendering, the write-only connect form, and disconnect.
- * Internal Admin screen — RBAC is enforced server-side (the route roleGuard('ADMIN') is covered by role.guard.spec).
+ * F40/F41 ATS integration admin screen. Verifies the both-providers list, the write-only per-provider connect
+ * form, and disconnect. Internal Admin screen — RBAC is enforced server-side (the route roleGuard('ADMIN') is
+ * covered by role.guard.spec).
  */
 describe('AtsIntegrationComponent', () => {
-  const disconnected: AtsHealth = {
-    provider: 'GREENHOUSE', status: 'INTEGRATION_PENDING', credentialSet: false,
-    lastVerifiedAt: null, lastSyncAt: null, degraded: false, deadLetterCount: 0
-  };
-  const connected: AtsHealth = {
+  const greenhouse: AtsHealth = {
     provider: 'GREENHOUSE', status: 'CONNECTED', credentialSet: true,
     lastVerifiedAt: '2026-06-18T10:00:00Z', lastSyncAt: '2026-06-18T10:05:00Z', degraded: false, deadLetterCount: 0
   };
-  const sync: AtsSyncStatus = {
-    lastSyncAt: '2026-06-18T10:05:00Z', lastOutcome: 'SUCCESS', processed: 3, created: 2, updated: 1, skipped: 0
+  const lever: AtsHealth = {
+    provider: 'LEVER', status: 'INTEGRATION_PENDING', credentialSet: false,
+    lastVerifiedAt: null, lastSyncAt: null, degraded: false, deadLetterCount: 0
   };
 
-  function setup(health: AtsHealth, connectSpy = jasmine.createSpy('connect').and.returnValue(of(connected)),
+  function setup(list: AtsHealth[],
+                 connectSpy = jasmine.createSpy('connect').and.returnValue(of(lever)),
                  disconnectSpy = jasmine.createSpy('disconnect').and.returnValue(of(void 0))) {
     const stub: Partial<AtsService> = {
-      getHealth: () => of(health),
-      syncStatus: () => of(sync),
-      deadLetters: () => of([] as AtsDeadLetter[]),
+      getConnections: () => of(list),
       connect: connectSpy as AtsService['connect'],
       disconnect: disconnectSpy as AtsService['disconnect']
     };
@@ -38,40 +35,44 @@ describe('AtsIntegrationComponent', () => {
     return { fixture, connectSpy, disconnectSpy };
   }
 
-  it('renders the connection status', () => {
-    const { fixture } = setup(connected);
-    expect(fixture.nativeElement.textContent).toContain('CONNECTED');
-    expect(fixture.componentInstance.health()?.credentialSet).toBeTrue();
+  it('lists both providers with their status', () => {
+    const { fixture } = setup([greenhouse, lever]);
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('GREENHOUSE');
+    expect(text).toContain('LEVER');
+    expect(text).toContain('CONNECTED');
+    expect(text).toContain('INTEGRATION_PENDING');
+    expect(fixture.componentInstance.providers().length).toBe(2);
   });
 
-  it('submits the write-only API key on connect', () => {
-    const { fixture, connectSpy } = setup(disconnected);
-    fixture.componentInstance.apiKey = 'secret-key';
-    fixture.componentInstance.connect();
-    expect(connectSpy).toHaveBeenCalledWith('secret-key');
+  it('submits the write-only API key on connect to the right provider', () => {
+    const { fixture, connectSpy } = setup([greenhouse, lever]);
+    fixture.componentInstance.keys['LEVER'] = 'secret-key';
+    fixture.componentInstance.connect('LEVER');
+    expect(connectSpy).toHaveBeenCalledWith('LEVER', 'secret-key');
     // After a successful connect the key field is cleared (never retained in the UI).
-    expect(fixture.componentInstance.apiKey).toBe('');
+    expect(fixture.componentInstance.keys['LEVER']).toBe('');
   });
 
   it('does not connect with a blank key', () => {
-    const { fixture, connectSpy } = setup(disconnected);
-    fixture.componentInstance.apiKey = '   ';
-    fixture.componentInstance.connect();
+    const { fixture, connectSpy } = setup([greenhouse, lever]);
+    fixture.componentInstance.keys['LEVER'] = '   ';
+    fixture.componentInstance.connect('LEVER');
     expect(connectSpy).not.toHaveBeenCalled();
   });
 
-  it('calls disconnect when connected', () => {
-    const { fixture, disconnectSpy } = setup(connected);
-    fixture.componentInstance.disconnect();
-    expect(disconnectSpy).toHaveBeenCalled();
+  it('calls disconnect for the chosen provider', () => {
+    const { fixture, disconnectSpy } = setup([greenhouse, lever]);
+    fixture.componentInstance.disconnect('GREENHOUSE');
+    expect(disconnectSpy).toHaveBeenCalledWith('GREENHOUSE');
   });
 
   it('shows the connect error when verification fails', () => {
     const failing = jasmine.createSpy('connect').and.returnValue(
       { subscribe: (o: { error: () => void }) => o.error() } as never);
-    const { fixture } = setup(disconnected, failing);
-    fixture.componentInstance.apiKey = 'bad';
-    fixture.componentInstance.connect();
+    const { fixture } = setup([greenhouse, lever], failing);
+    fixture.componentInstance.keys['LEVER'] = 'bad';
+    fixture.componentInstance.connect('LEVER');
     expect(fixture.componentInstance.error()).toBeTruthy();
   });
 });
