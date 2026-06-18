@@ -53,7 +53,16 @@ public class AtsSyncScheduler {
         try {
             List<AtsConnection> connected = connections.findByStatus(AtsConnectionStatus.CONNECTED);
             for (AtsConnection conn : connected) {
-                syncService.syncWorkspace(conn);
+                // Per-connection isolation (F41 SC-014/FR-022): syncWorkspace already swallows AtsApiException, but
+                // an UNEXPECTED RuntimeException (e.g. a Mongo DataAccessException) must NOT abort the sweep and
+                // starve the other provider's / other workspaces' connections. Log and continue.
+                try {
+                    syncService.syncWorkspace(conn);
+                } catch (RuntimeException e) {
+                    log.warn("ATS sync iteration failed (isolated) {} {}",
+                        StructuredArguments.kv("workspaceId", conn.getWorkspaceId()),
+                        StructuredArguments.kv("provider", conn.getProvider() == null ? null : conn.getProvider().name()));
+                }
             }
             if (!connected.isEmpty()) {
                 log.info("ATS sync sweep {}", StructuredArguments.kv("workspaces", connected.size()));

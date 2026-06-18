@@ -9,9 +9,10 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 
 /**
- * One ATS connection document per workspace (F40, data-model section 1). Unique
- * {@code {workspaceId}} index (ChangeUnit018) enforces exactly one connection per workspace;
- * a concurrent first-connect races to a {@code DuplicateKeyException} (idempotent).
+ * One ATS connection document per (workspace, provider) (F40/F41, data-model section 1). The unique
+ * {@code {workspaceId, provider}} index (ChangeUnit019, migrated from F40's {@code {workspaceId}})
+ * enforces one connection per provider per workspace, so Greenhouse and Lever coexist; a concurrent
+ * first-connect races to a {@code DuplicateKeyException} (idempotent).
  *
  * <p>The {@code apiKey} is STRUCTURALLY write-only: it is encrypted at rest by the
  * {@code PiiStringConverter} registered in {@code MongoPiiConfig}, annotated {@code @JsonIgnore}

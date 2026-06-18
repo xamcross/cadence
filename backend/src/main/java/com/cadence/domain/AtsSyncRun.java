@@ -1,5 +1,6 @@
 package com.cadence.domain;
 
+import com.cadence.integration.AtsProvider;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -20,6 +21,10 @@ public class AtsSyncRun {
     private String id;
 
     private String workspaceId;
+
+    /** The provider this sync run polled (F41) — enables per-provider "last successful sync" (SC-011). */
+    @Field(value = "provider", write = Field.Write.NON_NULL)
+    private AtsProvider provider;
 
     private Instant startedAt;
     private Instant finishedAt;
@@ -43,6 +48,9 @@ public class AtsSyncRun {
 
     public String getWorkspaceId() { return workspaceId; }
     public void setWorkspaceId(String workspaceId) { this.workspaceId = workspaceId; }
+
+    public AtsProvider getProvider() { return provider; }
+    public void setProvider(AtsProvider provider) { this.provider = provider; }
 
     public Instant getStartedAt() { return startedAt; }
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
@@ -71,7 +79,7 @@ public class AtsSyncRun {
     /** Ids + counts + instants only - no PII. */
     @Override
     public String toString() {
-        return "AtsSyncRun{id=" + id + ", workspaceId=" + workspaceId + ", startedAt=" + startedAt
+        return "AtsSyncRun{id=" + id + ", workspaceId=" + workspaceId + ", provider=" + provider + ", startedAt=" + startedAt
             + ", finishedAt=" + finishedAt + ", outcome=" + outcome + ", processed=" + processed
             + ", created=" + created + ", updated=" + updated + ", skipped=" + skipped
             + ", errorCategory=" + errorCategory + "}";

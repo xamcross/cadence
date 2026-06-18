@@ -32,31 +32,34 @@ export interface AtsDeadLetter {
 }
 
 /**
- * F40 ATS integration API client. The Greenhouse API key is write-only — it is sent on connect() but is
- * NEVER present in any response (only credentialSet). Internal Admin screen (no candidate PII surface).
+ * F40/F41 ATS integration API client. The provider API key is write-only — it is sent on connect() but is
+ * NEVER present in any response (only credentialSet). F41: every call is provider-scoped, and getConnections()
+ * lists every provider's health (Greenhouse + Lever) for the both-providers Admin surface. Internal Admin
+ * screen (no candidate PII surface).
  */
 @Injectable({ providedIn: 'root' })
 export class AtsService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/internal/ats`;
 
-  getHealth(): Observable<AtsHealth> {
-    return this.http.get<AtsHealth>(`${this.base}/connection`);
+  /** Health for every provider (the both-providers status surface). */
+  getConnections(): Observable<AtsHealth[]> {
+    return this.http.get<AtsHealth[]>(`${this.base}/connections`);
   }
 
-  connect(apiKey: string): Observable<AtsHealth> {
-    return this.http.post<AtsHealth>(`${this.base}/connection`, { apiKey });
+  connect(provider: string, apiKey: string): Observable<AtsHealth> {
+    return this.http.post<AtsHealth>(`${this.base}/${provider}/connection`, { apiKey });
   }
 
-  disconnect(): Observable<void> {
-    return this.http.delete<void>(`${this.base}/connection`);
+  disconnect(provider: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${provider}/connection`);
   }
 
-  syncStatus(): Observable<AtsSyncStatus> {
-    return this.http.get<AtsSyncStatus>(`${this.base}/sync-status`);
+  syncStatus(provider: string): Observable<AtsSyncStatus> {
+    return this.http.get<AtsSyncStatus>(`${this.base}/${provider}/sync-status`);
   }
 
-  deadLetters(): Observable<AtsDeadLetter[]> {
-    return this.http.get<AtsDeadLetter[]>(`${this.base}/dead-letters`);
+  deadLetters(provider: string): Observable<AtsDeadLetter[]> {
+    return this.http.get<AtsDeadLetter[]>(`${this.base}/${provider}/dead-letters`);
   }
 }

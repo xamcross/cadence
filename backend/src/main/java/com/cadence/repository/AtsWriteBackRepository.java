@@ -27,6 +27,10 @@ public interface AtsWriteBackRepository extends MongoRepository<AtsWriteBack, St
     /** The Admin dead-letter list for a workspace (no PII on these rows). */
     List<AtsWriteBack> findByWorkspaceIdAndStatus(String workspaceId, AtsWriteBackStatus status);
 
+    /** The Admin dead-letter list for one (workspace, provider) — F41 per-provider status surface. */
+    List<AtsWriteBack> findByWorkspaceIdAndProviderAndStatus(
+        String workspaceId, com.cadence.integration.AtsProvider provider, AtsWriteBackStatus status);
+
     /** Due rows for the drain scan: a given status whose backoff gate has elapsed. */
     @Query("{ 'status': ?0, 'nextAttemptAt': { $lte: ?1 } }")
     List<AtsWriteBack> findDue(AtsWriteBackStatus status, Instant now, Pageable pageable);

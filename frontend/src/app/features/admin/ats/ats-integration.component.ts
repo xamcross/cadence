@@ -1,12 +1,13 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AtsService, AtsHealth, AtsSyncStatus, AtsDeadLetter } from './ats.service';
+import { AtsService, AtsHealth } from './ats.service';
 
 /**
- * F40 ATS integration admin screen (US1/US2/US4). Connect/disconnect Greenhouse (write-only API key), and
- * view connection health, last sync, degraded state, and dead-lettered write-backs. Internal Admin screen —
- * no candidate PII surface, no WCAG/Lighthouse gate (the F50/F51 internal-screen precedent). All strings $localize.
+ * F40/F41 ATS integration admin screen (US1/US2/US4). Lists EVERY ATS provider (Greenhouse + Lever) with its own
+ * connect/disconnect (write-only API key), health, last-sync, degraded state, and dead-letter count — each
+ * managed independently (coexistence). Internal Admin screen — no candidate PII surface, no WCAG/Lighthouse gate
+ * (the F50/F51 internal-screen precedent). All strings $localize.
  */
 @Component({
   selector: 'app-ats-integration',
@@ -16,41 +17,31 @@ import { AtsService, AtsHealth, AtsSyncStatus, AtsDeadLetter } from './ats.servi
     <section class="ats">
       <h1>{{ title }}</h1>
 
-      <div class="status" *ngIf="health() as h">
-        <p>
-          <strong>{{ providerLabel }}</strong>
-          <span class="badge" [class.ok]="h.status === 'CONNECTED'" [class.warn]="h.degraded">{{ h.status }}</span>
-        </p>
-        <p *ngIf="h.lastVerifiedAt">{{ verifiedLabel }} {{ h.lastVerifiedAt }}</p>
-        <p *ngIf="h.lastSyncAt">{{ lastSyncLabel }} {{ h.lastSyncAt }}</p>
-        <p *ngIf="h.degraded" class="warn-text">{{ degradedLabel }}</p>
-        <p *ngIf="h.deadLetterCount > 0" class="warn-text">{{ deadLetterCountLabel }} {{ h.deadLetterCount }}</p>
-      </div>
+      <article class="provider" *ngFor="let p of providers()">
+        <div class="status">
+          <p>
+            <strong>{{ p.provider }}</strong>
+            <span class="badge" [class.ok]="p.status === 'CONNECTED'" [class.warn]="p.degraded">{{ p.status }}</span>
+          </p>
+          <p *ngIf="p.lastVerifiedAt">{{ verifiedLabel }} {{ p.lastVerifiedAt }}</p>
+          <p *ngIf="p.lastSyncAt">{{ lastSyncLabel }} {{ p.lastSyncAt }}</p>
+          <p *ngIf="p.degraded" class="warn-text">{{ degradedLabel }}</p>
+          <p *ngIf="p.deadLetterCount > 0" class="warn-text">{{ deadLetterCountLabel }} {{ p.deadLetterCount }}</p>
+        </div>
 
-      <form class="connect" (ngSubmit)="connect()" *ngIf="!health()?.credentialSet">
-        <label for="apiKey">{{ apiKeyLabel }}</label>
-        <input id="apiKey" name="apiKey" type="password" [(ngModel)]="apiKey" autocomplete="off" />
-        <button type="submit" [disabled]="busy()">{{ connectLabel }}</button>
-      </form>
+        <form class="connect" (ngSubmit)="connect(p.provider)" *ngIf="!p.credentialSet">
+          <label [attr.for]="'apiKey-' + p.provider">{{ apiKeyLabel }} ({{ p.provider }})</label>
+          <input [id]="'apiKey-' + p.provider" [name]="'apiKey-' + p.provider" type="password"
+                 [ngModel]="keys[p.provider]" (ngModelChange)="keys[p.provider] = $event" autocomplete="off" />
+          <button type="submit" [disabled]="busy()">{{ connectLabel }}</button>
+        </form>
 
-      <button class="disconnect" *ngIf="health()?.credentialSet" (click)="disconnect()" [disabled]="busy()">
-        {{ disconnectLabel }}
-      </button>
+        <button class="disconnect" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
+          {{ disconnectLabel }}
+        </button>
+      </article>
 
       <p class="error" *ngIf="error()">{{ error() }}</p>
-
-      <div class="sync" *ngIf="sync() as s">
-        <h2>{{ syncTitle }}</h2>
-        <p>{{ s.lastOutcome || none }} — {{ processedLabel }} {{ s.processed }}, {{ createdLabel }} {{ s.created }},
-          {{ updatedLabel }} {{ s.updated }}</p>
-      </div>
-
-      <div class="dead-letters" *ngIf="deadLetters().length > 0">
-        <h2>{{ deadLetterTitle }}</h2>
-        <ul>
-          <li *ngFor="let d of deadLetters()">{{ d.type }} — {{ d.lastOutcomeCategory }} ({{ d.attemptCount }})</li>
-        </ul>
-      </div>
     </section>
   `,
   styleUrls: ['./ats-integration.component.scss']
@@ -58,51 +49,42 @@ import { AtsService, AtsHealth, AtsSyncStatus, AtsDeadLetter } from './ats.servi
 export class AtsIntegrationComponent implements OnInit {
   private readonly ats = inject(AtsService);
 
-  readonly title = $localize`:@@ats.title:ATS Integration (Greenhouse)`;
-  readonly providerLabel = $localize`:@@ats.provider:Greenhouse`;
+  readonly title = $localize`:@@ats.title:ATS Integrations`;
   readonly verifiedLabel = $localize`:@@ats.verified:Last verified:`;
   readonly lastSyncLabel = $localize`:@@ats.lastSync:Last sync:`;
   readonly degradedLabel = $localize`:@@ats.degraded:Integration is degraded — sync or write-back is failing.`;
   readonly deadLetterCountLabel = $localize`:@@ats.deadLetterCount:Write-backs needing attention:`;
-  readonly apiKeyLabel = $localize`:@@ats.apiKey:Greenhouse API key`;
+  readonly apiKeyLabel = $localize`:@@ats.apiKey:API key`;
   readonly connectLabel = $localize`:@@ats.connect:Connect`;
   readonly disconnectLabel = $localize`:@@ats.disconnect:Disconnect`;
-  readonly syncTitle = $localize`:@@ats.syncTitle:Last sync`;
-  readonly deadLetterTitle = $localize`:@@ats.deadLetterTitle:Dead-lettered write-backs`;
-  readonly processedLabel = $localize`:@@ats.processed:processed`;
-  readonly createdLabel = $localize`:@@ats.created:created`;
-  readonly updatedLabel = $localize`:@@ats.updated:updated`;
-  readonly none = $localize`:@@ats.none:No sync yet`;
   private readonly connectFailed = $localize`:@@ats.connectFailed:Could not connect — check the API key.`;
 
-  readonly health = signal<AtsHealth | null>(null);
-  readonly sync = signal<AtsSyncStatus | null>(null);
-  readonly deadLetters = signal<AtsDeadLetter[]>([]);
+  readonly providers = signal<AtsHealth[]>([]);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
-  apiKey = '';
+  /** Per-provider write-only key inputs (never retained after a successful connect). */
+  keys: Record<string, string> = {};
 
   ngOnInit(): void {
     this.refresh();
   }
 
   refresh(): void {
-    this.ats.getHealth().subscribe({ next: (h) => this.health.set(h) });
-    this.ats.syncStatus().subscribe({ next: (s) => this.sync.set(s), error: () => {} });
-    this.ats.deadLetters().subscribe({ next: (d) => this.deadLetters.set(d), error: () => {} });
+    this.ats.getConnections().subscribe({ next: (list) => this.providers.set(list) });
   }
 
-  connect(): void {
-    if (!this.apiKey.trim()) {
+  connect(provider: string): void {
+    const key = (this.keys[provider] ?? '').trim();
+    if (!key) {
       return;
     }
     this.busy.set(true);
     this.error.set(null);
-    this.ats.connect(this.apiKey).subscribe({
-      next: (h) => {
-        this.health.set(h);
-        this.apiKey = '';
+    this.ats.connect(provider, key).subscribe({
+      next: () => {
+        this.keys[provider] = '';
         this.busy.set(false);
+        this.refresh();
       },
       error: () => {
         this.error.set(this.connectFailed);
@@ -111,9 +93,9 @@ export class AtsIntegrationComponent implements OnInit {
     });
   }
 
-  disconnect(): void {
+  disconnect(provider: string): void {
     this.busy.set(true);
-    this.ats.disconnect().subscribe({
+    this.ats.disconnect(provider).subscribe({
       next: () => {
         this.busy.set(false);
         this.refresh();

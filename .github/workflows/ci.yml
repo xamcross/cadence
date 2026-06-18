@@ -227,6 +227,23 @@ jobs:
           fi
           echo "F32 interviewer-feedback scan passed — no scorecard text / candidate name found in test output."
 
+      - name: PII scan — F40/F41 ATS connectors (no candidate name / API key in test output, SC-005)
+        run: |
+          # F40/F41 FR-022/FR-003/SC-005: imported candidate PII is encrypted at rest, the API key is a
+          # write-only encrypted secret reduced to a category on failure, and the ats* rows / dead-letter /
+          # sync-run records carry ids/enums/instants only. AtsLogPiiScanTest drives connect (incl. a rejected
+          # key whose body echoes it) + sync + write-back + a failure with high-entropy candidate-name and
+          # Lever/Greenhouse credential sentinels and asserts none reach Cadence's logs / atsConnections /
+          # dead-letter / sync-run. CI re-checks the sentinels in the captured stdout (the backstop).
+          # Also guard the provider error BODY (FR-003 — never persisted/logged) and the Lever minimization
+          # fields (FR-029 — links/tags/sources/origin/headline/archived must never be read/logged).
+          if grep -qE 'SENTINELF41NAME_zz9|SENTINELF41KEY_zz9|SENTINELF41BODY_zz9|SENTINELF40NAME_zz9|SENTINELF40KEY_zz9|SENTINEL_LINK|SENTINEL_TAG|SENTINEL_SOURCE|SENTINEL_ORIGIN|SENTINEL_HEADLINE|SENTINEL_ARCHIVED_REASON' test-output.txt; then
+            echo "ERROR: an ATS candidate-name / API-key / provider-body / minimization sentinel appeared in test output — zero PII/secret policy violated."
+            grep -nE 'SENTINELF41NAME_zz9|SENTINELF41KEY_zz9|SENTINELF41BODY_zz9|SENTINELF40NAME_zz9|SENTINELF40KEY_zz9|SENTINEL_LINK|SENTINEL_TAG|SENTINEL_SOURCE|SENTINEL_ORIGIN|SENTINEL_HEADLINE|SENTINEL_ARCHIVED_REASON' test-output.txt
+            exit 1
+          fi
+          echo "ATS scan passed — no candidate name / API key / provider body / minimization field found in test output."
+
       - name: No-voice-capture scope guard — interviewer feedback is a form only (F32 SC-019)
         run: |
           # F32 SC-019: voice-to-scorecard capture is deferred to v1.5. Guard against a future contributor
@@ -295,7 +312,13 @@ jobs:
             echo "ERROR: GreenhouseAtsClient.java hardcodes the Greenhouse host — use cadence.ats.greenhouse.base-url."
             exit 1
           fi
-          echo "ATS base-URL guard passed — the Greenhouse client has no hardcoded host."
+          # F41: LeverAtsClient builds every URI from cadence.ats.lever.base-url so tests point at the StubLever
+          # and never hit real Lever. An 'api.lever.co' literal in the client would defeat that.
+          if [ -f backend/src/main/java/com/cadence/integration/LeverAtsClient.java ] && grep -nE 'api\.lever\.co|lever\.co' backend/src/main/java/com/cadence/integration/LeverAtsClient.java; then
+            echo "ERROR: LeverAtsClient.java hardcodes the Lever host — use cadence.ats.lever.base-url."
+            exit 1
+          fi
+          echo "ATS base-URL guard passed — neither ATS client has a hardcoded host."
 
       - name: Principle V scan — check scripts for non-ASCII characters
         run: |

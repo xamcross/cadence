@@ -223,6 +223,8 @@ cadence:
   ats:
     greenhouse:
       base-url: ${CADENCE_ATS_GREENHOUSE_BASE_URL:https://harvest.greenhouse.io}
+    lever:
+      base-url: ${CADENCE_ATS_LEVER_BASE_URL:https://api.lever.co}
     poll-interval: PT5M
     connect-timeout: PT5S
     read-timeout: PT10S
