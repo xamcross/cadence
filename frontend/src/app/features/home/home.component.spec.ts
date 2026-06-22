@@ -46,9 +46,9 @@ describe('HomeComponent (F60)', () => {
     const el: HTMLElement = fixture.nativeElement;
     const link = el.querySelector('a.resources-link') as HTMLAnchorElement;
     expect(link).withContext('resources link present').not.toBeNull();
-    // A plain href ends with /resources; a routerLink would render href="/resources" too but the
-    // intent here is a real anchor — assert the literal attribute the crawler/browser follows.
-    expect(link.getAttribute('href')).toBe('/resources');
+    // A plain href to the trailing-slash form (the URL Cloudflare Pages serves the index at); a
+    // routerLink would render the same href but the intent here is a real full-page anchor.
+    expect(link.getAttribute('href')).toBe('/resources/');
   });
 
   it('signed-in: redirects to /app', async () => {

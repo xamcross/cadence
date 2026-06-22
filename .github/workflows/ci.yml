@@ -594,7 +594,7 @@ jobs:
             const dirs=fs.readdirSync(DIST+"/resources",{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>d.name);
             const sm=fs.readFileSync(DIST+"/sitemap.xml","utf8"); const ll=fs.readFileSync(DIST+"/llms.txt","utf8");
             for (const slug of dirs) {
-              if (!sm.includes("/resources/"+slug+"</loc>")) { console.error("ERROR: sitemap missing article: "+slug); process.exit(1); }
+              if (!sm.includes("/resources/"+slug+"/</loc>")) { console.error("ERROR: sitemap missing article: "+slug); process.exit(1); }
               if (!ll.includes("/resources/"+slug)) { console.error("ERROR: llms.txt missing article: "+slug); process.exit(1); }
             }
             // each <url> in the sitemap carries a <lastmod>.

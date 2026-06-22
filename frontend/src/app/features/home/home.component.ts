@@ -85,7 +85,7 @@ import { AuthService } from '../../core/auth/auth.service';
         <div class="hero__actions">
           <a class="btn btn--primary" routerLink="/login" i18n="@@home.cta2">Sign in to your workspace</a>
           <!-- F61: plain href (NOT routerLink) so it leaves the SPA and loads the static /resources library. -->
-          <a class="btn btn--ghost resources-link" href="/resources" i18n="@@home.resources">Recruiting resources</a>
+          <a class="btn btn--ghost resources-link" href="/resources/" i18n="@@home.resources">Recruiting resources</a>
         </div>
       </section>
     </main>

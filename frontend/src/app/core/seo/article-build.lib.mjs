@@ -233,7 +233,9 @@ function headCommon(title, description, canonical, ogImage, robots, ogType) {
 
 /** Assemble one article page (full HTML document string). */
 export function assembleArticlePage(article, related, ctx) {
-  const canonical = ctx.originBase + RESOURCES_PATH + '/' + article.slug;
+  // Trailing slash: Cloudflare Pages serves the directory-index page at /resources/<slug>/ and
+  // 308-redirects the no-slash form, so the self-canonical must use the slash (matches served URL).
+  const canonical = ctx.originBase + RESOURCES_PATH + '/' + article.slug + '/';
   const ogImage = ctx.originBase + '/assets/og-cadence.png';
   const orgId = ctx.originBase + '/' + ORG_ID;
   const published = humanDate(article.datePublished);
@@ -255,7 +257,7 @@ export function assembleArticlePage(article, related, ctx) {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: ctx.originBase + '/' },
-      { '@type': 'ListItem', position: 2, name: 'Resources', item: ctx.originBase + RESOURCES_PATH },
+      { '@type': 'ListItem', position: 2, name: 'Resources', item: ctx.originBase + RESOURCES_PATH + '/' },
       { '@type': 'ListItem', position: 3, name: article.title, item: canonical }
     ]
   };
@@ -296,7 +298,7 @@ export function assembleArticlePage(article, related, ctx) {
 
   const relatedHtml = related.length
     ? '<aside class="related" aria-labelledby="related-h">\n<h2 id="related-h">Related articles</h2>\n<ul>\n' +
-      related.map((r) => '<li><a href="' + RESOURCES_PATH + '/' + r.slug + '">' + escapeHtml(r.title) + '</a></li>').join('\n') +
+      related.map((r) => '<li><a href="' + RESOURCES_PATH + '/' + r.slug + '/">' + escapeHtml(r.title) + '</a></li>').join('\n') +
       '\n</ul>\n</aside>'
     : '';
 
@@ -310,7 +312,7 @@ export function assembleArticlePage(article, related, ctx) {
     '<style>' + PAGE_STYLE + '</style>\n' +
     '</head>\n<body>\n<main>\n' +
     '<nav class="crumbs" aria-label="Breadcrumb">\n' +
-    '<a href="/">Home</a> &rsaquo; <a href="' + RESOURCES_PATH + '">Resources</a> &rsaquo; ' +
+    '<a href="/">Home</a> &rsaquo; <a href="' + RESOURCES_PATH + '/">Resources</a> &rsaquo; ' +
     '<span aria-current="page">' + escapeHtml(article.title) + '</span>\n</nav>\n' +
     '<article>\n<h1>' + escapeHtml(article.title) + '</h1>\n' +
     '<p class="lead">' + escapeHtml(article.summary) + '</p>\n' +
@@ -318,13 +320,13 @@ export function assembleArticlePage(article, related, ctx) {
     article.bodyHtml + '\n</article>\n' +
     relatedHtml + '\n' +
     '<footer>\n<p><a class="home-link" href="/">&larr; Cadence home</a> &middot; ' +
-    '<a class="home-link" href="' + RESOURCES_PATH + '">All resources</a></p>\n</footer>\n' +
+    '<a class="home-link" href="' + RESOURCES_PATH + '/">All resources</a></p>\n</footer>\n' +
     '</main>\n</body>\n</html>\n';
 }
 
 /** Assemble the library index page (full HTML document string). Indexable only when >= 1 article. */
 export function assembleIndexPage(articles, ctx) {
-  const canonical = ctx.originBase + RESOURCES_PATH;
+  const canonical = ctx.originBase + RESOURCES_PATH + '/';
   const ogImage = ctx.originBase + '/assets/og-cadence.png';
   const sorted = [...articles].sort((a, b) => (lastmodOf(b) < lastmodOf(a) ? -1 : 1));
   const description =
@@ -341,7 +343,7 @@ export function assembleIndexPage(articles, ctx) {
       itemListElement: sorted.map((a, i) => ({
         '@type': 'ListItem',
         position: i + 1,
-        url: ctx.originBase + RESOURCES_PATH + '/' + a.slug,
+        url: ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/',
         name: a.title
       }))
     }
@@ -353,7 +355,7 @@ export function assembleIndexPage(articles, ctx) {
   const cards = sorted.length
     ? '<ul class="cards">\n' +
       sorted.map((a) =>
-        '<li>\n<h2><a href="' + RESOURCES_PATH + '/' + a.slug + '">' + escapeHtml(a.title) + '</a></h2>\n' +
+        '<li>\n<h2><a href="' + RESOURCES_PATH + '/' + a.slug + '/">' + escapeHtml(a.title) + '</a></h2>\n' +
         '<p>' + escapeHtml(a.summary) + '</p>\n' +
         '<p class="meta">Published ' + escapeHtml(humanDate(a.datePublished)) + '</p>\n</li>'
       ).join('\n') +
@@ -386,13 +388,13 @@ export function buildSitemap(articles, ctx) {
   );
   if (articles.length) {
     entries.push(
-      '  <url>\n    <loc>' + ctx.originBase + RESOURCES_PATH + '</loc>\n    <lastmod>' + newest +
+      '  <url>\n    <loc>' + ctx.originBase + RESOURCES_PATH + '/</loc>\n    <lastmod>' + newest +
       '</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>'
     );
   }
   for (const a of [...articles].sort((x, y) => (x.slug < y.slug ? -1 : 1))) {
     entries.push(
-      '  <url>\n    <loc>' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '</loc>\n    <lastmod>' +
+      '  <url>\n    <loc>' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/</loc>\n    <lastmod>' +
       lastmodOf(a) + '</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>'
     );
   }
@@ -406,8 +408,8 @@ export function buildLlms(baseLlms, articles, ctx) {
   if (!articles.length) return trimmed + '\n';
   const lines = [...articles]
     .sort((a, b) => (lastmodOf(b) < lastmodOf(a) ? -1 : 1))
-    .map((a) => '- ' + a.title + ': ' + ctx.originBase + RESOURCES_PATH + '/' + a.slug);
-  return trimmed + '\n\n## Articles\n\n- Resources index: ' + ctx.originBase + RESOURCES_PATH + '\n' +
+    .map((a) => '- ' + a.title + ': ' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/');
+  return trimmed + '\n\n## Articles\n\n- Resources index: ' + ctx.originBase + RESOURCES_PATH + '/\n' +
     lines.join('\n') + '\n';
 }
 
@@ -419,8 +421,8 @@ export function buildFeed(articles, ctx) {
   const entries = sorted.map((a) =>
     '  <entry>\n' +
     '    <title>' + escapeHtml(a.title) + '</title>\n' +
-    '    <link href="' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '"/>\n' +
-    '    <id>' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '</id>\n' +
+    '    <link href="' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/"/>\n' +
+    '    <id>' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/</id>\n' +
     '    <updated>' + lastmodOf(a) + 'T00:00:00Z</updated>\n' +
     '    <summary>' + escapeHtml(a.summary) + '</summary>\n' +
     '  </entry>'
@@ -428,7 +430,7 @@ export function buildFeed(articles, ctx) {
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<feed xmlns="http://www.w3.org/2005/Atom">\n' +
     '  <title>Cadence resources</title>\n' +
-    '  <link href="' + ctx.originBase + RESOURCES_PATH + '"/>\n' +
+    '  <link href="' + ctx.originBase + RESOURCES_PATH + '/"/>\n' +
     '  <link rel="self" href="' + self + '"/>\n' +
     '  <id>' + self + '</id>\n' +
     '  <updated>' + updated + '</updated>\n' +
