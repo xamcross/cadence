@@ -16,6 +16,9 @@ frontend/.angular/
 *.suo
 *.user
 
+# Cloudflare Wrangler cache (Pages/Functions local state — never commit)
+.wrangler/
+
 # OS
 .DS_Store
 Thumbs.db
