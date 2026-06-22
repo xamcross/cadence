@@ -70,7 +70,7 @@ A controlled vocabulary grouping articles and driving related-article cross-link
 
 | Artifact | Built from | Key rules |
 |---|---|---|
-| `dist/resources/<slug>/index.html` | Article source | **Directory-index form** (serves at clean `/resources/<slug>`). Full page: `<html lang>`, single `<h1>`=title, lead=summary, body fragment, breadcrumb nav, reciprocal same-theme related + home links, self-canonical, hreflang, `__CADENCE_ROBOTS__` placeholder, Article + BreadcrumbList (+ FAQPage/HowTo + speakable) JSON-LD with shared Organization `@id`, per-article og/twitter tags. |
+| `dist/resources/<slug>/index.html` | Article source | **Directory-index form** (Cloudflare Pages serves it at the **trailing-slash** URL `/resources/<slug>/` and 308-redirects the no-slash form; canonical/sitemap/links use the trailing-slash form to match — verified post-deploy). Full page: `<html lang>`, single `<h1>`=title, lead=summary, body fragment, breadcrumb nav, reciprocal same-theme related + home links, self-canonical, hreflang, `__CADENCE_ROBOTS__` placeholder, Article + BreadcrumbList (+ FAQPage/HowTo + speakable) JSON-LD with shared Organization `@id`, per-article og/twitter tags. |
 | `dist/resources/index.html` | All published articles | Library index (see entity above) + Atom feed link. |
 | `dist/resources/feed.xml` | All published articles | Atom feed, one entry per article (Research D10). |
 | `dist/sitemap.xml` | Allow-list `{/, /resources, /resources/<slug>...}` | Each `<url>` has `<loc>` (origin placeholder) + `<lastmod>`; built from the `content/articles/` directory scan, NEVER from the route table or a `dist/` page scan (FR-007/SC-010). |

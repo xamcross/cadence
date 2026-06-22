@@ -65,7 +65,7 @@ describe('article-build.lib (F61)', () => {
       expect(html).toContain('Reducing interview no-shows in practice');
       expect(html).toContain('class="lead">A short lead');
       expect(html).toContain('<h2>Section</h2>'); // body present (no-JS readable string)
-      expect(html).toContain('<link rel="canonical" href="https://__CADENCE_PUBLIC_ORIGIN__/resources/a-one">');
+      expect(html).toContain('<link rel="canonical" href="https://__CADENCE_PUBLIC_ORIGIN__/resources/a-one/">');
       expect(html).toContain('content="__CADENCE_ROBOTS__"'); // FR-018 indexable-content marker placeholder
     });
 
@@ -90,7 +90,7 @@ describe('article-build.lib (F61)', () => {
     it('URL set is exactly {home, /resources, each article}, every url has lastmod, home priority 1.0', () => {
       const xml = buildSitemap(FIXTURE, ctx());
       const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].replace('https://__CADENCE_PUBLIC_ORIGIN__', ''));
-      expect(new Set(locs)).toEqual(new Set(['/', '/resources', '/resources/a-one', '/resources/a-two']));
+      expect(new Set(locs)).toEqual(new Set(['/', '/resources/', '/resources/a-one/', '/resources/a-two/']));
       const urls = xml.match(/<url>/g).length;
       expect((xml.match(/<lastmod>/g) || []).length).toBe(urls);
       expect(xml).toContain('<priority>1.0</priority>');
@@ -112,7 +112,7 @@ describe('article-build.lib (F61)', () => {
     it('empty library: index page is noindex (no thin indexable page)', () => {
       const out = buildArtifacts([], '# Cadence\n', ctx());
       expect(out.indexHtml).toContain('content="noindex,follow"');
-      expect(out.sitemap).not.toContain('/resources<'); // no resources index entry when empty
+      expect(out.sitemap).not.toContain('/resources/'); // no resources index/article entries when empty
     });
   });
 
@@ -159,7 +159,7 @@ describe('article-build.lib (F61)', () => {
       const article = blocks.find((b) => b['@type'] === 'BlogPosting');
       expect(article.publisher['@id']).toBe('https://__CADENCE_PUBLIC_ORIGIN__/#organization');
       expect(article.author['@id']).toBe('https://__CADENCE_PUBLIC_ORIGIN__/#organization');
-      expect(article.mainEntityOfPage).toBe('https://__CADENCE_PUBLIC_ORIGIN__/resources/a-two');
+      expect(article.mainEntityOfPage).toBe('https://__CADENCE_PUBLIC_ORIGIN__/resources/a-two/');
       expect(article.image).toContain('/assets/og-cadence.png'); // Article image (rich-result recommended)
     });
 
