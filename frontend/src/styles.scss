@@ -143,6 +143,18 @@ a:hover { color: var(--accent-hover); }
   }
 }
 
+/* Candidate-facing pages are perf-gated (Lighthouse) and carry a URL token — keep them on the system
+   font stack only (no display-font download), as they were before the design system. The home and the
+   authenticated shell keep Fraunces. */
+app-schedule,
+app-candidate-status,
+app-booking-manage,
+app-cancel-confirm,
+app-confirm-attendance,
+app-scorecard-page {
+  --font-display: var(--font-body);
+}
+
 /* 5. Shared primitives ----------------------------------------------------- */
 /* These are global (un-scoped) classes; any component template may use them. */
 
