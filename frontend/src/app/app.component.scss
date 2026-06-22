@@ -1,0 +1,2 @@
+/* The main wrapper is a programmatic focus target for the skip link; suppress its focus ring. */
+#main-content:focus { outline: none; }

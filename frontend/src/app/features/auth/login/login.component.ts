@@ -44,7 +44,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     .auth-page { max-width: 24rem; margin: 2rem auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
     button.primary { padding: 0.75rem; font-weight: 600; min-height: 44px; }
     input { width: 100%; padding: 0.5rem; min-height: 44px; box-sizing: border-box; }
-    .error { color: #b00020; }
+    .error { color: var(--danger); }
   `]
 })
 export class LoginComponent {

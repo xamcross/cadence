@@ -33,7 +33,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     .auth-page { max-width: 24rem; margin: 2rem auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
     input { width: 100%; padding: 0.5rem; min-height: 44px; box-sizing: border-box; }
     button { min-height: 44px; }
-    .error { color: #b00020; }
+    .error { color: var(--danger); }
   `]
 })
 export class ResetConfirmComponent {

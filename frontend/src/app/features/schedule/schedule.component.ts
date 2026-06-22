@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { CandidateSlot, CandidateSlotsResponse, ScheduleService } from './schedule.service';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 type ScheduleState =
   | 'loading'
@@ -112,6 +113,8 @@ export class ScheduleComponent implements OnInit {
   private readonly api = inject(ScheduleService);
   private readonly datePipe = inject(DatePipe);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly host = inject(ElementRef);
+  private readonly branding = inject(CandidateBrandingService);
 
   @ViewChild('stateHeading') private headingRef?: ElementRef<HTMLElement>;
 
@@ -156,6 +159,7 @@ export class ScheduleComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.branding.applyAccent(this.host.nativeElement);
     this.token = this.route.snapshot.queryParamMap.get('token') ?? '';
     if (!this.token) { this.state.set('invalid'); return; }
     this.reload();

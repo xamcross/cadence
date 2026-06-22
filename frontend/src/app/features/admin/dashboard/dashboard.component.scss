@@ -31,43 +31,43 @@
   }
 
   &__error {
-    color: #b00020;
+    color: var(--danger);
     font-weight: 600;
   }
 }
 
 .window-btn {
-  border: 1px solid #c4c7cc;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
   padding: 0.4rem 0.8rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 
   &--active {
-    background: #1a73e8;
-    border-color: #1a73e8;
-    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--surface);
   }
 }
 
 .export-btn {
-  border: 1px solid #1a73e8;
-  background: #fff;
-  color: #1a73e8;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent-ink);
   padding: 0.4rem 0.9rem;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
 .metric {
-  border: 1px solid #e0e2e6;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 1rem 1.25rem;
-  background: #fff;
+  background: var(--surface);
 
   h2 {
     font-size: 0.95rem;
-    color: #5f6368;
+    color: var(--ink-muted);
     margin: 0 0 0.5rem;
   }
 
@@ -78,12 +78,12 @@
   }
 
   &__detail {
-    color: #5f6368;
+    color: var(--ink-muted);
     margin: 0.25rem 0 0;
   }
 
   &__empty {
-    color: #80868b;
+    color: var(--ink-faint);
     font-style: italic;
     margin: 0.5rem 0 0;
   }
@@ -104,7 +104,7 @@
   align-items: center;
   gap: 1rem;
   padding: 0.4rem 0;
-  border-bottom: 1px solid #f1f3f4;
+  border-bottom: 1px solid var(--line);
 
   &__name {
     flex: 1;
@@ -117,15 +117,15 @@
   }
 
   &--red &__sev {
-    color: #b00020;
+    color: var(--danger);
   }
 
   &--amber &__sev {
-    color: #b06000;
+    color: var(--warn);
   }
 
   &__days {
-    color: #5f6368;
+    color: var(--ink-muted);
     white-space: nowrap;
   }
 }

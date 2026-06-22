@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { FeedbackService, ScorecardFormView } from './feedback.service';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 type FeedbackState =
   | 'loading'         // resolving the token / fetching the form
@@ -104,6 +105,8 @@ export class ScorecardPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(FeedbackService);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly host = inject(ElementRef);
+  private readonly branding = inject(CandidateBrandingService);
 
   // The token is held in memory ONLY — never localStorage/sessionStorage, never logged.
   private token = '';
@@ -134,6 +137,7 @@ export class ScorecardPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.branding.applyAccent(this.host.nativeElement);
     this.token = this.route.snapshot.queryParamMap.get('token') ?? '';
     this.reload();
   }

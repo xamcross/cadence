@@ -4,6 +4,7 @@ import { Observable, of } from 'rxjs';
 import { ScorecardPageComponent } from './scorecard-page.component';
 import { FeedbackService, ScorecardFormView, SubmitResponse } from './feedback.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 /**
  * F32 interviewer scorecard page (§IX). Verifies: WCAG 2.2 AA (axe 0 violations) on the form and terminal
@@ -37,7 +38,8 @@ describe('ScorecardPageComponent (F32)', () => {
       imports: [ScorecardPageComponent],
       providers: [
         { provide: FeedbackService, useValue: svc },
-        { provide: ActivatedRoute, useValue: route }
+        { provide: ActivatedRoute, useValue: route },
+        { provide: CandidateBrandingService, useValue: { applyAccent: () => {}, setAccent: () => {} } }
       ]
     });
     const fixture = TestBed.createComponent(ScorecardPageComponent);

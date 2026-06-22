@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { BookingService, ConfirmAttendanceResponse } from './booking.service';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 type ConfirmState =
   | 'loading'      // resolving the token from the URL
@@ -107,6 +108,8 @@ export class ConfirmAttendanceComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(BookingService);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly host = inject(ElementRef);
+  private readonly branding = inject(CandidateBrandingService);
 
   @ViewChild('stateHeading') private headingRef?: ElementRef<HTMLElement>;
 
@@ -149,6 +152,7 @@ export class ConfirmAttendanceComponent implements OnInit {
   };
 
   ngOnInit(): void {
+    this.branding.applyAccent(this.host.nativeElement);
     // Re-resolve from the URL on every init (bfcache-safe), held in a memory-only field.
     this.token = this.route.snapshot.queryParamMap.get('token') ?? '';
     this.state.set(this.token ? 'confirm' : 'invalid');

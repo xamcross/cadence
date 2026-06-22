@@ -26,7 +26,7 @@
     td {
       text-align: left;
       padding: 0.25rem 0.5rem;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--line);
     }
   }
 
@@ -42,6 +42,6 @@
   }
 
   .error {
-    color: #b00020;
+    color: var(--danger);
   }
 }

@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 import { CandidateStatusComponent } from './candidate-status.component';
 import { CandidateStatusView, ErasureAckResponse, PublicBranding, StatusService } from './status.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 /**
  * F30 candidate status page (§IX). Verifies: WCAG 2.2 AA (axe 0 violations across PUBLISHED / PAST_DATE /
@@ -71,7 +72,8 @@ describe('CandidateStatusComponent (F30)', () => {
       imports: [CandidateStatusComponent],
       providers: [
         { provide: StatusService, useValue: svc },
-        { provide: ActivatedRoute, useValue: route }
+        { provide: ActivatedRoute, useValue: route },
+        { provide: CandidateBrandingService, useValue: { applyAccent: () => {}, setAccent: () => {} } }
       ]
     });
     const fixture = TestBed.createComponent(CandidateStatusComponent);

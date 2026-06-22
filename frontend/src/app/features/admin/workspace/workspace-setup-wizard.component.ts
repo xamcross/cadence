@@ -65,8 +65,8 @@ import { WorkspaceService } from './workspace.service';
     .ack { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; }
     .ack label { margin-top: 0; font-weight: 400; }
     .ack input { min-width: 24px; min-height: 24px; }
-    .help { color: #555; font-size: 0.9rem; }
-    .field-error, .error { color: #b00020; display: block; }
+    .help { color: var(--ink-faint); font-size: 0.9rem; }
+    .field-error, .error { color: var(--danger); display: block; }
     button { min-height: 44px; margin-top: 1.5rem; }
   `]
 })

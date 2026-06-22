@@ -49,8 +49,8 @@ import { GdprService, AuditEntry } from './gdpr.service';
     .gdpr { padding: 1rem; }
     button, input { min-height: 44px; }
     table { margin-top: 1rem; border-collapse: collapse; }
-    th, td { border: 1px solid #ddd; padding: 0.25rem 0.5rem; text-align: left; }
-    .msg { color: #b00020; }
+    th, td { border: 1px solid var(--line); padding: 0.25rem 0.5rem; text-align: left; }
+    .msg { color: var(--danger); }
   `]
 })
 export class CandidateAuditComponent {

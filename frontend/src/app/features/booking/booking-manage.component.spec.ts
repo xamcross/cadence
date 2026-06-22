@@ -5,6 +5,7 @@ import { BookingManageComponent } from './booking-manage.component';
 import { BookingService, BookingView, OpenRescheduleResponse } from './booking.service';
 import { ConfirmResponse, CandidateSlotsResponse, ScheduleService } from '../schedule/schedule.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 /**
  * F20 candidate booking-management page (§IX). Verifies: WCAG 2.2 AA (axe 0 violations across booked /
@@ -69,7 +70,8 @@ describe('BookingManageComponent (F20)', () => {
         { provide: BookingService, useValue: bookingSvc },
         { provide: ScheduleService, useValue: scheduleSvc },
         { provide: ActivatedRoute, useValue: route },
-        { provide: Router, useValue: { navigate: navigateSpy } }
+        { provide: Router, useValue: { navigate: navigateSpy } },
+        { provide: CandidateBrandingService, useValue: { applyAccent: () => {}, setAccent: () => {} } }
       ]
     });
     const fixture = TestBed.createComponent(BookingManageComponent);

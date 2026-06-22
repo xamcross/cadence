@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 import { CancelConfirmComponent } from './cancel-confirm.component';
 import { BookingService, CancelResponse } from './booking.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 /**
  * F20 candidate cancellation confirmation (§IX). Verifies: the cancel POST fires ONLY on the affirmative
@@ -31,7 +32,8 @@ describe('CancelConfirmComponent (F20)', () => {
       providers: [
         { provide: BookingService, useValue: bookingSvc },
         { provide: ActivatedRoute, useValue: route },
-        { provide: Router, useValue: { navigate: navigateSpy } }
+        { provide: Router, useValue: { navigate: navigateSpy } },
+        { provide: CandidateBrandingService, useValue: { applyAccent: () => {}, setAccent: () => {} } }
       ]
     });
     const fixture = TestBed.createComponent(CancelConfirmComponent);
