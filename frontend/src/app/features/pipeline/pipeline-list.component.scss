@@ -3,11 +3,11 @@
 .bulk { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
 .bulk button, select { min-height: 44px; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
-.sla { padding: 0.1rem 0.5rem; border-radius: 0.25rem; font-weight: 600; }
-.sla.red { background: #fde2e1; color: #8a1c13; }
-.sla.amber { background: #fdf0d5; color: #7a5b00; }
-.sla.green { background: #e3f5e1; color: #1c5a16; }
-.error { color: #8a1c13; }
-.truncated { color: #7a5b00; }
+th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--line); }
+.sla { padding: 0.1rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600; }
+.sla.red { background: var(--danger-wash); color: var(--danger); }
+.sla.amber { background: var(--warn-wash); color: var(--warn); }
+.sla.green { background: var(--ok-wash); color: var(--ok); }
+.error { color: var(--danger); }
+.truncated { color: var(--warn); }
 .bulk-results { font-size: 0.85rem; }

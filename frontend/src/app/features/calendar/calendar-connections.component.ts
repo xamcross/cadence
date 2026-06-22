@@ -84,9 +84,9 @@ interface ProviderDef {
     .name { font-weight: 600; min-width: 8rem; }
     .spacer { flex: 1; }
     button { min-height: 44px; }
-    .error { color: #b00020; }
-    .success { color: #1b5e20; }
-    .reconnect { color: #b00020; }
+    .error { color: var(--danger); }
+    .success { color: var(--ok); }
+    .reconnect { color: var(--danger); }
   `]
 })
 export class CalendarConnectionsComponent implements OnInit {

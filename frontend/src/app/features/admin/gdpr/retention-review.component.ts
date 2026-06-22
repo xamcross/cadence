@@ -34,9 +34,9 @@ import { GdprService, FlaggedView } from './gdpr.service';
   `,
   styles: [`
     .gdpr { padding: 1rem; }
-    .row { display: flex; gap: 1rem; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    .row { display: flex; gap: 1rem; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
     button { min-height: 44px; }
-    .danger { color: #b00020; }
+    .danger { color: var(--danger); }
     .msg { margin-top: 1rem; }
   `]
 })

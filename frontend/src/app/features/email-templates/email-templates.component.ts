@@ -90,9 +90,9 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
     }
   `,
   styles: [
-    `.error { color: #b00020; } .warning { color: #8a6d00; } .locked { color: #b00020; font-weight: 600; }
-     .sent { color: #1b5e20; } .send { margin-top: 1rem; border-top: 1px solid #ddd; padding-top: .75rem; }
-     .row { display: flex; gap: .75rem; align-items: center; } .tokens { font-size: .85rem; color: #555; }`
+    `.error { color: var(--danger); } .warning { color: var(--warn); } .locked { color: var(--danger); font-weight: 600; }
+     .sent { color: var(--ok); } .send { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .75rem; }
+     .row { display: flex; gap: .75rem; align-items: center; } .tokens { font-size: .85rem; color: var(--ink-faint); }`
   ]
 })
 export class EmailTemplatesComponent implements OnInit {

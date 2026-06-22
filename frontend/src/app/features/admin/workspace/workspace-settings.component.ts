@@ -88,12 +88,12 @@ import { WorkspaceConfig, WorkspaceService } from './workspace.service';
   `,
   styles: [`
     .settings { max-width: 640px; margin: 1.5rem auto; padding: 0 1rem; }
-    section { margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; }
+    section { margin-top: 2rem; border-top: 1px solid var(--line); padding-top: 1rem; }
     label { display: block; margin-top: 0.75rem; font-weight: 600; }
     input[type=text], input[type=number], input[type=time], input[type=password] { width: 100%; min-height: 44px; box-sizing: border-box; }
     .lock-row { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0; }
     button { min-height: 44px; margin-top: 1rem; }
-    .ok { color: #0a7d28; } .error, .field-error { color: #b00020; display: block; }
+    .ok { color: var(--ok); } .error, .field-error { color: var(--danger); display: block; }
   `]
 })
 export class WorkspaceSettingsComponent implements OnInit {

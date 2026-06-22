@@ -34,7 +34,7 @@ import { GdprService, ErasureRequestView } from './gdpr.service';
   `,
   styles: [`
     .gdpr { padding: 1rem; }
-    .row { display: flex; gap: 1rem; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    .row { display: flex; gap: 1rem; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
     button, select { min-height: 44px; }
     .msg { margin-top: 1rem; }
   `]

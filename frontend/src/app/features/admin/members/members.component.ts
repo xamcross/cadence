@@ -46,9 +46,9 @@ import { Role } from '../../../core/auth/auth.models';
   styles: [`
     .members { padding: 1rem; }
     table { border-collapse: collapse; width: 100%; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--line); }
     select { min-height: 44px; }
-    .error { color: #b00020; }
+    .error { color: var(--danger); }
   `]
 })
 export class MembersComponent implements OnInit {

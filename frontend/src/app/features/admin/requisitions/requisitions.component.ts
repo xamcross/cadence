@@ -61,8 +61,8 @@ import { RequisitionDto, RequisitionsService } from './requisitions.service';
     section { margin-bottom: 1.5rem; }
     input, button { min-height: 44px; margin-right: 0.5rem; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
-    .error { color: #8a1c13; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--line); }
+    .error { color: var(--danger); }
   `]
 })
 export class RequisitionsComponent implements OnInit {

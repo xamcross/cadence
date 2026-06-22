@@ -49,7 +49,7 @@ import { GdprService } from './gdpr.service';
   styles: [`
     .gdpr { padding: 1rem; max-width: 32rem; }
     button { min-height: 44px; margin-right: 0.5rem; }
-    .danger { color: #b00020; }
+    .danger { color: var(--danger); }
     .msg { margin-top: 1rem; }
     input, select { min-height: 44px; }
   `]

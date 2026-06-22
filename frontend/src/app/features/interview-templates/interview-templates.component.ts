@@ -86,7 +86,7 @@ import {
     .name { font-weight: 600; min-width: 10rem; }
     form { display: flex; flex-direction: column; gap: 0.5rem; max-width: 28rem; }
     button { min-height: 44px; }
-    .error { color: #b00020; }
+    .error { color: var(--danger); }
   `]
 })
 export class InterviewTemplatesComponent implements OnInit {

@@ -7,25 +7,25 @@
 .badge {
   margin-left: 0.5rem;
   padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  background: #e0e0e0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
   font-size: 0.85rem;
 }
 
 .badge.ok {
-  background: #d4edda;
+  background: var(--ok-wash);
 }
 
 .badge.warn {
-  background: #fff3cd;
+  background: var(--warn-wash);
 }
 
 .warn-text {
-  color: #8a6d3b;
+  color: var(--warn);
 }
 
 .error {
-  color: #a94442;
+  color: var(--danger);
 }
 
 .connect {
