@@ -209,6 +209,12 @@ cadence:
   dashboard:
     silence-list-cap: 100
     median-sample-cap: 5000
+  # F51 Pipeline View. On-read compose (no scheduler). scan-cap bounds the in-memory materialise-then-sort/filter
+  # (beyond it the response is truncated=true, no silent cap); bulk-max caps a single bulk selection (FR-020).
+  pipeline:
+    scan-cap: 1000
+    bulk-max: 100
+    page-size: 50
   # F32 Interviewer Feedback. The per-workspace deadline + reminder cadence live on WorkspaceConfig (nullable);
   # these are the global defaults + the post-interview generation offset, token TTL, scan cadence/cap, and the
   # generation query window floor. generation-delay (research D2): bookedEndAt is not denormalized, so the

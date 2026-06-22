@@ -166,6 +166,29 @@ export const routes: Routes = [
       import('./features/scheduling/scheduling.component').then((m) => m.SchedulingComponent)
   },
   {
+    // F51 Pipeline View — the recruiter's primary working list. Admin/Recruiter/Read-only/Hiring-Manager (server
+    // scopes HM to assigned requisitions; Interviewer denied). Internal screen — no candidate-facing §IX gate.
+    path: 'pipeline',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY', 'HIRING_MANAGER')],
+    loadComponent: () =>
+      import('./features/pipeline/pipeline-list.component').then((m) => m.PipelineListComponent)
+  },
+  {
+    // F51 candidate timeline drill-down (opened from a pipeline row). Same role gate; server enforces scoping.
+    path: 'pipeline/candidate/:candidateId/timeline',
+    canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY', 'HIRING_MANAGER')],
+    loadComponent: () =>
+      import('./features/pipeline/candidate-timeline.component').then((m) => m.CandidateTimelineComponent)
+  },
+  {
+    // F51 requisition management (create/close + assign HM + link candidate). Admin internal screen (the candidate
+    // link is also Recruiter-allowed server-side; the screen is Admin-routed for the management surface).
+    path: 'admin/requisitions',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    loadComponent: () =>
+      import('./features/admin/requisitions/requisitions.component').then((m) => m.RequisitionsComponent)
+  },
+  {
     path: 'accept-invite',
     loadComponent: () =>
       import('./features/auth/accept-invite/accept-invite.component').then((m) => m.AcceptInviteComponent)

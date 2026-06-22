@@ -146,6 +146,14 @@ public class Candidate {
     @Field(value = "importRequisitionLabel", write = Field.Write.NON_NULL)
     private String importRequisitionLabel;
 
+    // --- F51 Pipeline View (data-model section "candidates") — additive requisition link. An internal id, NOT PII:
+    // RETAINED on erasure (a non-PII anchor, the atsExternalRef/origin precedent — CandidateErasureService is
+    // unchanged), and erased candidates are excluded from every view by the erasureState==ACTIVE predicate, not by
+    // clearing this link. write=NON_NULL so an unassigned candidate OMITS the field from BSON -> the Hiring-Manager
+    // `requisitionId $in [assignedIds]` filter can never match an unassigned candidate (FR-014, by construction).
+    @Field(value = "requisitionId", write = Field.Write.NON_NULL)
+    private String requisitionId;
+
     public Candidate() {}
 
     public String getId() { return id; }
@@ -264,6 +272,9 @@ public class Candidate {
 
     public String getImportRequisitionLabel() { return importRequisitionLabel; }
     public void setImportRequisitionLabel(String importRequisitionLabel) { this.importRequisitionLabel = importRequisitionLabel; }
+
+    public String getRequisitionId() { return requisitionId; }
+    public void setRequisitionId(String requisitionId) { this.requisitionId = requisitionId; }
 
     /**
      * Deliberately omits name/email/phone (FR-023) AND the F30 statusStage/statusNextStep (PII) +

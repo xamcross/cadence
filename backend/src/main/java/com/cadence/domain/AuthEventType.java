@@ -62,5 +62,11 @@ public enum AuthEventType {
     NOSHOW_UNCONFIRMED_ESCALATED,
     // F50 Core Dashboard (append-only — never reorder). The CSV export is a deliberate PII egress, so it is
     // recorded as an attributable event; the outcome carries window + row count only (no candidate names — FR-019b).
-    DASHBOARD_EXPORTED
+    DASHBOARD_EXPORTED,
+    // F51 Pipeline View (append-only — never reorder). Requisition management is privilege-conferring (linking a
+    // candidate grants assigned Hiring Managers visibility), so each change is attributable. Ids only, no PII.
+    REQUISITION_CREATED,
+    REQUISITION_UPDATED,
+    REQUISITION_HM_ASSIGNED,
+    REQUISITION_HM_UNASSIGNED
 }
