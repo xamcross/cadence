@@ -37,5 +37,8 @@ public enum CandidateEventType {
     // invalidated/wiped the candidate's feedback. Codes only; request generation + reminders are value-free
     // scheduler logs, not candidate-audited.
     SCORECARD_SUBMITTED,
-    FEEDBACK_INVALIDATED
+    FEEDBACK_INVALIDATED,
+    // F51 Pipeline View (append-only): a recruiter/Admin set or changed the candidate's requisition link. This is
+    // privilege-conferring (it grants/removes assigned Hiring-Manager visibility), so it is candidate-audited.
+    REQUISITION_LINKED
 }

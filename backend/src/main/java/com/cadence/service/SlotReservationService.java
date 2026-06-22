@@ -337,6 +337,10 @@ public class SlotReservationService {
                         com.cadence.domain.AtsWriteBackType.RESCHEDULED, booked.getBookedStartAt());
                 } else {
                     audit.record(AuthEventType.SCHEDULING_BOOKED, req.getWorkspaceId(), "CANDIDATE", "booked", null);
+                    // F51: record the initial booking on the candidate timeline (BOOKING_CHANGED already covers the
+                    // reschedule/cancel/confirm sites; the initial commit was the missing emission). Codes only, no PII.
+                    candidateAudit.append(req.getWorkspaceId(), req.getCandidateId(),
+                        CandidateEventType.BOOKING_CHANGED, CandidateAuditOutcome.CONFIRMED, "CANDIDATE");
                     // F40: write the booking to the ATS timeline (best-effort, keyed on the interview start).
                     atsWriteBacks.enqueue(booked.getWorkspaceId(), booked.getCandidateId(),
                         com.cadence.domain.AtsWriteBackType.CONFIRMED, booked.getBookedStartAt());

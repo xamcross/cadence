@@ -55,4 +55,28 @@ public interface CandidateRepository extends MongoRepository<Candidate, String> 
      * no new index.
      */
     List<Candidate> findByWorkspaceIdAndIdIn(String workspaceId, Collection<String> ids);
+
+    // --- F51 Pipeline View (data-model section "candidates") — bounded list reads (capped at scanCap). ---
+
+    /**
+     * Workspace-wide active candidates (Admin/Recruiter/Read-only pipeline). Backed by the
+     * {workspaceId,erasureState,createdAt} index (ChangeUnit022); the {@link Pageable} caps the scan (FR-007/SC-002).
+     */
+    List<Candidate> findByWorkspaceIdAndErasureState(String workspaceId, ErasureState erasureState, Pageable pageable);
+
+    /**
+     * Hiring-Manager scoped active candidates: only those linked to an assigned requisition. Built scan-time FROM
+     * {@code AssignmentService.assignedResourceIds(REQUISITION)} (never fetch-all-then-filter). An unassigned
+     * candidate (no {@code requisitionId} in BSON) can never match the {@code $in}; an empty id set is short-circuited
+     * by the caller to an empty page (FR-013/FR-014). Backed by {workspaceId,requisitionId} (ChangeUnit022).
+     */
+    List<Candidate> findByWorkspaceIdAndErasureStateAndRequisitionIdIn(
+        String workspaceId, ErasureState erasureState, Collection<String> requisitionIds, Pageable pageable);
+
+    /** Truncation-flag count: total active candidates in scope (for the response {@code truncated} flag, D4). */
+    long countByWorkspaceIdAndErasureState(String workspaceId, ErasureState erasureState);
+
+    /** HM truncation-flag count: total active candidates on the assigned requisitions. */
+    long countByWorkspaceIdAndErasureStateAndRequisitionIdIn(
+        String workspaceId, ErasureState erasureState, Collection<String> requisitionIds);
 }

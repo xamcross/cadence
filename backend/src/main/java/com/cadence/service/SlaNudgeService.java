@@ -127,6 +127,16 @@ public class SlaNudgeService implements SlaDraftInvalidator {
             windowDays, props.getAmberMarginDays(), now);
     }
 
+    /**
+     * F51 reuse seam: classify an ALREADY-LOADED candidate against the workspace SLA window with NO extra query
+     * (every classifier input is on the candidate doc). The pipeline calls this so its SLA colour is byte-identical
+     * to the dashboard/silence-list verdict (FR-004) — it delegates to the same {@link #classify(Candidate, int, Instant)}
+     * with the same amber margin, so the two can never drift.
+     */
+    public SlaState classifyCandidate(WorkspaceConfig cfg, Candidate c, Instant now) {
+        return classify(c, effectiveWindowDays(cfg), now);
+    }
+
     private int effectiveWindowDays(WorkspaceConfig cfg) {
         int w = cfg == null ? 0 : cfg.getSlaSilenceWindowDays();
         return w > 0 ? w : props.getDefaultWindowDays();

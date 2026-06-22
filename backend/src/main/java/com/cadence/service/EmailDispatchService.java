@@ -74,6 +74,7 @@ public class EmailDispatchService {
     private final RecruiterNotificationService notifications;
     private final EmailDispatchMetrics metrics;
     private final CandidateActivityService activity;
+    private final CandidateAuditService candidateAudit;
     private final EmailDeliveryProperties props;
     private final Clock clock;
 
@@ -82,6 +83,7 @@ public class EmailDispatchService {
                                 MailSenderSelector senders, EmailSender emailSender, AuthAuditService audit,
                                 DeadLetterService deadLetters, RecruiterNotificationService notifications,
                                 EmailDispatchMetrics metrics, CandidateActivityService activity,
+                                CandidateAuditService candidateAudit,
                                 EmailDeliveryProperties props, Clock clock) {
         this.repo = repo;
         this.mongo = mongo;
@@ -95,6 +97,7 @@ public class EmailDispatchService {
         this.notifications = notifications;
         this.metrics = metrics;
         this.activity = activity;
+        this.candidateAudit = candidateAudit;
         this.props = props;
         this.clock = clock;
     }
@@ -302,6 +305,11 @@ public class EmailDispatchService {
             activity.advanceLastContact(claimed.getWorkspaceId(), claimed.getCandidateId(), sentAt);
             audit.record(AuthEventType.EMAIL_DISPATCH_SENT, claimed.getWorkspaceId(), claimed.getCandidateId(),
                 claimed.getMessageType().name(), null);
+            // F51: record the send on the candidate timeline (codes only — no recipient/subject/body). The auth
+            // audit above is the security record; this is the candidate-facing activity stream the pipeline reads.
+            candidateAudit.append(claimed.getWorkspaceId(), claimed.getCandidateId(),
+                com.cadence.domain.CandidateEventType.MESSAGE_SENT, com.cadence.domain.CandidateAuditOutcome.RECORDED,
+                null);
             log.info("email dispatch sent {} {}",
                 StructuredArguments.kv("dispatchId", dispatchId),
                 StructuredArguments.kv("messageType", claimed.getMessageType().name()));

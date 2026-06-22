@@ -271,6 +271,18 @@ jobs:
           fi
           echo "F50 dashboard scan passed — no candidate-name sentinel found in test output."
 
+      - name: PII log scan — F51 pipeline view (SC-008)
+        run: |
+          # F51 SC-008/FR-024: the pipeline surfaces decrypted candidate name + stage at scale (the list) and a
+          # PII-free timeline. PipelineLogPiiScanTest drives compose + timeline with high-entropy name + stage
+          # sentinels and asserts neither reaches logs/audit/bulk-result/dispatch rows. CI re-checks captured stdout.
+          if grep -qE 'SENTINELF51NAME_zz9|SENTINELF51STAGE_zz9' test-output.txt; then
+            echo "ERROR: an F51 pipeline candidate name/stage sentinel appeared in test output — zero PII policy violated."
+            grep -nE 'SENTINELF51NAME_zz9|SENTINELF51STAGE_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F51 pipeline scan passed — no candidate name/stage sentinel found in test output."
+
       - name: No-voice-capture scope guard — interviewer feedback is a form only (F32 SC-019)
         run: |
           # F32 SC-019: voice-to-scorecard capture is deferred to v1.5. Guard against a future contributor

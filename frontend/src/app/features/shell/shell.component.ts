@@ -28,6 +28,13 @@ import { AuthService } from '../../core/auth/auth.service';
         @if (m.role === 'ADMIN' || m.role === 'RECRUITER') {
           <a routerLink="/admin/gdpr/actions" i18n="@@shell.gdprActions">Candidate data</a>
         }
+        <!-- F51: pipeline view — Admin/Recruiter/Read-only/Hiring-Manager (server scopes HM; Interviewer denied). -->
+        @if (m.role !== 'INTERVIEWER') {
+          <a routerLink="/pipeline" i18n="@@shell.pipeline">Pipeline</a>
+        }
+        @if (m.role === 'ADMIN') {
+          <a routerLink="/admin/requisitions" i18n="@@shell.requisitions">Requisitions</a>
+        }
         <!-- F01.1: calendar connections — every authenticated role manages their own. -->
         <a routerLink="/calendar/connections" i18n="@@shell.calendarConnections">Calendar connections</a>
         <span class="spacer"></span>

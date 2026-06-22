@@ -1,0 +1,99 @@
+<h1>{{ title }}</h1>
+
+<section class="filters">
+  <label>
+    <span i18n="@@pipeline.filter.status">Status</span>
+    <select [(ngModel)]="status" (change)="applyFilters()">
+      <option value="ACTIVE" i18n="@@pipeline.status.active">Active</option>
+      <option value="INCLUDE_CLOSED" i18n="@@pipeline.status.closed">Include closed</option>
+    </select>
+  </label>
+  <label>
+    <span i18n="@@pipeline.filter.sla">SLA</span>
+    <select [(ngModel)]="sla" (change)="applyFilters()">
+      <option value="" i18n="@@pipeline.any">Any</option>
+      <option value="RED">RED</option>
+      <option value="AMBER">AMBER</option>
+      <option value="GREEN">GREEN</option>
+    </select>
+  </label>
+  <label>
+    <span i18n="@@pipeline.filter.scheduling">Scheduling</span>
+    <select [(ngModel)]="scheduling" (change)="applyFilters()">
+      <option value="" i18n="@@pipeline.any">Any</option>
+      <option value="NO_LINK_SENT">No link sent</option>
+      <option value="LINK_SENT">Link sent</option>
+      <option value="SLOT_PICKED">Slot picked</option>
+      <option value="CONFIRMED">Confirmed</option>
+      <option value="NO_SHOW">No-show</option>
+      <option value="RESCHEDULED">Rescheduled</option>
+      <option value="CANCELLED">Cancelled</option>
+      <option value="EXPIRED">Expired</option>
+    </select>
+  </label>
+  <label>
+    <span i18n="@@pipeline.filter.sort">Sort</span>
+    <select [(ngModel)]="sort" (change)="applyFilters()">
+      <option value="RECENT" i18n="@@pipeline.sort.recent">Most recent</option>
+      <option value="SLA" i18n="@@pipeline.sort.sla">SLA</option>
+      <option value="SCHEDULING" i18n="@@pipeline.sort.scheduling">Scheduling</option>
+      <option value="STAGE" i18n="@@pipeline.sort.stage">Stage</option>
+    </select>
+  </label>
+</section>
+
+@if (canBulk()) {
+  <section class="bulk">
+    <button type="button" (click)="sendUpdateEmail()" [disabled]="selected().size === 0">{{ sendUpdate }}</button>
+    <span>{{ selected().size }}</span>
+  </section>
+}
+
+@if (bulkResults(); as br) {
+  <ul class="bulk-results" role="status">
+    @for (r of br; track r.candidateId) {
+      <li>{{ r.candidateId }} - {{ r.outcome }}@if (r.reason) { ({{ r.reason }}) }</li>
+    }
+  </ul>
+}
+
+@if (error()) {
+  <p class="error" role="alert">{{ errorMsg }}</p>
+} @else if (truncated()) {
+  <p class="truncated">{{ truncatedMsg }}</p>
+}
+
+@if (rows().length === 0 && !loading()) {
+  <p class="empty">{{ emptyMsg }}</p>
+} @else {
+  <table>
+    <thead>
+      <tr>
+        @if (canBulk()) { <th i18n="@@pipeline.col.select">Select</th> }
+        <th i18n="@@pipeline.col.name">Candidate</th>
+        <th i18n="@@pipeline.col.stage">Stage</th>
+        <th i18n="@@pipeline.col.sla">SLA</th>
+        <th i18n="@@pipeline.col.scheduling">Scheduling</th>
+        <th i18n="@@pipeline.col.requisition">Requisition</th>
+        <th i18n="@@pipeline.col.timeline">Timeline</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track row.candidateId) {
+        <tr>
+          @if (canBulk()) {
+            <td><input type="checkbox" [checked]="isSelected(row.candidateId)" (change)="toggle(row.candidateId)"
+                       [attr.aria-label]="row.name" /></td>
+          }
+          <td>{{ row.name }}</td>
+          <td>{{ row.stage }}</td>
+          <td><span class="sla" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
+                    [class.green]="row.slaState === 'GREEN'">{{ row.slaState }}</span></td>
+          <td>{{ row.schedulingStatus }}</td>
+          <td>{{ row.requisitionTitle || '-' }}</td>
+          <td><a [routerLink]="['/pipeline/candidate', row.candidateId, 'timeline']" i18n="@@pipeline.viewTimeline">View</a></td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

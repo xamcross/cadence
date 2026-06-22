@@ -117,4 +117,18 @@ public interface SchedulingRequestRepository extends MongoRepository<SchedulingR
         fields = "{ 'sentAt': 1, 'bookedAt': 1 }")
     List<SchedulingRequest> findBookedForVelocity(String workspaceId, Instant windowStart, Instant now,
                                                   Pageable pageable);
+
+    // --- F51 Pipeline View: batch scheduling-status read for the pipeline list (data-model "schedulingRequests") ---
+
+    /**
+     * Batch read of ALL scheduling rows for a (bounded) candidate-id set, PROJECTED to the status-relevant fields
+     * only (never loads {@code offeredSlots}/the encrypted {@code locationText}). The pipeline resolves each
+     * candidate's display status in memory (live BOOKED else newest by {@code createdAt}). Served by the
+     * {@code {workspaceId,candidateId,createdAt:-1}} prefix (ChangeUnit012) — NO new index. The id set is already
+     * capped by the candidate-page scan, so no extra {@link Pageable} is needed (FR-005/SC-002).
+     */
+    @Query(value = "{ 'workspaceId': ?0, 'candidateId': { $in: ?1 } }",
+        fields = "{ 'candidateId': 1, 'status': 1, 'sentAt': 1, 'expiresAt': 1, 'bookedStartAt': 1, "
+            + "'noShowAt': 1, 'createdAt': 1 }")
+    List<SchedulingRequest> findByWorkspaceIdAndCandidateIdIn(String workspaceId, java.util.Collection<String> candidateIds);
 }
