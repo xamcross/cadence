@@ -424,7 +424,7 @@ jobs:
         env:
           CADENCE_API_URL: "https://api.cadence.example.com"
         run: |
-          node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
+          node ../scripts/inject-api-url.mjs
           npx ng build --configuration production
 
       - name: Generate F61 article library (/resources) into dist
@@ -684,7 +684,7 @@ jobs:
         env:
           CADENCE_API_URL: ${{ secrets.CADENCE_API_URL }}
         run: |
-          node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
+          node ../scripts/inject-api-url.mjs
           npx ng build --configuration production
 
       - name: Generate F61 article library (/resources) into dist
