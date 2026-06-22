@@ -82,7 +82,7 @@ export class AcceptInviteComponent {
     this.auth.acceptInvite(this.token, this.password).subscribe({
       next: () => {
         this.done.set(true);
-        this.router.navigate(['/']);
+        this.router.navigate(['/app']);
       },
       error: (e) => {
         this.submitting.set(false);

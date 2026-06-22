@@ -120,8 +120,8 @@ export class WorkspaceSetupWizardComponent {
           // Refresh the cached member so workspaceConfigured flips, then navigate. The authGuard
           // re-probes me() on navigation, so even if this refresh fails the shell sees fresh state.
           this.auth.me().subscribe({
-            next: () => { this.submitting.set(false); this.router.navigate(['/']); },
-            error: () => { this.submitting.set(false); this.router.navigate(['/']); }
+            next: () => { this.submitting.set(false); this.router.navigate(['/app']); },
+            error: () => { this.submitting.set(false); this.router.navigate(['/app']); }
           });
         },
         error: (e: HttpErrorResponse) => {

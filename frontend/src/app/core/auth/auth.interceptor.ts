@@ -8,6 +8,16 @@ import { AuthService } from './auth.service';
 /** Public auth routes where a 401 must NOT trigger a redirect (avoids loops — FE-6). */
 const PUBLIC_AUTH_ROUTES = ['/login', '/accept-invite', '/reset', '/reset/confirm'];
 
+/**
+ * True when the current route is the public marketing home (`/`). F60 (026-seo-aeo): the home fires a
+ * background me() to redirect a signed-in member to /app; an anonymous 401 there must NOT redirect to
+ * /login, or every anonymous visitor/crawler is bounced off `/` and root indexing breaks. Exact match
+ * (`startsWith('/')` would match every route).
+ */
+function isPublicHome(url: string): boolean {
+  return url.split('?')[0].split('#')[0] === '/';
+}
+
 /** Adds credentials so the HttpOnly cad_session cookie rides along on every API call (FE-5). */
 export const apiInterceptor: HttpInterceptorFn = (req, next) => {
   if (req.url.startsWith(environment.apiBaseUrl)) {
@@ -27,7 +37,7 @@ export const authErrorInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   return next(req).pipe(
     catchError((err) => {
-      const onPublic = PUBLIC_AUTH_ROUTES.some((p) => router.url.startsWith(p));
+      const onPublic = isPublicHome(router.url) || PUBLIC_AUTH_ROUTES.some((p) => router.url.startsWith(p));
       if (err?.status === 401 && !onPublic) {
         router.navigate(['/login']);
       } else if (err?.status === 403) {

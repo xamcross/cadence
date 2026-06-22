@@ -2,14 +2,100 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Cadence</title>
+  <title>Cadence — Interview scheduling &amp; candidate experience</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- F60 (026-seo-aeo) SEO/AEO metadata. Origin + robots + indexability are substituted at build
+       time by scripts/seo-inject-origin.mjs (prod => index,follow / enabled; non-prod => noindex). -->
+  <meta name="description" content="Cadence helps recruiters schedule interviews, prevent no-shows, and keep candidates informed — no candidate account required. Calendar sync, GDPR-safe by design.">
+  <meta name="robots" content="__CADENCE_ROBOTS__">
+  <meta name="cadence-index" content="__CADENCE_INDEX__">
+  <link rel="canonical" href="https://__CADENCE_PUBLIC_ORIGIN__/">
+
+  <!-- Open Graph / Twitter (SeoService keeps these in sync per-route at runtime). -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Cadence — Interview scheduling &amp; candidate experience">
+  <meta property="og:description" content="Schedule interviews, prevent no-shows, and keep candidates informed — no candidate account required.">
+  <meta property="og:url" content="https://__CADENCE_PUBLIC_ORIGIN__/">
+  <meta property="og:image" content="https://__CADENCE_PUBLIC_ORIGIN__/assets/og-cadence.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Cadence — Interview scheduling &amp; candidate experience">
+  <meta name="twitter:description" content="Schedule interviews, prevent no-shows, and keep candidates informed — no candidate account required.">
+  <meta name="twitter:image" content="https://__CADENCE_PUBLIC_ORIGIN__/assets/og-cadence.png">
+
   <!-- F14: the candidate scheduling token rides the URL query string; never leak it off-origin via Referer. -->
   <meta name="referrer" content="no-referrer">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <!-- AEO structured data (static so non-JS answer engines read it; URLs public-only, no token/PII). -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Cadence",
+    "url": "https://__CADENCE_PUBLIC_ORIGIN__/",
+    "logo": "https://__CADENCE_PUBLIC_ORIGIN__/assets/og-cadence.png"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Cadence",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "description": "Interview scheduling, no-show defense, and a GDPR-safe candidate status page — no candidate login required.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Cadence",
+    "url": "https://__CADENCE_PUBLIC_ORIGIN__/"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Cadence?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Cadence is an interview-scheduling and candidate-experience platform that helps recruiters schedule interviews, prevent no-shows, and keep candidates informed." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do candidates need to create an account?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Scheduling, rescheduling, cancellation, and the status page are private no-login links." }
+      },
+      {
+        "@type": "Question",
+        "name": "Which calendars and ATS does Cadence support?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Google Calendar and Microsoft 365 for scheduling; Greenhouse and Lever for ATS, plus standalone CSV import." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is candidate data GDPR-safe?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Personal data is encrypted at rest, consent is recorded before any contact, and erasure is one click." }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
-  <app-root></app-root>
+  <app-root>
+    <!-- F60: static no-JS home content — present in the served bytes so crawlers/answer engines that
+         do not execute scripts read the product description. Angular replaces this on bootstrap. -->
+    <main>
+      <h1>Cadence — interview scheduling that respects candidates</h1>
+      <p>Cadence helps recruiters schedule interviews, prevent no-shows, and keep candidates informed —
+         with no candidate account required. It syncs with Google and Microsoft calendars and is
+         GDPR-safe by design.</p>
+    </main>
+  </app-root>
 </body>
 </html>

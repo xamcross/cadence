@@ -424,6 +424,126 @@ jobs:
           node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
           npx ng build --configuration production
 
+      - name: Verify NON-PRODUCTION SEO injection forces noindex (F60 US4/SC-008)
+        working-directory: frontend
+        env:
+          CADENCE_PUBLIC_ORIGIN: "preview.cadence.example.com"
+          CADENCE_PUBLIC_ENV: "preview"
+        run: |
+          set -euo pipefail
+          # Runs on a copy of the FRESH (un-injected) build so the __CADENCE_*__ placeholders are intact.
+          rm -rf /tmp/seo-nonprod && cp -r dist/cadence/browser /tmp/seo-nonprod
+          node ../scripts/seo-inject-origin.mjs /tmp/seo-nonprod
+          grep -qxF 'Disallow: /' /tmp/seo-nonprod/robots.txt || { echo "ERROR: non-prod robots.txt not blanket-disallow."; exit 1; }
+          grep -qF 'X-Robots-Tag: noindex' /tmp/seo-nonprod/_headers || { echo "ERROR: non-prod _headers missing X-Robots-Tag."; exit 1; }
+          grep -qF 'name="robots" content="noindex,nofollow"' /tmp/seo-nonprod/index.html || { echo "ERROR: non-prod index.html robots not noindex."; exit 1; }
+          grep -qF 'name="cadence-index" content="disabled"' /tmp/seo-nonprod/index.html || { echo "ERROR: non-prod index.html cadence-index not disabled."; exit 1; }
+          rm -rf /tmp/seo-nonprod
+          echo "Non-production SEO injection verified (blanket noindex)."
+
+      - name: Inject SEO origin + indexability into built artifacts (F60)
+        working-directory: frontend
+        env:
+          CADENCE_PUBLIC_ORIGIN: "cadence.example.com"
+          CADENCE_PUBLIC_ENV: "production"
+        run: node ../scripts/seo-inject-origin.mjs dist/cadence/browser
+
+      - name: SEO/AEO artifact scan — no token/auth URL or PII in any artifact (F60 SC-002/003/004/005/006/007)
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          DIST=dist/cadence/browser
+          DENY='/schedule|/booking|/confirm|/status|/feedback|/admin|/pipeline|/scheduling|/calendar|/workspace|/interview-templates|/email-templates|/login|/accept-invite|/reset|token='
+          # Non-vacuity positive control: prove the deny-grep WOULD catch a leaked token/route before
+          # trusting that it found none in the real artifacts (the repo's anti-vacuous-scan precedent).
+          printf '/status?token=ZZSENTINELSEOTOKEN\n' > /tmp/seo-negctl.txt
+          if ! grep -qE "$DENY" /tmp/seo-negctl.txt; then
+            echo "ERROR: the SEO deny-grep is vacuous — it failed to match a known-bad sentinel."; rm -f /tmp/seo-negctl.txt; exit 1
+          fi
+          rm -f /tmp/seo-negctl.txt
+          # F60 routing guard (S3): no component may navigate to the bare root post-auth (it would dump
+          # signed-in users on the public marketing page). The only legitimate bare-root link is the 404's.
+          if grep -rnE "navigate\(\s*\[\s*[\"']/[\"']\s*\]\s*\)" src/app; then
+            echo "ERROR: a component navigates to bare ['/'] — retarget to ['/app'] (F60 routing relocation)."; exit 1
+          fi
+          # (a) non-vacuity: every artifact must exist and be non-empty before any grep can be meaningful.
+          for f in robots.txt sitemap.xml llms.txt index.html; do
+            if [ ! -s "$DIST/$f" ]; then echo "ERROR: artifact missing/empty: $f"; exit 1; fi
+          done
+          # (b) no private/token route in any artifact.
+          if grep -rEn "$DENY" "$DIST/robots.txt" "$DIST/sitemap.xml" "$DIST/llms.txt"; then
+            echo "ERROR: a token/auth route leaked into a crawl-control artifact (SC-002)."; exit 1
+          fi
+          # JSON-LD lives in index.html; scan only the structured-data + head (the SPA bundles legitimately
+          # reference app routes). Extract the <head> and ld+json blocks and assert no private URL there.
+          node -e '
+            const fs=require("fs"); const h=fs.readFileSync(process.argv[1],"utf8");
+            const head=(h.match(/<head[\s\S]*?<\/head>/i)||[""])[0];
+            const deny=/\/schedule|\/booking|\/confirm|\/status|\/feedback|\/admin|\/pipeline|\/scheduling|\/calendar|\/workspace|\/interview-templates|\/email-templates|token=/;
+            if (deny.test(head)) { console.error("ERROR: a token/auth URL leaked into index.html <head> (SC-002)."); process.exit(1); }
+            // (c) no leftover origin placeholder anywhere in the head.
+            if (head.includes("__CADENCE_PUBLIC_ORIGIN__")||head.includes("__CADENCE_ROBOTS__")||head.includes("__CADENCE_INDEX__")) {
+              console.error("ERROR: an unsubstituted build placeholder remains in index.html."); process.exit(1); }
+            // (e) required SEO surface present.
+            for (const [re,msg] of [
+              [/<html[^>]*\slang=/i,"<html lang> missing (FR-007)"],
+              [/<meta\s+name="description"\s+content="[^"]+"/i,"meta description missing/empty (SC-001)"],
+              [/<link\s+rel="canonical"\s+href="https:\/\/[^"]+"/i,"canonical missing (SC-001)"],
+              [/interview scheduling/i,"no-JS home copy missing inside <app-root> (SC-005)"]
+            ]) { if(!re.test(h)){console.error("ERROR: "+msg);process.exit(1);} }
+            // (d) the four JSON-LD types present + valid JSON (SC-004).
+            const blocks=[...h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m=>m[1]);
+            const types=blocks.map(b=>{try{return JSON.parse(b)["@type"];}catch(e){console.error("ERROR: invalid JSON-LD block: "+e.message);process.exit(1);}});
+            for (const t of ["Organization","SoftwareApplication","WebSite","FAQPage"]) {
+              if(!types.includes(t)){console.error("ERROR: JSON-LD @type missing: "+t);process.exit(1);} }
+          ' "$DIST/index.html"
+          # (c) no leftover placeholder in the text artifacts.
+          if grep -rEn '__CADENCE_PUBLIC_ORIGIN__' "$DIST/robots.txt" "$DIST/sitemap.xml" "$DIST/llms.txt"; then
+            echo "ERROR: an unsubstituted origin placeholder remains in a text artifact."; exit 1
+          fi
+          # (d) robots deny-by-default + a resolved Sitemap line + /status not matched by any Allow.
+          grep -qE '^Disallow: /' "$DIST/robots.txt" || { echo "ERROR: robots.txt missing 'Disallow: /'."; exit 1; }
+          grep -qE '^Sitemap: https://' "$DIST/robots.txt" || { echo "ERROR: robots.txt missing resolved Sitemap line."; exit 1; }
+          # Every Allow: line MUST be in the known-safe render set — a broad wildcard (e.g. Allow: /*.png$)
+          # could longest-match a private path and re-open it (robots.txt.md B1). Subset assertion catches it.
+          node -e '
+            const fs=require("fs");
+            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$"]);
+            for (const l of fs.readFileSync(process.argv[1],"utf8").split(/\r?\n/)) {
+              if (l.startsWith("Allow:") && !ok.has(l)) { console.error("ERROR: unexpected/over-broad robots Allow line: "+l); process.exit(1); }
+            }
+          ' "$DIST/robots.txt"
+          # (f) og:image path resolves to a built file.
+          test -s "$DIST/assets/og-cadence.png" || { echo "ERROR: og:image asset missing in dist."; exit 1; }
+          # (g) sitemap well-formed + every <loc> is an absolute https URL (no dep on xmllint).
+          node -e '
+            const fs=require("fs"); const x=fs.readFileSync(process.argv[1],"utf8");
+            if(!/^<\?xml/.test(x.trim())){console.error("ERROR: sitemap missing XML declaration.");process.exit(1);}
+            const open=(x.match(/<url>/g)||[]).length, close=(x.match(/<\/url>/g)||[]).length;
+            if(open===0||open!==close){console.error("ERROR: sitemap <url> tags unbalanced.");process.exit(1);}
+            if(!/<urlset[\s\S]*<\/urlset>/.test(x)){console.error("ERROR: sitemap urlset not closed.");process.exit(1);}
+            const locs=[...x.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
+            if(!locs.length||!locs.every(l=>/^https:\/\/[^\s<>]+$/.test(l))){console.error("ERROR: sitemap loc not an absolute https URL.");process.exit(1);}
+          ' "$DIST/sitemap.xml"
+          # llms.txt: H1 + Links section, public-only (covered by (b) deny scan above).
+          grep -qE '^# Cadence' "$DIST/llms.txt" || { echo "ERROR: llms.txt missing H1."; exit 1; }
+          # Header non-regression (SC-010): production _headers keeps the exact CSP + Referrer-Policy +
+          # nosniff, and index.html keeps the no-referrer meta. (Injection ran with env=production, so
+          # _headers is byte-unchanged; the non-prod X-Robots-Tag append is NOT present here.)
+          test -s "$DIST/_headers" || { echo "ERROR: _headers missing from dist."; exit 1; }
+          grep -qF 'Referrer-Policy: no-referrer' "$DIST/_headers" || { echo "ERROR: _headers lost Referrer-Policy."; exit 1; }
+          grep -qF 'X-Content-Type-Options: nosniff' "$DIST/_headers" || { echo "ERROR: _headers lost nosniff."; exit 1; }
+          grep -qF "Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" "$DIST/_headers" || { echo "ERROR: _headers CSP changed (SC-010)."; exit 1; }
+          grep -qF '<meta name="referrer" content="no-referrer">' "$DIST/index.html" || { echo "ERROR: index.html lost the no-referrer meta."; exit 1; }
+          # F60 (FR-008/SC-003): token + auth routes carry an independent page-level X-Robots-Tag noindex.
+          grep -qF 'X-Robots-Tag: noindex, nofollow' "$DIST/_headers" || { echo "ERROR: _headers missing per-path X-Robots-Tag noindex."; exit 1; }
+          for p in /schedule /status /booking /confirm /feedback /admin; do
+            grep -qF "$p" "$DIST/_headers" || { echo "ERROR: _headers missing X-Robots-Tag rule for $p (FR-008)."; exit 1; }
+          done
+          # 'unsafe-inline' must NOT have leaked into script-src for the JSON-LD (Security S4).
+          if grep -qE "script-src[^;]*'unsafe-inline'" "$DIST/_headers"; then echo "ERROR: script-src unsafe-inline added (SC-010)."; exit 1; fi
+          echo "SEO/AEO artifact scan passed."
+
       - name: Third-party-font guard — the candidate page must not leak the URL token via a CDN asset (F14 FR-025)
         working-directory: frontend
         run: |
@@ -474,7 +594,9 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: frontend-test
+    # F60 (Security S1): gate the deploy on the lighthouse job, which runs the SEO/AEO artifact scan —
+    # a token/PII leak or a robots regression must block the deploy, not merely warn.
+    needs: [frontend-test, lighthouse]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -497,6 +619,13 @@ jobs:
         run: |
           node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
           npx ng build --configuration production
+
+      - name: Inject SEO origin + indexability into built artifacts (F60)
+        working-directory: frontend
+        env:
+          CADENCE_PUBLIC_ORIGIN: ${{ secrets.CADENCE_PUBLIC_ORIGIN }}
+          CADENCE_PUBLIC_ENV: "production"
+        run: node ../scripts/seo-inject-origin.mjs dist/cadence/browser
 
       - name: Deploy to Cloudflare Pages
         working-directory: frontend

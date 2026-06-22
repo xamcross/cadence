@@ -16,7 +16,7 @@ import { RouterLink } from '@angular/router';
         Your role does not have permission to view this page. If you think this is a mistake, contact
         your workspace administrator.
       </p>
-      <a routerLink="/" i18n="@@notauthorized.home">Back to home</a>
+      <a routerLink="/login" i18n="@@notauthorized.home">Back to sign in</a>
     </main>
   `,
   styles: [`
