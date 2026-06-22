@@ -1,0 +1,13 @@
+# Cloudflare Pages SPA fallback.
+#
+# Cadence is a single-page Angular app: deep links (candidate token routes like
+# /schedule, /status, /booking, /confirm, /feedback, and the authenticated /app/*)
+# have no matching static file, so without this rule Cloudflare Pages returns 404.
+# Rewrite every unmatched path to index.html with a 200 so the Angular router can
+# resolve the route client-side (unknown routes render the noindex NotFoundComponent).
+#
+# Precedence on Cloudflare Pages: real static assets (/assets/*, *.js, *.css,
+# favicon, robots.txt, sitemap.xml, _headers) AND any Pages Function (the
+# same-origin /api, /oauth2, /login/oauth2/code proxy) are matched BEFORE this
+# catch-all, so this never shadows the API or the OAuth callback.
+/*    /index.html    200
