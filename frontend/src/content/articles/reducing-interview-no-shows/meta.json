@@ -1,0 +1,12 @@
+{
+  "slug": "reducing-interview-no-shows",
+  "title": "How to reduce interview no-shows",
+  "summary": "Interview no-shows waste recruiter time and stall pipelines. Reduce them with timely confirmations, one-tap reschedule links, and a respectful reminder cadence that treats candidates as partners, not numbers.",
+  "datePublished": "2026-06-22",
+  "theme": "no-shows",
+  "related": ["candidate-experience-best-practices", "interview-scheduling-and-calendar-coordination"],
+  "faq": [
+    { "q": "What causes interview no-shows?", "a": "Common causes are forgotten appointments, competing offers, unclear logistics, and a scheduling process that feels impersonal. Most are preventable with a confirmation step and a timely reminder." },
+    { "q": "How far in advance should I send an interview reminder?", "a": "A reminder roughly 24 hours before the interview, paired with a one-tap confirmation, gives candidates time to confirm or reschedule while keeping the interview top of mind." }
+  ]
+}

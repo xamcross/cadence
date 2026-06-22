@@ -1,0 +1,12 @@
+{
+  "slug": "candidate-experience-best-practices",
+  "title": "Candidate experience best practices for recruiters",
+  "summary": "A great candidate experience is fast, transparent, and respectful. Keep candidates informed at every stage, remove logins and friction, and communicate clear next steps and dates so people feel valued whatever the outcome.",
+  "datePublished": "2026-06-22",
+  "theme": "candidate-experience",
+  "related": ["reducing-interview-no-shows", "gdpr-safe-recruiting"],
+  "faq": [
+    { "q": "What makes a good candidate experience?", "a": "Speed, transparency, and respect: quick replies, clear next steps with real dates, no unnecessary logins, and honest communication regardless of the decision." },
+    { "q": "How quickly should recruiters respond to candidates?", "a": "Aim to acknowledge applications within a day or two and keep candidates updated at each stage. Silence is the most common candidate-experience complaint." }
+  ]
+}

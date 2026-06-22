@@ -18,7 +18,7 @@
 // Non-production additionally: overwrites robots.txt with an all-disallow body and appends a global
 // X-Robots-Tag: noindex rule to _headers (production _headers is left byte-identical).
 
-import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const distDir = process.argv[2] || join('frontend', 'dist', 'cadence', 'browser');
@@ -58,6 +58,27 @@ patch('llms.txt', subOrigin);
 patch('robots.txt', (txt) =>
   isProd ? subOrigin(txt) : 'User-agent: *\nDisallow: /\n'
 );
+
+// F61 (028-seo-content-library): the generated /resources/ article pages + feed carry the SAME
+// __CADENCE_PUBLIC_ORIGIN__ / __CADENCE_ROBOTS__ placeholders. Substitute origin everywhere and the
+// per-page robots so a non-production article page is noindex on a direct fetch (FR-010/SC-008).
+const subRobots = (s) =>
+  s.split('__CADENCE_ROBOTS__').join(isProd ? 'index,follow' : 'noindex,nofollow');
+function patchOptionalHtml(relPath) {
+  const p = join(distDir, relPath);
+  if (existsSync(p)) writeFileSync(p, subRobots(subOrigin(readFileSync(p, 'utf8'))), 'utf8');
+}
+const resourcesDir = join(distDir, 'resources');
+if (existsSync(resourcesDir)) {
+  patchOptionalHtml('resources/index.html');
+  const feed = join(distDir, 'resources', 'feed.xml');
+  if (existsSync(feed)) writeFileSync(feed, subOrigin(readFileSync(feed, 'utf8')), 'utf8');
+  for (const name of readdirSync(resourcesDir)) {
+    if (existsSync(join(resourcesDir, name, 'index.html'))) {
+      patchOptionalHtml(join('resources', name, 'index.html'));
+    }
+  }
+}
 
 // Non-production: append a global noindex header (production _headers stays byte-identical).
 if (!isProd) {

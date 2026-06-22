@@ -61,7 +61,11 @@ import { AuthService } from '../../core/auth/auth.service';
           No candidate account, ever. Personal data is encrypted at rest and consent is recorded before
           any contact — so your candidate experience is fast and your compliance posture is calm.
         </p>
-        <a class="btn btn--primary" routerLink="/login" i18n="@@home.cta2">Sign in to your workspace</a>
+        <div class="hero__actions">
+          <a class="btn btn--primary" routerLink="/login" i18n="@@home.cta2">Sign in to your workspace</a>
+          <!-- F61: plain href (NOT routerLink) so it leaves the SPA and loads the static /resources library. -->
+          <a class="btn btn--ghost resources-link" href="/resources" i18n="@@home.resources">Recruiting resources</a>
+        </div>
       </section>
     </main>
   `,

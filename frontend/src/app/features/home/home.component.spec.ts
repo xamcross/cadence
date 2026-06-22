@@ -41,6 +41,16 @@ describe('HomeComponent (F60)', () => {
     expect(navSpy).not.toHaveBeenCalled();
   });
 
+  it('F61: links to the static /resources library via a plain href (full-page nav, not routerLink)', async () => {
+    const { fixture } = await setup('anon');
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('a.resources-link') as HTMLAnchorElement;
+    expect(link).withContext('resources link present').not.toBeNull();
+    // A plain href ends with /resources; a routerLink would render href="/resources" too but the
+    // intent here is a real anchor — assert the literal attribute the crawler/browser follows.
+    expect(link.getAttribute('href')).toBe('/resources');
+  });
+
   it('signed-in: redirects to /app', async () => {
     const { navSpy } = await setup('member');
     expect(navSpy).toHaveBeenCalledWith(['/app']);

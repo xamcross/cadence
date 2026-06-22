@@ -1,0 +1,35 @@
+<h2>Where scheduling time really goes</h2>
+<p>
+  The email tennis of "does Tuesday work?" is the most expensive habit in recruiting. Every round trip
+  adds a day, and a panel of three interviewers multiplies the problem. The fix is not working faster at
+  a broken process; it is replacing the back-and-forth with a single self-scheduling step backed by real
+  calendar data.
+</p>
+
+<h2>Let candidates self-schedule against real availability</h2>
+<p>
+  Send the candidate one link that offers only slots when the required interviewers are genuinely free.
+  When the candidate picks a time, reserve it atomically so two candidates can never grab the same slot,
+  and write the event straight to the interviewers' calendars. No coordinator, no clashes, no guesswork.
+</p>
+<ul>
+  <li>Read each interviewer's free/busy availability at the moment of booking, not from a stale cache.</li>
+  <li>Reserve the chosen slot atomically to prevent double-booking a panel member.</li>
+  <li>Create and update the calendar events automatically, and tear them down on a cancellation.</li>
+</ul>
+
+<h2>Get time zones and daylight saving right</h2>
+<p>
+  Always show the candidate times in their own time zone, and store the absolute instant rather than a
+  wall-clock label. This is what keeps an interview from silently shifting by an hour when a region
+  changes its clocks. Small details here prevent the most embarrassing scheduling failures.
+</p>
+
+<h2>Fewer clashes, fewer drop-offs</h2>
+<p>
+  A clean scheduling workflow also reduces no-shows, because a candidate who chose their own slot is far
+  more likely to attend; see <a href="/resources/reducing-interview-no-shows">reducing interview
+  no-shows</a> for the confirmation cascade that complements it. And since calendar connections touch
+  personal data, combine it with <a href="/resources/gdpr-safe-recruiting">privacy-safe recruiting</a>
+  to keep access minimal and auditable.
+</p>
