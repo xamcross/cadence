@@ -6,7 +6,7 @@
 //   node scripts/seo-inject-origin.mjs <dist-dir>     (default: frontend/dist/cadence/browser)
 //
 // Env:
-//   CADENCE_PUBLIC_ORIGIN   (required) e.g. https://app.cadence.example.com  — origin only, no path.
+//   CADENCE_PUBLIC_ORIGIN   (required) e.g. https://app.cadence.example.com  - origin only, no path.
 //   CADENCE_PUBLIC_ENV      'production' enables indexing; ANY other value (preview/unset) =>
 //                           deny-by-default: all-disallow robots.txt + noindex everywhere.
 //
@@ -43,18 +43,18 @@ function patch(file, fn) {
 
 const subOrigin = (s) => s.split('__CADENCE_PUBLIC_ORIGIN__').join(originHost);
 
-// index.html — origin + robots + indexability switch
+// index.html - origin + robots + indexability switch
 patch('index.html', (html) =>
   subOrigin(html)
     .split('__CADENCE_ROBOTS__').join(isProd ? 'index,follow' : 'noindex,nofollow')
     .split('__CADENCE_INDEX__').join(isProd ? 'enabled' : 'disabled')
 );
 
-// sitemap.xml + llms.txt — origin only
+// sitemap.xml + llms.txt - origin only
 patch('sitemap.xml', subOrigin);
 patch('llms.txt', subOrigin);
 
-// robots.txt — production: substitute origin; non-production: blanket disallow
+// robots.txt - production: substitute origin; non-production: blanket disallow
 patch('robots.txt', (txt) =>
   isProd ? subOrigin(txt) : 'User-agent: *\nDisallow: /\n'
 );
