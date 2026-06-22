@@ -71,7 +71,7 @@ export class LoginComponent {
     this.banner.set(null);
     this.submitting.set(true);
     this.auth.loginWithPassword(this.workspaceId, this.email, this.password).subscribe({
-      next: () => this.router.navigate(['/']),
+      next: () => this.router.navigate(['/app']),
       error: () => {
         this.submitting.set(false);
         this.banner.set($localize`:@@login.error.invalid:Invalid email or password.`);

@@ -1,8 +1,10 @@
 package com.cadence.integration;
 
+import com.cadence.config.EmailDeliveryProperties;
 import com.cadence.config.MailConfig.MailSenderSelector;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.io.UnsupportedEncodingException;
 import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +34,11 @@ public class SmtpMailTransport implements MailTransport {
     private static final Logger log = LoggerFactory.getLogger(SmtpMailTransport.class);
 
     private final MailSenderSelector selector;
+    private final EmailDeliveryProperties props;
 
-    public SmtpMailTransport(MailSenderSelector selector) {
+    public SmtpMailTransport(MailSenderSelector selector, EmailDeliveryProperties props) {
         this.selector = selector;
+        this.props = props;
     }
 
     @Override
@@ -49,6 +53,16 @@ public class SmtpMailTransport implements MailTransport {
         try {
             MimeMessage mime = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mime, false, StandardCharsets.UTF_8.name());
+            // From MUST be a provider-verified sender (e.g. Brevo) or the relay rejects the message.
+            // Only set when configured so tests / no-From environments are unaffected.
+            String from = props.getFrom();
+            if (from != null && !from.isBlank()) {
+                try {
+                    helper.setFrom(from, props.getFromName());
+                } catch (UnsupportedEncodingException e) {
+                    helper.setFrom(from);
+                }
+            }
             helper.setTo(message.toAddress());
             helper.setSubject(message.subject());
             helper.setText(message.htmlBody(), true);

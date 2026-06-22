@@ -72,6 +72,21 @@ if (-not (Test-Path $DistDir)) {
     exit 1
 }
 
+# F60 (026-seo-aeo): inject the public origin + indexability into the built SEO artifacts.
+# Production (main) enables indexing; any other branch is treated as non-production (blanket noindex).
+if (-not $env:CADENCE_PUBLIC_ORIGIN) {
+    Write-Error "CADENCE_PUBLIC_ORIGIN env var is required (e.g. app.cadence.example.com)."
+    exit 1
+}
+if ($Branch -eq "main") { $env:CADENCE_PUBLIC_ENV = "production" } else { $env:CADENCE_PUBLIC_ENV = "preview" }
+$InjectScript = Join-Path $RepoRoot "scripts\seo-inject-origin.mjs"
+Write-Host "[1b/2] Injecting SEO origin (env: $($env:CADENCE_PUBLIC_ENV))..." -ForegroundColor Yellow
+& node $InjectScript $DistDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "SEO origin injection failed."
+    exit 1
+}
+
 # Deploy to Cloudflare Pages
 Write-Host "[2/2] Deploying to Cloudflare Pages (branch: $Branch)..." -ForegroundColor Yellow
 & wrangler pages deploy $DistDir --project-name cadence --branch $Branch

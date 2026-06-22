@@ -29,7 +29,10 @@
             "assets": [
               "src/favicon.ico",
               "src/assets",
-              { "glob": "_headers", "input": "src", "output": "/" }
+              { "glob": "_headers", "input": "src", "output": "/" },
+              { "glob": "robots.txt", "input": "src", "output": "/" },
+              { "glob": "sitemap.xml", "input": "src", "output": "/" },
+              { "glob": "llms.txt", "input": "src", "output": "/" }
             ],
             "styles": [
               "src/styles.scss"
@@ -44,6 +47,14 @@
                   "with": "src/environments/environment.prod.ts"
                 }
               ],
+              "optimization": {
+                "scripts": true,
+                "fonts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                }
+              },
               "budgets": [
                 {
                   "type": "initial",

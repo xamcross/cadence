@@ -2,6 +2,7 @@
   "ci": {
     "collect": {
       "url": [
+        "http://localhost:4200/",
         "http://localhost:4200/schedule?token=lighthouse-demo",
         "http://localhost:4200/booking?token=lighthouse-demo",
         "http://localhost:4200/booking/cancel?token=lighthouse-demo",

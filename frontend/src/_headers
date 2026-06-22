@@ -2,3 +2,45 @@
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+
+# F60 (026-seo-aeo): page-level X-Robots-Tag: noindex for EVERY token-bearing and authenticated route
+# (FR-008/SC-003). This is the second, independent layer that works for ALL crawler classes — including
+# a crawler that ignores robots.txt AND executes no JS (which would otherwise see the SPA-fallback
+# index.html's static index,follow at a /status?token=... URL). The home (/) and static assets are NOT
+# listed, so they stay indexable in production. Cloudflare Pages applies the most-specific matching rule;
+# these are purely additive to the global /* block above. In non-production the build also appends a
+# blanket /* X-Robots-Tag: noindex (so the home is non-indexable there too).
+/schedule*
+  X-Robots-Tag: noindex, nofollow
+/booking*
+  X-Robots-Tag: noindex, nofollow
+/confirm*
+  X-Robots-Tag: noindex, nofollow
+/status*
+  X-Robots-Tag: noindex, nofollow
+/feedback*
+  X-Robots-Tag: noindex, nofollow
+/app*
+  X-Robots-Tag: noindex, nofollow
+/admin/*
+  X-Robots-Tag: noindex, nofollow
+/pipeline*
+  X-Robots-Tag: noindex, nofollow
+/scheduling*
+  X-Robots-Tag: noindex, nofollow
+/calendar/*
+  X-Robots-Tag: noindex, nofollow
+/workspace/*
+  X-Robots-Tag: noindex, nofollow
+/interview-templates*
+  X-Robots-Tag: noindex, nofollow
+/email-templates*
+  X-Robots-Tag: noindex, nofollow
+/login*
+  X-Robots-Tag: noindex, nofollow
+/accept-invite*
+  X-Robots-Tag: noindex, nofollow
+/reset*
+  X-Robots-Tag: noindex, nofollow
+/not-authorized*
+  X-Robots-Tag: noindex, nofollow

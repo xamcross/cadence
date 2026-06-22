@@ -1,0 +1,13 @@
+# Cadence - only the public home page and the assets needed to render it are crawlable.
+# Everything else (auth, app, and per-candidate token pages) is disallowed by default.
+# Origin in the Sitemap line is substituted at build time (scripts/seo-inject-origin.mjs).
+# Non-production builds replace this whole file with an all-disallow body.
+User-agent: *
+Allow: /$
+Allow: /favicon.ico
+Allow: /assets/
+Allow: /*.js$
+Allow: /*.css$
+Allow: /*.woff2$
+Disallow: /
+Sitemap: https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml
