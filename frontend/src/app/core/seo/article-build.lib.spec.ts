@@ -160,6 +160,7 @@ describe('article-build.lib (F61)', () => {
       expect(article.publisher['@id']).toBe('https://__CADENCE_PUBLIC_ORIGIN__/#organization');
       expect(article.author['@id']).toBe('https://__CADENCE_PUBLIC_ORIGIN__/#organization');
       expect(article.mainEntityOfPage).toBe('https://__CADENCE_PUBLIC_ORIGIN__/resources/a-two');
+      expect(article.image).toContain('/assets/og-cadence.png'); // Article image (rich-result recommended)
     });
 
     it('inlines the Organization node ON the article page so publisher.logo resolves (Rich Results)', () => {

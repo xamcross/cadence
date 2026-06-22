@@ -25,10 +25,10 @@
       }
     },
     "assert": {
-      "aggregationMethod": "median",
       "assertMatrix": [
         {
           "matchingUrlPattern": "http://localhost:4200/(resources.*)?$",
+          "aggregationMethod": "median",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.85 }],
             "categories:accessibility": ["warn", { "minScore": 0.95 }],
@@ -38,6 +38,7 @@
         },
         {
           "matchingUrlPattern": "http://localhost:4200/(schedule|booking|confirm|status|feedback).*",
+          "aggregationMethod": "median",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.85 }],
             "categories:accessibility": ["warn", { "minScore": 0.95 }],

@@ -264,6 +264,7 @@ export function assembleArticlePage(article, related, ctx) {
     '@type': 'BlogPosting',
     headline: article.title,
     description: article.summary,
+    image: ogImage,
     datePublished: article.datePublished,
     dateModified: lastmodOf(article),
     mainEntityOfPage: canonical,
