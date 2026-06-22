@@ -245,6 +245,22 @@ a:hover { color: var(--accent-hover); }
 .muted { color: var(--ink-muted); }
 .faint { color: var(--ink-faint); }
 
+/* Bypass-blocks "skip to content" link (WCAG 2.4.1): offscreen until keyboard-focused. */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: -3.5rem;
+  z-index: 20;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--accent-ink);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus { top: var(--space-2); }
+
 /* Keep an assertive live region in the DOM but out of sight when empty. */
 .visually-hidden {
   position: absolute;
