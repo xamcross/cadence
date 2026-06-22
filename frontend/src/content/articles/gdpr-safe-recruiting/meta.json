@@ -1,0 +1,12 @@
+{
+  "slug": "gdpr-safe-recruiting",
+  "title": "Privacy-safe and GDPR-conscious recruiting",
+  "summary": "Recruiting runs on personal data, so privacy cannot be an afterthought. Record a lawful basis before contact, minimise what you collect, encrypt it at rest, and make erasure a single action to keep candidate trust and compliance intact.",
+  "datePublished": "2026-06-22",
+  "theme": "privacy",
+  "related": ["candidate-experience-best-practices", "interview-scheduling-and-calendar-coordination"],
+  "faq": [
+    { "q": "What is a lawful basis for contacting a candidate?", "a": "A lawful basis is the legal ground (such as consent or legitimate interest) you record before processing a candidate's data. Capture it at first contact and check it before sending any message." },
+    { "q": "How long should candidate data be retained?", "a": "Keep candidate data only as long as you have a clear purpose, set a workspace-wide retention period, and delete or anonymise records once it passes." }
+  ]
+}

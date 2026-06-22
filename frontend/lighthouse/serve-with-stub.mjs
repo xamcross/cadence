@@ -230,6 +230,13 @@ const server = http.createServer(async (req, res) => {
     if (safe !== '/' && existsSync(candidate) && statSync(candidate).isFile()) {
       return await sendFile(req, res, candidate);
     }
+    // F61: directory-index resolution so the generated static /resources and /resources/<slug> pages
+    // (emitted as <dir>/index.html) serve at their clean URLs -- mirroring Cloudflare Pages. Without this
+    // the Lighthouse gate would fall through to the SPA index.html and audit the wrong page.
+    const indexCandidate = join(candidate, 'index.html');
+    if (safe !== '/' && existsSync(indexCandidate) && statSync(indexCandidate).isFile()) {
+      return await sendFile(req, res, indexCandidate);
+    }
     return await sendFile(req, res, join(DIST, 'index.html'));
   } catch (e) {
     res.writeHead(500, { 'Content-Type': 'text/plain' });

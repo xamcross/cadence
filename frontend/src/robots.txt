@@ -9,5 +9,7 @@ Allow: /assets/
 Allow: /*.js$
 Allow: /*.css$
 Allow: /*.woff2$
+Allow: /resources$
+Allow: /resources/
 Disallow: /
 Sitemap: https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml

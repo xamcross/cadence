@@ -72,6 +72,16 @@ if (-not (Test-Path $DistDir)) {
     exit 1
 }
 
+# F61 (028-seo-content-library): generate the static /resources article library into dist BEFORE the
+# SEO origin injection (the generator leaves the origin + robots placeholders for the inject to fill).
+$GenScript = Join-Path $RepoRoot "scripts\seo-build-articles.mjs"
+Write-Host "[1a/2] Generating article library (/resources)..." -ForegroundColor Yellow
+& node $GenScript $DistDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Article library generation failed."
+    exit 1
+}
+
 # F60 (026-seo-aeo): inject the public origin + indexability into the built SEO artifacts.
 # Production (main) enables indexing; any other branch is treated as non-production (blanket noindex).
 if (-not $env:CADENCE_PUBLIC_ORIGIN) {

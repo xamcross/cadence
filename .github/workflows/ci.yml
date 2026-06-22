@@ -398,6 +398,9 @@ jobs:
         working-directory: frontend
         run: npx ng test --watch=false --browsers=ChromeHeadless
 
+      - name: Run F61 article-generator Node tests (CLI fs/scan + inject)
+        run: node --test scripts/seo-build-articles.node.test.mjs
+
   lighthouse:
     name: Lighthouse CI (Mobile)
     runs-on: ubuntu-latest
@@ -424,6 +427,12 @@ jobs:
           node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
           npx ng build --configuration production
 
+      - name: Generate F61 article library (/resources) into dist
+        working-directory: frontend
+        # Runs AFTER ng build and BEFORE the non-prod copy + SEO inject, so both the /tmp/seo-nonprod
+        # copy and the prod dist contain /resources (the generator leaves origin/robots placeholders).
+        run: node ../scripts/seo-build-articles.mjs dist/cadence/browser
+
       - name: Verify NON-PRODUCTION SEO injection forces noindex (F60 US4/SC-008)
         working-directory: frontend
         env:
@@ -438,8 +447,14 @@ jobs:
           grep -qF 'X-Robots-Tag: noindex' /tmp/seo-nonprod/_headers || { echo "ERROR: non-prod _headers missing X-Robots-Tag."; exit 1; }
           grep -qF 'name="robots" content="noindex,nofollow"' /tmp/seo-nonprod/index.html || { echo "ERROR: non-prod index.html robots not noindex."; exit 1; }
           grep -qF 'name="cadence-index" content="disabled"' /tmp/seo-nonprod/index.html || { echo "ERROR: non-prod index.html cadence-index not disabled."; exit 1; }
+          # F61 (SC-008, Security SHOULD-FIX): the load-bearing per-page control is the article page's own
+          # robots meta. Assert an ACTUAL /resources/<slug> page is noindex on a direct fetch in non-prod.
+          ARTICLE=$(ls /tmp/seo-nonprod/resources/*/index.html | head -1)
+          test -n "$ARTICLE" || { echo "ERROR: no /resources article page generated."; exit 1; }
+          grep -qF 'name="robots" content="noindex,nofollow"' "$ARTICLE" || { echo "ERROR: non-prod /resources page not noindex."; exit 1; }
+          grep -qF '__CADENCE_PUBLIC_ORIGIN__' "$ARTICLE" && { echo "ERROR: origin placeholder not substituted in /resources page."; exit 1; } || true
           rm -rf /tmp/seo-nonprod
-          echo "Non-production SEO injection verified (blanket noindex)."
+          echo "Non-production SEO injection verified (blanket noindex + /resources page noindex)."
 
       - name: Inject SEO origin + indexability into built artifacts (F60)
         working-directory: frontend
@@ -508,7 +523,7 @@ jobs:
           # could longest-match a private path and re-open it (robots.txt.md B1). Subset assertion catches it.
           node -e '
             const fs=require("fs");
-            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$"]);
+            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$","Allow: /resources$","Allow: /resources/"]);
             for (const l of fs.readFileSync(process.argv[1],"utf8").split(/\r?\n/)) {
               if (l.startsWith("Allow:") && !ok.has(l)) { console.error("ERROR: unexpected/over-broad robots Allow line: "+l); process.exit(1); }
             }
@@ -543,6 +558,58 @@ jobs:
           # 'unsafe-inline' must NOT have leaked into script-src for the JSON-LD (Security S4).
           if grep -qE "script-src[^;]*'unsafe-inline'" "$DIST/_headers"; then echo "ERROR: script-src unsafe-inline added (SC-010)."; exit 1; fi
           echo "SEO/AEO artifact scan passed."
+
+      - name: F61 article-library artifact scan — no token/PII/private route in /resources, sitemap, llms, feed
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          DIST=dist/cadence/browser
+          # (a) non-vacuity: the library index + feed + each article page must exist and be non-empty.
+          for f in resources/index.html resources/feed.xml; do
+            if [ ! -s "$DIST/$f" ]; then echo "ERROR: F61 artifact missing/empty: $f"; exit 1; fi
+          done
+          ARTICLES=$(ls "$DIST"/resources/*/index.html 2>/dev/null || true)
+          if [ -z "$ARTICLES" ]; then echo "ERROR: no /resources/<slug>/index.html generated."; exit 1; fi
+          # (b) deny scan over the article pages + feed (path-anchored so marketing prose like
+          #     "interview scheduling" does not false-positive; only a literal /private-path or token= fails).
+          DENY='href="/schedule|href="/booking|href="/confirm|href="/status|href="/feedback|href="/admin|href="/pipeline|href="/scheduling|href="/calendar|href="/workspace|href="/interview-templates|href="/email-templates|href="/login|href="/accept-invite|href="/reset|href="/app|token='
+          # positive control: prove the deny-grep is live.
+          printf 'href="/admin/secret" token=ZZSENTINEL\n' > /tmp/f61-negctl.txt
+          grep -qE "$DENY" /tmp/f61-negctl.txt || { echo "ERROR: F61 deny-grep vacuous."; rm -f /tmp/f61-negctl.txt; exit 1; }
+          rm -f /tmp/f61-negctl.txt
+          if grep -rEn "$DENY" $ARTICLES "$DIST/resources/index.html" "$DIST/resources/feed.xml"; then
+            echo "ERROR: a private/token route leaked into a /resources artifact (FR-011/SC-005)."; exit 1
+          fi
+          # (c) no person PII in any article JSON-LD (D6 org-only): no Person node / author.name / email.
+          if grep -rEn '"@type":\s*"Person"|"author":\s*\{[^}]*"name"|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}' $ARTICLES; then
+            echo "ERROR: person PII / email in a /resources article (D6)."; exit 1
+          fi
+          # (d) no leftover build placeholder in any /resources artifact.
+          if grep -rEn '__CADENCE_(PUBLIC_ORIGIN|ROBOTS|INDEX)__' $ARTICLES "$DIST/resources/index.html" "$DIST/resources/feed.xml" "$DIST/sitemap.xml" "$DIST/llms.txt"; then
+            echo "ERROR: unsubstituted placeholder in a /resources artifact."; exit 1
+          fi
+          # (e) every article URL appears in BOTH sitemap.xml and llms.txt, and the sitemap entry has a lastmod.
+          node -e '
+            const fs=require("fs"); const DIST=process.argv[1];
+            const dirs=fs.readdirSync(DIST+"/resources",{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>d.name);
+            const sm=fs.readFileSync(DIST+"/sitemap.xml","utf8"); const ll=fs.readFileSync(DIST+"/llms.txt","utf8");
+            for (const slug of dirs) {
+              if (!sm.includes("/resources/"+slug+"</loc>")) { console.error("ERROR: sitemap missing article: "+slug); process.exit(1); }
+              if (!ll.includes("/resources/"+slug)) { console.error("ERROR: llms.txt missing article: "+slug); process.exit(1); }
+            }
+            // each <url> in the sitemap carries a <lastmod>.
+            const urls=(sm.match(/<url>/g)||[]).length, mods=(sm.match(/<lastmod>/g)||[]).length;
+            if (urls===0 || urls!==mods) { console.error("ERROR: sitemap <url>/<lastmod> count mismatch ("+urls+"/"+mods+")."); process.exit(1); }
+            // each article page is a valid doc with one h1 + Article + Breadcrumb JSON-LD.
+            for (const slug of dirs) {
+              const h=fs.readFileSync(DIST+"/resources/"+slug+"/index.html","utf8");
+              if ((h.match(/<h1>/g)||[]).length!==1) { console.error("ERROR: "+slug+" not exactly one <h1>."); process.exit(1); }
+              if (!/<html[^>]*\slang=/i.test(h)) { console.error("ERROR: "+slug+" missing <html lang>."); process.exit(1); }
+              const blocks=[...h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m=>{try{return JSON.parse(m[1])["@type"];}catch(e){console.error("ERROR: "+slug+" invalid JSON-LD: "+e.message);process.exit(1);}});
+              for (const t of ["BlogPosting","BreadcrumbList"]) if(!blocks.includes(t)){console.error("ERROR: "+slug+" JSON-LD missing "+t);process.exit(1);}
+            }
+            console.log("F61 article-library artifact scan passed ("+dirs.length+" articles).");
+          ' "$DIST"
 
       - name: Third-party-font guard — the candidate page must not leak the URL token via a CDN asset (F14 FR-025)
         working-directory: frontend
@@ -619,6 +686,11 @@ jobs:
         run: |
           node -e "const fs=require('fs'); fs.writeFileSync('src/environments/environment.prod.ts', 'export const environment = { production: true, apiBaseUrl: ' + JSON.stringify(process.env.CADENCE_API_URL) + ' };');"
           npx ng build --configuration production
+
+      - name: Generate F61 article library (/resources) into dist
+        working-directory: frontend
+        # Between ng build and SEO inject, so /resources is present and origin/robots get substituted.
+        run: node ../scripts/seo-build-articles.mjs dist/cadence/browser
 
       - name: Inject SEO origin + indexability into built artifacts (F60)
         working-directory: frontend

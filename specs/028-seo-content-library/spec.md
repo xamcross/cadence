@@ -1,6 +1,6 @@
 # Feature Specification: SEO/AEO Content Article Library
 
-**Feature Branch**: `027-seo-content-library`  
+**Feature Branch**: `028-seo-content-library`  
 **Created**: 2026-06-22  
 **Status**: Draft  
 **Input**: User description: "find out if sitemap is already in the project for SEO/AEO. Also, find out if there are theme-related articles in the app that will bring the indexing score up. if they are not there - prepare specification to create them"
