@@ -205,7 +205,7 @@ const PAGE_STYLE = [
   'body, main, h1, h2, p, li { overflow-wrap: anywhere; word-break: break-word; }'
 ].join('\n  ');
 
-function headCommon(title, description, canonical, ogImage, robots) {
+function headCommon(title, description, canonical, ogImage, robots, ogType) {
   const t = escapeHtml(title);
   const d = escapeHtml(description);
   return [
@@ -218,7 +218,7 @@ function headCommon(title, description, canonical, ogImage, robots) {
     '<link rel="alternate" hreflang="en" href="' + canonical + '">',
     '<link rel="alternate" hreflang="x-default" href="' + canonical + '">',
     '<meta name="referrer" content="no-referrer">',
-    '<meta property="og:type" content="article">',
+    '<meta property="og:type" content="' + (ogType || 'article') + '">',
     '<meta property="og:title" content="' + t + '">',
     '<meta property="og:description" content="' + d + '">',
     '<meta property="og:url" content="' + canonical + '">',
@@ -239,6 +239,17 @@ export function assembleArticlePage(article, related, ctx) {
   const published = humanDate(article.datePublished);
   const updated = article.dateUpdated ? humanDate(article.dateUpdated) : null;
 
+  // Inline the Organization node ON THE ARTICLE PAGE so publisher.logo resolves in Google's
+  // Rich Results validator (it parses one page's JSON-LD graph in isolation; a cross-page @id
+  // to index.html would not resolve). Shares the same @id as index.html's Organization (D6).
+  const orgLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': orgId,
+    name: 'Cadence',
+    url: ctx.originBase + '/',
+    logo: ogImage
+  };
   const breadcrumbLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -277,7 +288,7 @@ export function assembleArticlePage(article, related, ctx) {
     speakable: { '@type': 'SpeakableSpecification', cssSelector: ['h1', '.lead'] }
   };
 
-  const ldBlocks = [breadcrumbLd, articleLd, speakableLd, faqLd]
+  const ldBlocks = [orgLd, breadcrumbLd, articleLd, speakableLd, faqLd]
     .filter(Boolean)
     .map((b) => '<script type="application/ld+json">\n' + jsonLd(b) + '\n</script>')
     .join('\n');
@@ -349,7 +360,7 @@ export function assembleIndexPage(articles, ctx) {
     : '<p>New guides are on the way. Check back soon.</p>';
 
   return '<!doctype html>\n<html lang="en">\n<head>\n' +
-    headCommon('Resources | Cadence', description, canonical, ogImage, robots) + '\n' +
+    headCommon('Resources | Cadence', description, canonical, ogImage, robots, 'website') + '\n' +
     '<link rel="alternate" type="application/atom+xml" title="Cadence resources" href="' + RESOURCES_PATH + '/feed.xml">\n' +
     '<script type="application/ld+json">\n' + jsonLd(itemListLd) + '\n</script>\n' +
     '<style>' + PAGE_STYLE + '</style>\n' +
@@ -420,6 +431,7 @@ export function buildFeed(articles, ctx) {
     '  <link rel="self" href="' + self + '"/>\n' +
     '  <id>' + self + '</id>\n' +
     '  <updated>' + updated + '</updated>\n' +
+    '  <author>\n    <name>Cadence</name>\n  </author>\n' +
     entries + '\n</feed>\n';
 }
 
@@ -429,9 +441,13 @@ export function buildFeed(articles, ctx) {
  *  Throws ArticleBuildError on any violation (slug collision, bad meta, unsafe body, FAQ dup). */
 export function buildArtifacts(articles, baseLlms, ctx) {
   const seen = new Set();
+  const seenTitles = new Set();
   for (const a of articles) {
     if (seen.has(a.slug)) throw new ArticleBuildError('duplicate_slug: ' + a.slug);
     seen.add(a.slug);
+    const titleKey = normalizeQuestion(a.title);
+    if (titleKey && seenTitles.has(titleKey)) throw new ArticleBuildError('duplicate_title: ' + a.slug);
+    seenTitles.add(titleKey);
   }
   const knownSlugs = new Set(articles.map((a) => a.slug));
   for (const a of articles) {

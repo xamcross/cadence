@@ -12,6 +12,7 @@ import {
   buildSitemap,
   buildLlms,
   buildFeed,
+  jsonLd,
   ArticleBuildError
 } from './article-build.lib.mjs';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
@@ -161,6 +162,16 @@ describe('article-build.lib (F61)', () => {
       expect(article.mainEntityOfPage).toBe('https://__CADENCE_PUBLIC_ORIGIN__/resources/a-two');
     });
 
+    it('inlines the Organization node ON the article page so publisher.logo resolves (Rich Results)', () => {
+      const out = buildArtifacts(FIXTURE, '#', ctx());
+      const html = out.pages.find((p) => p.slug === 'a-two').html;
+      const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+      const org = blocks.find((b) => b['@type'] === 'Organization');
+      expect(org).withContext('Organization node must be on the article page itself').toBeTruthy();
+      expect(org['@id']).toBe('https://__CADENCE_PUBLIC_ORIGIN__/#organization');
+      expect(org.logo).toContain('/assets/og-cadence.png');
+    });
+
     it('no JSON-LD contains a Person node, author.name, or an email (D6 org-only)', () => {
       const out = buildArtifacts(FIXTURE, '#', ctx());
       for (const p of out.pages) {
@@ -191,8 +202,22 @@ describe('article-build.lib (F61)', () => {
       expect(() => faqDedupCheck([art({ title: 'What is Cadence?' })], HOME_FAQ)).toThrowError(ArticleBuildError);
     });
 
+    it('faqDedupCheck fails on a SUBSTRING near-duplicate (title contains a home question)', () => {
+      // Exercises the substring arm (not just exact-after-normalize): the title embeds the home
+      // question "What is Cadence?" as a substring -> must still be rejected (FR-021 "merely restate").
+      expect(() =>
+        faqDedupCheck([art({ title: 'What is Cadence and how does scheduling work' })], HOME_FAQ)
+      ).toThrowError(ArticleBuildError);
+    });
+
     it('faqDedupCheck passes for distinct article questions', () => {
       expect(() => faqDedupCheck(FIXTURE, HOME_FAQ)).not.toThrow();
+    });
+
+    it('jsonLd neutralizes a </script> sequence so the script block cannot be closed early (XSS)', () => {
+      const s = jsonLd({ x: '</script><img src=x onerror=alert(1)>' });
+      expect(s).not.toContain('</script>');
+      expect(s).toContain('<\\/script');
     });
 
     it('buildLlms lists every article URL', () => {
@@ -213,6 +238,14 @@ describe('article-build.lib (F61)', () => {
   describe('US3 lifecycle + safety', () => {
     it('duplicate slug fails the build (FR-016/SC-012)', () => {
       expect(() => buildArtifacts([art({ slug: 'dup' }), art({ slug: 'dup' })], '#', ctx())).toThrowError(/duplicate_slug/);
+    });
+
+    it('duplicate title (distinct slugs) fails the build (contract: title unique)', () => {
+      const dup = [
+        art({ slug: 's-one', title: 'Identical title', related: [] }),
+        art({ slug: 's-two', title: 'Identical title', related: [] })
+      ];
+      expect(() => buildArtifacts(dup, '#', ctx())).toThrowError(/duplicate_title/);
     });
 
     it('retiring an article removes it from page set, sitemap, llms, feed, index together', () => {
