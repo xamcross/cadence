@@ -4,6 +4,7 @@ import { NEVER, Observable, of, throwError } from 'rxjs';
 import { ScheduleComponent } from './schedule.component';
 import { CandidateSlot, CandidateSlotsResponse, ConfirmResponse, ScheduleService } from './schedule.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 /**
  * F14 candidate scheduling page (§IX). Verifies: WCAG 2.2 AA (axe 0 violations across every state),
@@ -38,7 +39,8 @@ describe('ScheduleComponent (F14)', () => {
       imports: [ScheduleComponent],
       providers: [
         { provide: ScheduleService, useValue: svc },
-        { provide: ActivatedRoute, useValue: route }
+        { provide: ActivatedRoute, useValue: route },
+        { provide: CandidateBrandingService, useValue: { applyAccent: () => {}, setAccent: () => {} } }
       ]
     });
     const fixture = TestBed.createComponent(ScheduleComponent);

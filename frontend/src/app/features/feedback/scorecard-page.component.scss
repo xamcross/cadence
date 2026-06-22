@@ -61,16 +61,23 @@ textarea {
   margin-block-end: 0.35rem;
 }
 
+// Submit: brand colour on the BORDER only; AA-safe --accent-ink text on white/wash for any brand
+// colour (never white-on-accent — review #2). Fallbacks are the design-token defaults.
 .action {
   min-height: 44px;
   min-width: 44px;
   padding: 0.6rem 1.2rem;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
   border-radius: 6px;
-  border: 1px solid #1a3d7c;
-  background: #1a3d7c;
-  color: #fff;
+  border: 2px solid var(--accent, #1c5fd8);
+  background: #fff;
+  color: var(--accent-ink, #11337a);
+}
+
+.action:hover:not(:disabled) {
+  background: var(--accent-wash, #eef3fe);
 }
 
 .action:disabled {

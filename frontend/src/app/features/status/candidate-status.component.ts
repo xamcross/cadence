@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { CandidateStatusView, PublicBranding, StatusService } from './status.service';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 type StatusState =
   | 'loading'         // resolving the token from the URL / fetching the view
@@ -42,8 +43,9 @@ type StatusState =
   styleUrl: './candidate-status.component.scss',
   template: `
     <main class="status">
-      <!-- Branding header (logo + brand colour). The logo URL is workspace-sourced; never candidate PII. -->
-      <header class="brand" [style.border-block-end-color]="brandColor()">
+      <!-- Branding header (logo + brand colour). The brand colour is applied as --accent on the host
+           (validated hex only); the logo URL is workspace-sourced and never candidate PII. -->
+      <header class="brand">
         <img class="logo" [src]="logoUrl()" alt="" aria-hidden="true" />
       </header>
 
@@ -151,6 +153,8 @@ export class CandidateStatusComponent implements OnInit {
   private readonly api = inject(StatusService);
   private readonly datePipe = inject(DatePipe);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly host = inject(ElementRef);
+  private readonly branding = inject(CandidateBrandingService);
 
   @ViewChild('stateHeading') private headingRef?: ElementRef<HTMLElement>;
 
@@ -159,7 +163,6 @@ export class CandidateStatusComponent implements OnInit {
 
   readonly state = signal<StatusState>('loading');
   readonly view = signal<CandidateStatusView | null>(null);
-  readonly brandColor = signal<string>('#1F2937');
   readonly logoUrl = signal<string>('');
   readonly error = signal<string | null>(null);
   readonly erasureBusy = signal(false);
@@ -227,7 +230,8 @@ export class CandidateStatusComponent implements OnInit {
     this.logoUrl.set(`${this.brandingLogoFallback()}`);
     this.api.branding().subscribe({
       next: (b: PublicBranding) => {
-        if (b?.brandColor) { this.brandColor.set(b.brandColor); }
+        // Validated-hex only -> --accent on the host (CSS injection-safe); decorative, never blocks.
+        this.branding.setAccent(this.host.nativeElement, b?.brandColor);
         if (b?.logoUrl) { this.logoUrl.set(b.logoUrl); }
       },
       error: () => { /* keep defaults — branding is decorative, never blocks the status */ }

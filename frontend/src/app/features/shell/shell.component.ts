@@ -9,13 +9,12 @@ interface NavItem { readonly path: string; readonly label: string; readonly desc
 interface NavGroup { readonly title: string; readonly items: readonly NavItem[]; }
 
 /**
- * Authenticated app shell (027-ui-design-system redesign).
- *
- * A sticky brand top bar + a role-aware "launchpad" of grouped quick-link cards. The launchpad is
- * the primary navigation: each card links to a feature the member's role can reach (the card list is
- * filtered to the persisted role; the server + roleGuard remain the security boundary — the filter is
- * convenience, not access control). Routes a first-run Admin to the setup wizard and shows non-Admins
- * a neutral "setup pending" state while the workspace is unconfigured (F03 US6), unchanged from before.
+ * Authenticated landing (027-ui-design-system). The persistent brand bar + identity + sign out now
+ * live in the global TopBarComponent (rendered by AppComponent for every internal route), so this
+ * component renders only the role-aware "launchpad" — a grouped grid of quick-link cards that is the
+ * app's primary navigation. Each card links to a feature the member's role can reach (filtered to the
+ * persisted role; the server + roleGuard remain the security boundary). Routes a first-run Admin to
+ * the setup wizard and shows non-Admins a neutral "setup pending" state while unconfigured (F03 US6).
  */
 @Component({
   selector: 'app-shell',
@@ -23,25 +22,7 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
   imports: [RouterLink],
   template: `
     @if (member(); as m) {
-      <a class="skip-link" href="#shell-main" i18n="@@shell.skip">Skip to content</a>
-      <header class="topbar">
-        <a class="brand" routerLink="/app" aria-label="Cadence home">
-          <svg class="brand__mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <rect x="3" y="9" width="3.6" height="12" rx="1.8" />
-            <rect x="10.2" y="4" width="3.6" height="17" rx="1.8" />
-            <rect x="17.4" y="13" width="3.6" height="8" rx="1.8" />
-          </svg>
-          <span class="brand__name" i18n="@@shell.brand">Cadence</span>
-        </a>
-        <span class="spacer"></span>
-        <span class="who">
-          <span class="who__name">{{ m.displayName }}</span>
-          <span class="badge">{{ roleLabel(m.role) }}</span>
-        </span>
-        <button type="button" class="btn btn--ghost" (click)="logout()" i18n="@@shell.signout">Sign out</button>
-      </header>
-
-      <main id="shell-main" tabindex="-1" class="launch container">
+      <main class="launch container">
         @if (!m.workspaceConfigured && m.role !== 'ADMIN') {
           <div class="notice card">
             <h1 i18n="@@workspace.setupPending.title">Workspace setup pending</h1>
@@ -74,23 +55,6 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
     }
   `,
   styles: [`
-    #shell-main:focus { outline: none; }
-    .topbar {
-      position: sticky; top: 0; z-index: 10;
-      display: flex; align-items: center; gap: var(--space-4);
-      padding: var(--space-3) var(--space-5);
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-      box-shadow: var(--shadow-sm);
-    }
-    .spacer { flex: 1; }
-    .brand { display: inline-flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--ink); }
-    .brand__mark { color: var(--accent); }
-    .brand__name { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); letter-spacing: -0.01em; }
-    .who { display: inline-flex; align-items: center; gap: var(--space-3); }
-    .who__name { font-weight: 600; }
-    @media (max-width: 32rem) { .who__name { display: none; } }
-
     .launch { padding-block: var(--space-8) var(--space-12); }
     .launch > h1 { margin-bottom: var(--space-1); }
     .lede { font-size: var(--step-1); margin-bottom: var(--space-8); }
@@ -142,23 +106,6 @@ export class ShellComponent implements OnInit {
           this.router.navigate(['/workspace/setup']);
         }
       });
-  }
-
-  roleLabel(role: Role): string {
-    switch (role) {
-      case 'ADMIN': return $localize`:@@role.admin:Admin`;
-      case 'RECRUITER': return $localize`:@@role.recruiter:Recruiter`;
-      case 'HIRING_MANAGER': return $localize`:@@role.hiringManager:Hiring manager`;
-      case 'INTERVIEWER': return $localize`:@@role.interviewer:Interviewer`;
-      case 'READ_ONLY': return $localize`:@@role.readOnly:Read-only`;
-    }
-  }
-
-  logout(): void {
-    this.auth.logout().subscribe({
-      next: () => this.router.navigate(['/login']),
-      error: () => this.router.navigate(['/login'])
-    });
   }
 }
 

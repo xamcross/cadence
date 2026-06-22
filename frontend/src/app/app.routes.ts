@@ -36,7 +36,7 @@ export const routes: Routes = [
     // Admin member directory + role administration (F02 US1). roleGuard runs after authGuard.
     path: 'admin/members',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/members/members.component').then((m) => m.MembersComponent)
   },
@@ -45,7 +45,7 @@ export const routes: Routes = [
     // (the shell shows a neutral "setup pending" panel instead — US6 AS-5).
     path: 'workspace/setup',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/workspace/workspace-setup-wizard.component').then((m) => m.WorkspaceSetupWizardComponent)
   },
@@ -53,7 +53,7 @@ export const routes: Routes = [
     // Ongoing workspace configuration (F03 US2-US5). Admin-only.
     path: 'admin/workspace',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/workspace/workspace-settings.component').then((m) => m.WorkspaceSettingsComponent)
   },
@@ -61,7 +61,7 @@ export const routes: Routes = [
     // F04 GDPR — erasure trigger + lawful-basis record/withdraw. Admin OR Recruiter.
     path: 'admin/gdpr/actions',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/gdpr/candidate-erasure-action.component').then((m) => m.CandidateErasureActionComponent)
   },
@@ -69,7 +69,7 @@ export const routes: Routes = [
     // F04 GDPR — candidate audit log. Admin only.
     path: 'admin/gdpr/audit',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/gdpr/candidate-audit.component').then((m) => m.CandidateAuditComponent)
   },
@@ -77,7 +77,7 @@ export const routes: Routes = [
     // F04 GDPR — pending erasure-request queue. Admin only.
     path: 'admin/gdpr/requests',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/gdpr/erasure-queue.component').then((m) => m.ErasureQueueComponent)
   },
@@ -85,7 +85,7 @@ export const routes: Routes = [
     // F04 GDPR — retention review + confirm deletion. Admin only.
     path: 'admin/gdpr/retention',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/gdpr/retention-review.component').then((m) => m.RetentionReviewComponent)
   },
@@ -93,7 +93,7 @@ export const routes: Routes = [
     // F12 interview templates + rule-engine slot preview. Recruiter OR Admin (roleGuard).
     path: 'interview-templates',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/interview-templates/interview-templates.component').then((m) => m.InterviewTemplatesComponent)
   },
@@ -101,7 +101,7 @@ export const routes: Routes = [
     // F21 email template library — list/edit/tone/lock/reset + preview. Recruiter OR Admin (roleGuard).
     path: 'email-templates',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/email-templates/email-templates.component').then((m) => m.EmailTemplatesComponent)
   },
@@ -109,7 +109,7 @@ export const routes: Routes = [
     // F01.1 calendar connections — member-self surface, any authenticated role (authGuard only).
     path: 'calendar/connections',
     canActivate: [authGuard],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/calendar/calendar-connections.component').then((m) => m.CalendarConnectionsComponent)
   },
@@ -170,7 +170,7 @@ export const routes: Routes = [
     // F40 ATS integration (Greenhouse) — connect/sync status/dead-letters. Admin-only internal screen.
     path: 'admin/ats',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/ats/ats-integration.component').then((m) => m.AtsIntegrationComponent)
   },
@@ -179,7 +179,7 @@ export const routes: Routes = [
     // internal screen (no candidate-facing §IX gate — the F50/F51 precedent).
     path: 'admin/csv-import',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/csv-import/csv-import.component').then((m) => m.CsvImportComponent)
   },
@@ -189,7 +189,7 @@ export const routes: Routes = [
     // Read-only). Internal screen — no candidate-facing §IX gate (the F50/F51 precedent).
     path: 'admin/dashboard',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/dashboard/dashboard.component').then((m) => m.DashboardComponent)
   },
@@ -197,7 +197,7 @@ export const routes: Routes = [
     // F13 recruiter "Send scheduling link" surface. Admin OR Recruiter (roleGuard).
     path: 'scheduling',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/scheduling/scheduling.component').then((m) => m.SchedulingComponent)
   },
@@ -206,7 +206,7 @@ export const routes: Routes = [
     // scopes HM to assigned requisitions; Interviewer denied). Internal screen — no candidate-facing §IX gate.
     path: 'pipeline',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY', 'HIRING_MANAGER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/pipeline/pipeline-list.component').then((m) => m.PipelineListComponent)
   },
@@ -214,7 +214,7 @@ export const routes: Routes = [
     // F51 candidate timeline drill-down (opened from a pipeline row). Same role gate; server enforces scoping.
     path: 'pipeline/candidate/:candidateId/timeline',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY', 'HIRING_MANAGER')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/pipeline/candidate-timeline.component').then((m) => m.CandidateTimelineComponent)
   },
@@ -223,7 +223,7 @@ export const routes: Routes = [
     // link is also Recruiter-allowed server-side; the screen is Admin-routed for the management surface).
     path: 'admin/requisitions',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () =>
       import('./features/admin/requisitions/requisitions.component').then((m) => m.RequisitionsComponent)
   },
@@ -249,7 +249,7 @@ export const routes: Routes = [
     // Guarded application shell (F60: relocated from '' to 'app'). Signed-in landing after login.
     path: 'app',
     canActivate: [authGuard],
-    data: { seo: PRIVATE },
+    data: { seo: PRIVATE, shell: true },
     loadComponent: () => import('./features/shell/shell.component').then((m) => m.ShellComponent)
   },
   {

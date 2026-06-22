@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 import { ConfirmAttendanceComponent } from './confirm-attendance.component';
 import { BookingService, ConfirmAttendanceResponse } from './booking.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 /**
  * F23 candidate attendance confirmation (§IX). Verifies: the confirm POST fires ONLY on the affirmative
@@ -34,7 +35,8 @@ describe('ConfirmAttendanceComponent (F23)', () => {
       imports: [ConfirmAttendanceComponent],
       providers: [
         { provide: BookingService, useValue: bookingSvc },
-        { provide: ActivatedRoute, useValue: route }
+        { provide: ActivatedRoute, useValue: route },
+        { provide: CandidateBrandingService, useValue: { applyAccent: () => {}, setAccent: () => {} } }
       ]
     });
     const fixture = TestBed.createComponent(ConfirmAttendanceComponent);

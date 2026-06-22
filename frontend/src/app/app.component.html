@@ -1,1 +1,7 @@
-<router-outlet></router-outlet>
+@if (showChrome()) {
+  <a class="skip-link" href="#main-content" i18n="@@app.skip">Skip to content</a>
+  <app-top-bar />
+}
+<div id="main-content" tabindex="-1">
+  <router-outlet></router-outlet>
+</div>

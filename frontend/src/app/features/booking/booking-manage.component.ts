@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { BookingService, BookingSlot, BookingView, OpenRescheduleResponse } from './booking.service';
 import { ScheduleService } from '../schedule/schedule.service';
+import { CandidateBrandingService } from '../../core/branding/candidate-branding.service';
 
 type ManageState =
   | 'loading'
@@ -181,6 +182,8 @@ export class BookingManageComponent implements OnInit {
   private readonly schedule = inject(ScheduleService);
   private readonly datePipe = inject(DatePipe);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly host = inject(ElementRef);
+  private readonly branding = inject(CandidateBrandingService);
 
   @ViewChild('stateHeading') private headingRef?: ElementRef<HTMLElement>;
 
@@ -244,6 +247,7 @@ export class BookingManageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.branding.applyAccent(this.host.nativeElement);
     // Re-resolve from the URL on every init (bfcache-safe), held in a memory-only field.
     this.token = this.route.snapshot.queryParamMap.get('token') ?? '';
     if (!this.token) { this.state.set('invalid'); return; }
