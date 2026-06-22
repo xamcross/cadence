@@ -1,13 +1,31 @@
 /* ============================================================================
  * Cadence design system — global foundation
- * (027-ui-design-system)
+ * (027-ui-design-system → "Editorial Calm" refresh)
+ *
+ * Aesthetic point of view
+ * -----------------------
+ * Cadence's promise is "interview scheduling that respects candidates" — calm,
+ * trustworthy, human. The look is EDITORIAL: a self-hosted serif (Fraunces) for
+ * display, a warm paper-toned neutral ramp, one disciplined indigo for action,
+ * and one expressive clay accent reserved for the masthead. The recurring
+ * signature is the MASTHEAD CADENCE: a monospace eyebrow -> Fraunces headline ->
+ * quiet body. It is cheap (no new font), hard to copy, and ties brand to product.
+ *
+ * Two-personality rule (KEEP THIS BOUNDARY)
+ * -----------------------------------------
+ * The editorial warmth (Fraunces, clay, the hero wash) belongs to BRAND / ENTRY /
+ * CANDIDATE-ADJACENT surfaces: the marketing home, auth, the launchpad lobby.
+ * The recruiter WORKBENCH (pipeline, dashboards, data tables) stays quiet and
+ * dense: system sans, tight rows, no display serif, no atmosphere. Do NOT pull
+ * Fraunces or the hero wash into a data table - cohesion erodes the moment you do.
  *
  * Layers in this file, in order:
- *   1. Self-hosted display font (Fraunces variable)   — no external host (CSP font-src 'self')
- *   2. Design tokens (:root custom properties)         — single source of truth for the look
- *   3. Base / reset                                    — typography, links, sensible defaults
- *   4. Accessibility baseline                          — focus ring + reduced-motion (F14)
- *   5. Shared primitives                               — .btn / .card / .field / .badge / layout
+ *   1. Self-hosted display font (Fraunces variable)   - no external host (CSP font-src 'self')
+ *   2. Design tokens (:root custom properties)         - single source of truth for the look
+ *   3. Base / reset                                    - typography, links, sensible defaults
+ *   4. Accessibility baseline                          - focus ring + reduced-motion (F14)
+ *   5. Motion primitives                               - one masthead reveal, reduced-motion safe
+ *   6. Shared primitives                               - .eyebrow / .btn / .card / .field / .badge / layout
  *
  * No third-party / CDN font is imported here on purpose: the app renders self-hosted + system
  * fonts, so loading any page contacts no third party that could receive a URL-borne candidate
@@ -27,22 +45,30 @@
 
 /* 2. Design tokens --------------------------------------------------------- */
 :root {
-  /* Brand accent — candidate-facing pages may override --accent at runtime from the
-     workspace branding API so each workspace's links/buttons pick up its colour. */
+  /* Brand accent - INTERACTIVE only (links, buttons, focus, selection). Candidate-facing
+     pages may override --accent at runtime from the workspace branding API so each
+     workspace's links/buttons pick up its colour. Never use --accent as a decorative wash. */
   --accent:        #1c5fd8;
   --accent-ink:    #11337a;
   --accent-wash:   #eef3fe;
   --accent-hover:  #1751bd;
 
-  /* Ink (text) + surfaces */
-  --ink:           #14181f;
-  --ink-muted:     #4b5563;
-  --ink-faint:     #5c636e;
+  /* Clay - EXPRESSIVE only (the masthead eyebrow + section kicker rules). This warm hue is
+     what makes the neutral ramp read as intentionally warm rather than under-saturated.
+     Strict rule: indigo = interactive, clay = expressive, never the reverse. */
+  --clay:          #b5512e;
+  --clay-ink:      #8f3a1f;   /* text-safe on --surface (>= 4.5:1) */
+  --clay-wash:     #f7ece6;
+
+  /* Ink (text) + warm paper surfaces */
+  --ink:           #1b1a16;
+  --ink-muted:     #54514a;   /* >= 7:1 on --surface */
+  --ink-faint:     #6c685f;   /* >= 4.6:1 on --surface */
   --surface:       #ffffff;
-  --surface-sunken:#f6f7f9;
+  --surface-sunken:#f6f4ef;   /* warm paper */
   --surface-raised:#ffffff;
-  --line:          #e4e7ec;
-  --line-strong:   #cdd2da;
+  --line:          #e8e3da;   /* warm hairline */
+  --line-strong:   #d6d0c4;
 
   /* Status */
   --danger:        #b42318;
@@ -65,6 +91,8 @@
   /* Fonts */
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  /* Monospace for the eyebrow masthead + metric/structural labels. System stack only - no download. */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   /* Spacing scale */
   --space-1: 0.25rem;
@@ -77,16 +105,18 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
-  /* Radius + elevation */
-  --radius-sm: 6px;
-  --radius:    10px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgb(20 24 31 / 0.06), 0 1px 3px rgb(20 24 31 / 0.10);
-  --shadow-md: 0 4px 14px rgb(20 24 31 / 0.08), 0 2px 6px rgb(20 24 31 / 0.06);
-  --shadow-lg: 0 18px 48px rgb(20 24 31 / 0.14);
+  /* Radius + elevation. Shadows are TWO layers (tight contact + soft ambient), tinted with the
+     warm neutral (not the accent - an indigo-tinted shadow reads as a bug). */
+  --radius-sm: 7px;
+  --radius:    12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgb(40 33 24 / 0.05), 0 1px 3px rgb(40 33 24 / 0.07);
+  --shadow-md: 0 2px 4px rgb(40 33 24 / 0.05), 0 10px 26px rgb(40 33 24 / 0.09);
+  --shadow-lg: 0 4px 10px rgb(40 33 24 / 0.06), 0 26px 56px rgb(40 33 24 / 0.14);
 
   /* Layout */
   --content-max: 72rem;
+  --measure: 66ch;            /* cap reading width - editorial discipline */
 }
 
 /* 3. Base / reset ---------------------------------------------------------- */
@@ -106,11 +136,13 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-display);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  font-optical-sizing: auto;  /* let Fraunces pick its display optical size at large sizes */
+  font-weight: 560;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
   color: var(--ink);
   margin: 0 0 var(--space-4);
+  text-wrap: balance;          /* tidy ragged headline line-breaks where supported */
 }
 h1 { font-size: var(--step-3); }
 h2 { font-size: var(--step-2); }
@@ -124,6 +156,8 @@ a {
   text-underline-offset: 2px;
 }
 a:hover { color: var(--accent-hover); }
+
+::selection { background: var(--accent-wash); color: var(--accent-ink); }
 
 /* 4. Accessibility baseline ----------------------------------------------- */
 /* A visible focus indicator for every keyboard-focused control (WCAG 2.2 2.4.13 / FR-006). */
@@ -143,7 +177,7 @@ a:hover { color: var(--accent-hover); }
   }
 }
 
-/* Candidate-facing pages are perf-gated (Lighthouse) and carry a URL token — keep them on the system
+/* Candidate-facing pages are perf-gated (Lighthouse) and carry a URL token - keep them on the system
    font stack only (no display-font download), as they were before the design system. The home and the
    authenticated shell keep Fraunces. */
 app-schedule,
@@ -155,7 +189,23 @@ app-scorecard-page {
   --font-display: var(--font-body);
 }
 
-/* 5. Shared primitives ----------------------------------------------------- */
+/* 5. Motion primitives ----------------------------------------------------- */
+/* ONE masthead reveal - a short, small-translate rise on first paint. Declared ONLY inside
+   `prefers-reduced-motion: no-preference`, so reduced-motion users (and the global reduce block
+   above) never see the animation AND the content is never stuck at opacity:0. Use sparingly: the
+   hero group only - entrance choreography elsewhere reads as portfolio theatre, not enterprise trust. */
+@keyframes cad-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal   { animation: cad-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .reveal-1 { animation-delay: 0.04s; }
+  .reveal-2 { animation-delay: 0.10s; }
+  .reveal-3 { animation-delay: 0.16s; }
+}
+
+/* 6. Shared primitives ----------------------------------------------------- */
 /* These are global (un-scoped) classes; any component template may use them. */
 
 .container {
@@ -165,6 +215,34 @@ app-scorecard-page {
   padding-inline: var(--space-4);
 }
 
+.measure { max-width: var(--measure); }
+
+/* THE SIGNATURE - the monospace masthead eyebrow. Locked tracking + size so it reads identically
+   across home, launchpad section headers and auth. Pair it above a Fraunces headline. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--clay-ink);
+  margin: 0 0 var(--space-3);
+}
+/* Optional leading rule for the full masthead treatment. */
+.eyebrow--rule::before {
+  content: "";
+  inline-size: 1.75rem;
+  block-size: 2px;
+  border-radius: 1px;
+  background: var(--clay);
+}
+/* A quieter neutral variant for REPEATED structural labels (e.g. the launchpad section headers),
+   so they share the eyebrow's font/size/tracking but step back from the one clay masthead per screen. */
+.eyebrow--quiet { color: var(--ink-faint); }
+
 /* Buttons + button-styled links share one look. */
 .btn {
   display: inline-flex;
@@ -173,17 +251,19 @@ app-scorecard-page {
   gap: var(--space-2);
   min-height: 44px;           /* WCAG 2.2 target size */
   min-width: 44px;            /* keep icon-only buttons above the 44px target on both axes */
-  padding: 0.625rem 1.1rem;
+  padding: 0.625rem 1.15rem;
   font: inherit;
   font-weight: 600;
   line-height: 1.2;
+  letter-spacing: 0.005em;
   border: 1.5px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--accent-ink);
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+              color 0.15s ease, transform 0.06s ease;
 }
 .btn:hover { color: var(--accent-ink); }
 .btn:active { transform: translateY(1px); }
@@ -193,15 +273,16 @@ app-scorecard-page {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  box-shadow: 0 1px 2px rgb(17 51 122 / 0.18);
 }
-.btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+.btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; box-shadow: var(--shadow-md); }
 
 .btn--ghost {
   background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
 }
-.btn--ghost:hover { background: var(--surface-sunken); color: var(--ink); }
+.btn--ghost:hover { background: var(--surface-sunken); border-color: var(--line-strong); color: var(--ink); }
 
 .btn--outline {
   background: var(--surface);
@@ -221,6 +302,8 @@ app-scorecard-page {
   padding: var(--space-6);
   box-shadow: var(--shadow-sm);
 }
+/* A card that should feel lifted off the page (lobby cards, the auth panel). */
+.card--raised { box-shadow: var(--shadow-md); }
 
 /* Form field */
 .field { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
@@ -234,24 +317,51 @@ app-scorecard-page {
   background: var(--surface);
   border: 1.5px solid var(--line-strong);
   border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.input:focus { border-color: var(--accent); }
+.input:hover { border-color: var(--ink-faint); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); outline: none; }
 
 /* Status badge */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0.15rem 0.55rem;
+  padding: 0.15rem 0.6rem;
   font-size: var(--step--1);
   font-weight: 600;
+  letter-spacing: 0.01em;
   border-radius: 999px;
   background: var(--surface-sunken);
   color: var(--ink-muted);
+  border: 1px solid var(--line);
 }
-.badge--ok     { background: var(--ok-wash);     color: var(--ok); }
-.badge--warn   { background: var(--warn-wash);   color: var(--warn); }
-.badge--danger { background: var(--danger-wash); color: var(--danger); }
+.badge--ok     { background: var(--ok-wash);     color: var(--ok);     border-color: transparent; }
+.badge--warn   { background: var(--warn-wash);   color: var(--warn);   border-color: transparent; }
+.badge--danger { background: var(--danger-wash); color: var(--danger); border-color: transparent; }
+.badge--accent { background: var(--accent-wash); color: var(--accent-ink); border-color: transparent; }
+
+/* Auth surfaces share one centred, calm panel (the entry/brand voice). */
+.auth-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-8) var(--space-4);
+  background:
+    radial-gradient(38rem 22rem at 50% -10%, var(--clay-wash), transparent 70%),
+    var(--surface-sunken);
+}
+.auth-card {
+  width: 100%;
+  max-width: 25rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
+}
+/* All auth panels share one headline size; components set only their own h1 margin. */
+.auth-card > h1 { font-size: var(--step-2); }
 
 /* Utilities */
 .muted { color: var(--ink-muted); }

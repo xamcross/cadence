@@ -28,7 +28,7 @@ import { Role } from '../../core/auth/auth.models';
         <span class="spacer"></span>
         <span class="who">
           <span class="who__name">{{ m.displayName }}</span>
-          <span class="badge">{{ roleLabel(m.role) }}</span>
+          <span class="badge badge--accent">{{ roleLabel(m.role) }}</span>
         </span>
         <button type="button" class="btn btn--ghost" (click)="logout()" i18n="@@shell.signout">Sign out</button>
       </header>
@@ -44,12 +44,23 @@ import { Role } from '../../core/auth/auth.models';
       box-shadow: var(--shadow-sm);
     }
     .spacer { flex: 1; }
-    .brand { display: inline-flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--ink); }
-    .brand__mark { color: var(--accent); }
-    .brand__name { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); letter-spacing: -0.01em; }
-    .who { display: inline-flex; align-items: center; gap: var(--space-3); }
-    .who__name { font-weight: 600; }
-    @media (max-width: 32rem) { .who__name { display: none; } }
+    .brand { display: inline-flex; align-items: center; gap: var(--space-3); text-decoration: none; color: var(--ink); }
+    /* The mark sits in a soft tile so the three bars read as a contained brand lockup. */
+    .brand__mark {
+      color: var(--accent); padding: 5px; box-sizing: content-box;
+      background: var(--accent-wash); border-radius: var(--radius-sm);
+    }
+    .brand__name { font-family: var(--font-display); font-weight: 560; font-size: var(--step-1); letter-spacing: -0.01em; }
+    .who {
+      display: inline-flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+      border: 1px solid var(--line); border-radius: 999px; background: var(--surface-sunken);
+    }
+    .who__name { font-weight: 600; font-size: var(--step--1); }
+    @media (max-width: 32rem) {
+      .who { padding: 0; border: 0; background: none; }
+      .who__name { display: none; }
+    }
   `]
 })
 export class TopBarComponent {
