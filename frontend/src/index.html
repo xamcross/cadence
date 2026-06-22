@@ -6,6 +6,9 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- Preload the self-hosted display font (same-origin; CSP font-src 'self') to cut home LCP. -->
+  <link rel="preload" as="font" type="font/woff2" href="assets/fonts/fraunces-var.woff2" crossorigin>
+
   <!-- F60 (026-seo-aeo) SEO/AEO metadata. Origin + robots + indexability are substituted at build
        time by scripts/seo-inject-origin.mjs (prod => index,follow / enabled; non-prod => noindex). -->
   <meta name="description" content="Cadence helps recruiters schedule interviews, prevent no-shows, and keep candidates informed — no candidate account required. Calendar sync, GDPR-safe by design.">
@@ -26,6 +29,7 @@
 
   <!-- F14: the candidate scheduling token rides the URL query string; never leak it off-origin via Referer. -->
   <meta name="referrer" content="no-referrer">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
 
   <!-- AEO structured data (static so non-JS answer engines read it; URLs public-only, no token/PII). -->
@@ -95,6 +99,13 @@
       <p>Cadence helps recruiters schedule interviews, prevent no-shows, and keep candidates informed —
          with no candidate account required. It syncs with Google and Microsoft calendars and is
          GDPR-safe by design.</p>
+      <h2>What Cadence does</h2>
+      <ul>
+        <li>One-link self-scheduling, rescheduling, and cancellation.</li>
+        <li>A no-show confirmation cascade with recruiter alerts.</li>
+        <li>A private candidate status page with live stage, next step, and dates.</li>
+        <li>Consent-recorded email and one-click right-to-erasure.</li>
+      </ul>
     </main>
   </app-root>
 </body>
