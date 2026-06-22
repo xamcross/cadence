@@ -9,31 +9,44 @@ import { AuthService } from '../../../core/auth/auth.service';
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
-    <main class="auth-page">
-      <h1 i18n="@@reset.confirm.title">Choose a new password</h1>
+    <main class="auth-shell">
+      <section class="auth-card reveal">
+        <p class="eyebrow eyebrow--rule" i18n="@@reset.confirm.eyebrow">Account recovery</p>
+        <h1 i18n="@@reset.confirm.title">Choose a new password</h1>
 
-      @if (!token) {
-        <p class="error" role="alert" i18n="@@reset.confirm.noToken">This reset link is invalid.</p>
-        <a routerLink="/reset" i18n="@@reset.confirm.requestNew">Request a new link</a>
-      } @else if (done()) {
-        <p role="status" i18n="@@reset.confirm.done">Your password has been updated. You can now sign in.</p>
-        <a routerLink="/login" i18n="@@reset.confirm.toLogin">Go to sign in</a>
-      } @else {
-        @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-        <form (ngSubmit)="submit()" novalidate>
-          <label for="newPassword" i18n="@@reset.confirm.password">New password (min 8 characters)</label>
-          <input id="newPassword" name="newPassword" type="password" [(ngModel)]="newPassword"
-                 required minlength="8" autocomplete="new-password" />
-          <button type="submit" [disabled]="submitting()" i18n="@@reset.confirm.submit">Update password</button>
-        </form>
-      }
+        @if (!token) {
+          <p class="alert" role="alert" i18n="@@reset.confirm.noToken">This reset link is invalid.</p>
+          <a class="btn btn--outline block" routerLink="/reset" i18n="@@reset.confirm.requestNew">Request a new link</a>
+        } @else if (done()) {
+          <p class="notice" role="status" i18n="@@reset.confirm.done">Your password has been updated. You can now sign in.</p>
+          <a class="btn btn--primary block" routerLink="/login" i18n="@@reset.confirm.toLogin">Go to sign in</a>
+        } @else {
+          @if (error()) { <p class="alert" role="alert">{{ error() }}</p> }
+          <form (ngSubmit)="submit()" novalidate>
+            <div class="field">
+              <label for="newPassword" i18n="@@reset.confirm.password">New password (min 8 characters)</label>
+              <input class="input" id="newPassword" name="newPassword" type="password" [(ngModel)]="newPassword"
+                     required minlength="8" autocomplete="new-password" />
+            </div>
+            <button type="submit" class="btn btn--primary block" [disabled]="submitting()" i18n="@@reset.confirm.submit">Update password</button>
+          </form>
+        }
+      </section>
     </main>
   `,
   styles: [`
-    .auth-page { max-width: 24rem; margin: 2rem auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
-    input { width: 100%; padding: 0.5rem; min-height: 44px; box-sizing: border-box; }
-    button { min-height: 44px; }
-    .error { color: var(--danger); }
+    .auth-card > h1 { margin-bottom: var(--space-5); }
+    .block { width: 100%; }
+    .alert {
+      margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4);
+      background: var(--danger-wash); color: var(--danger);
+      border-radius: var(--radius-sm); font-weight: 600;
+    }
+    .notice {
+      margin: 0 0 var(--space-4); padding: var(--space-4);
+      background: var(--ok-wash); color: var(--ok);
+      border-radius: var(--radius-sm);
+    }
   `]
 })
 export class ResetConfirmComponent {

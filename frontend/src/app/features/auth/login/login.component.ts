@@ -9,42 +9,63 @@ import { AuthService } from '../../../core/auth/auth.service';
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
-    <main class="auth-page">
-      <h1 i18n="@@login.title">Sign in to Cadence</h1>
+    <main class="auth-shell">
+      <section class="auth-card reveal">
+        <p class="eyebrow eyebrow--rule" i18n="@@login.eyebrow">Cadence</p>
+        <h1 i18n="@@login.title">Sign in to Cadence</h1>
+        <p class="muted lede" i18n="@@login.lede">Welcome back. Pick up right where your hiring left off.</p>
 
-      @if (banner()) {
-        <p class="error" role="alert">{{ banner() }}</p>
-      }
+        @if (banner()) {
+          <p class="alert" role="alert">{{ banner() }}</p>
+        }
 
-      <button type="button" class="primary" (click)="auth.startSso()" i18n="@@login.sso">
-        Sign in with SSO
-      </button>
+        <button type="button" class="btn btn--primary block" (click)="auth.startSso()" i18n="@@login.sso">
+          Sign in with SSO
+        </button>
 
-      <details class="fallback">
-        <summary i18n="@@login.fallback.toggle">Use email and password instead</summary>
-        <form (ngSubmit)="submit()" #f="ngForm" novalidate>
-          <label for="workspaceId" i18n="@@login.workspace">Workspace ID</label>
-          <input id="workspaceId" name="workspaceId" [(ngModel)]="workspaceId" required autocomplete="organization" />
+        <details class="fallback">
+          <summary i18n="@@login.fallback.toggle">Use email and password instead</summary>
+          <form (ngSubmit)="submit()" #f="ngForm" novalidate>
+            <div class="field">
+              <label for="workspaceId" i18n="@@login.workspace">Workspace ID</label>
+              <input class="input" id="workspaceId" name="workspaceId" [(ngModel)]="workspaceId" required autocomplete="organization" />
+            </div>
+            <div class="field">
+              <label for="email" i18n="@@login.email">Email</label>
+              <input class="input" id="email" name="email" type="email" [(ngModel)]="email" required autocomplete="username" />
+            </div>
+            <div class="field">
+              <label for="password" i18n="@@login.password">Password</label>
+              <input class="input" id="password" name="password" type="password" [(ngModel)]="password" required
+                     autocomplete="current-password" />
+            </div>
+            <button type="submit" class="btn btn--outline block" [disabled]="submitting()" i18n="@@login.submit">Sign in</button>
+          </form>
+        </details>
 
-          <label for="email" i18n="@@login.email">Email</label>
-          <input id="email" name="email" type="email" [(ngModel)]="email" required autocomplete="username" />
-
-          <label for="password" i18n="@@login.password">Password</label>
-          <input id="password" name="password" type="password" [(ngModel)]="password" required
-                 autocomplete="current-password" />
-
-          <button type="submit" [disabled]="submitting()" i18n="@@login.submit">Sign in</button>
-        </form>
-      </details>
-
-      <a routerLink="/reset" i18n="@@login.forgot">Forgot your password?</a>
+        <a class="forgot" routerLink="/reset" i18n="@@login.forgot">Forgot your password?</a>
+      </section>
     </main>
   `,
   styles: [`
-    .auth-page { max-width: 24rem; margin: 2rem auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
-    button.primary { padding: 0.75rem; font-weight: 600; min-height: 44px; }
-    input { width: 100%; padding: 0.5rem; min-height: 44px; box-sizing: border-box; }
-    .error { color: var(--danger); }
+    .auth-card > h1 { margin-bottom: var(--space-2); }
+    .lede { margin-bottom: var(--space-6); }
+    .block { width: 100%; }
+    .alert {
+      margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4);
+      background: var(--danger-wash); color: var(--danger);
+      border-radius: var(--radius-sm); font-weight: 600;
+    }
+    .fallback { margin-top: var(--space-5); border-top: 1px solid var(--line); padding-top: var(--space-4); }
+    .fallback > summary {
+      cursor: pointer; font-weight: 600; color: var(--accent-ink);
+      list-style: none; min-height: 44px; display: flex; align-items: center;
+    }
+    .fallback > summary::-webkit-details-marker { display: none; }
+    .fallback > summary::before { content: "+"; margin-right: var(--space-2); font-family: var(--font-mono); color: var(--clay-ink); }
+    .fallback[open] > summary::before { content: "\\00d7"; }
+    .fallback > form { margin-top: var(--space-4); }
+    .forgot { display: inline-block; margin-top: var(--space-5); font-size: var(--step--1); }
   `]
 })
 export class LoginComponent {

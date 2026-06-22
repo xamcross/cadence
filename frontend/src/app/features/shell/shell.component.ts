@@ -31,13 +31,16 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
             </p>
           </div>
         } @else {
-          <h1 i18n="@@shell.welcome">Welcome to Cadence</h1>
-          <p class="lede muted" i18n="@@shell.subtitle">Jump straight to your work.</p>
+          <header class="launch__head">
+            <p class="eyebrow eyebrow--rule" i18n="@@shell.eyebrow">Your workspace</p>
+            <h1 i18n="@@shell.welcome">Welcome to Cadence</h1>
+            <p class="lede muted" i18n="@@shell.subtitle">Jump straight to your work.</p>
+          </header>
 
           <nav class="launch__nav" aria-label="Sections" i18n-aria-label="@@shell.nav.label">
             @for (group of groups(); track group.title) {
               <section class="launch__group">
-                <h2 class="launch__group-title">{{ group.title }}</h2>
+                <h2 class="launch__group-title eyebrow eyebrow--quiet">{{ group.title }}</h2>
                 <div class="launch__grid">
                   @for (item of group.items; track item.path) {
                     <a class="card launch__card" [routerLink]="item.path">
@@ -56,27 +59,36 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
   `,
   styles: [`
     .launch { padding-block: var(--space-8) var(--space-12); }
-    .launch > h1 { margin-bottom: var(--space-1); }
-    .lede { font-size: var(--step-1); margin-bottom: var(--space-8); }
+    .launch__head {
+      padding-bottom: var(--space-6); margin-bottom: var(--space-8);
+      border-bottom: 1px solid var(--line);
+      background: radial-gradient(40rem 14rem at 0% -40%, var(--clay-wash), transparent 70%);
+    }
+    .launch__head > h1 { margin-bottom: var(--space-1); }
+    .lede { font-size: var(--step-1); margin-bottom: 0; }
 
     .launch__group { margin-bottom: var(--space-8); }
-    .launch__group-title {
-      font-family: var(--font-body); font-size: var(--step--1); font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint);
-      margin-bottom: var(--space-3);
-    }
+    /* Font/size/tracking/colour come from the shared .eyebrow + .eyebrow--quiet primitives. */
+    .launch__group-title { margin-bottom: var(--space-4); }
     .launch__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-4); }
 
     .launch__card {
-      display: grid; grid-template-columns: 1fr auto; align-items: start; column-gap: var(--space-2);
-      padding: var(--space-5); text-decoration: none; color: var(--ink);
+      position: relative; display: grid; grid-template-columns: 1fr auto; align-items: start; column-gap: var(--space-2);
+      padding: var(--space-5); text-decoration: none; color: var(--ink); overflow: hidden;
       transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
     }
-    .launch__card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    /* A thin accent rail that wipes in on hover - the only motion, kept subtle. */
+    .launch__card::before {
+      content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+      background: var(--accent); transform: scaleY(0); transform-origin: top;
+      transition: transform 0.18s ease;
+    }
+    .launch__card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .launch__card:hover::before { transform: scaleY(1); }
     .launch__card-title { font-weight: 700; font-size: var(--step-0); }
     .launch__card-desc { grid-column: 1 / -1; margin-top: var(--space-1); font-size: var(--step--1); line-height: 1.45; }
-    .launch__card-go { color: var(--accent); font-size: var(--step-1); line-height: 1; }
-    .launch__card:hover .launch__card-go { transform: translateX(2px); }
+    .launch__card-go { color: var(--accent); font-size: var(--step-1); line-height: 1; transition: transform 0.15s ease; }
+    .launch__card:hover .launch__card-go { transform: translateX(3px); }
 
     .notice { max-width: 40rem; }
   `]
