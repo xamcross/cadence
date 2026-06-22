@@ -23,6 +23,13 @@ public class EmailDeliveryProperties {
 
     private final Smtp smtp = new Smtp();
 
+    /** From address on all outbound mail (CADENCE_EMAIL_FROM). MUST be a sender the SMTP provider
+     *  (e.g. Brevo) has verified for the sending domain, or the relay rejects the message. */
+    private String from;
+
+    /** Optional display name for the From header (CADENCE_EMAIL_FROM_NAME), default "Cadence". */
+    private String fromName = "Cadence";
+
     /** App-level provider webhook signature/shared secret (CADENCE_EMAIL_WEBHOOK_SECRET). Never persisted. */
     private String webhookSecret;
 
@@ -48,6 +55,12 @@ public class EmailDeliveryProperties {
     private Duration readTimeout = Duration.ofSeconds(10);
 
     public Smtp getSmtp() { return smtp; }
+
+    public String getFrom() { return from; }
+    public void setFrom(String from) { this.from = from; }
+
+    public String getFromName() { return fromName; }
+    public void setFromName(String fromName) { this.fromName = fromName; }
 
     public String getWebhookSecret() { return webhookSecret; }
     public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }

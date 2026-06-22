@@ -1,6 +1,10 @@
 server:
   port: 8080
   shutdown: graceful
+  # Behind the Cloudflare Pages reverse proxy (same-origin), honor X-Forwarded-Proto/Host so Spring
+  # Security builds OIDC redirect URIs as https://cadenceapp.cc/login/oauth2/code/... (not the internal
+  # http://...:8080). The proxy (frontend/functions/_proxy.js) sets those forwarded headers.
+  forward-headers-strategy: framework
 
 spring:
   lifecycle:
@@ -158,6 +162,10 @@ cadence:
       port: ${CADENCE_EMAIL_SMTP_PORT:587}
       username: ${CADENCE_EMAIL_SMTP_USERNAME:}
       password: ${CADENCE_EMAIL_SMTP_PASSWORD:}
+    # From address on all outbound mail. MUST be a Brevo-verified sender for the cadenceapp.cc domain
+    # (or a verified single sender) or Brevo rejects the message. Blank in dev/test (no From set).
+    from: ${CADENCE_EMAIL_FROM:}
+    from-name: ${CADENCE_EMAIL_FROM_NAME:Cadence}
     webhook-secret: ${CADENCE_EMAIL_WEBHOOK_SECRET:}
     ops-alert-address: ${CADENCE_EMAIL_OPS_ALERT_ADDRESS:ops@localhost}
     retry-max-attempts: 3
