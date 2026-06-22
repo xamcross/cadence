@@ -12,7 +12,8 @@
 #   .\scripts\deploy-frontend.ps1 -Branch "staging"   # deploy to a preview branch
 
 param(
-    [string]$Branch = "main"
+    [string]$Branch = "main",
+    [string]$PublicOrigin = "cadenceapp.cc"
 )
 
 Set-StrictMode -Version Latest
@@ -27,9 +28,10 @@ $DistDir = Join-Path $FrontendDir "dist\cadence\browser"
 
 Write-Host "=== Cadence Frontend Deploy ===" -ForegroundColor Cyan
 
-# Check prerequisites
-if (-not (Get-Command ng -ErrorAction SilentlyContinue)) {
-    Write-Error "Angular CLI not found. Run: npm install -g @angular/cli"
+# Check prerequisites. Angular CLI is a local devDependency, invoked via npx from the
+# frontend dir, so we only need Node/npx on PATH here -- not a global ng install.
+if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
+    Write-Error "Node.js (npx) not found on PATH. Install Node.js 20+ from https://nodejs.org/"
     exit 1
 }
 if (-not (Get-Command wrangler -ErrorAction SilentlyContinue)) {
@@ -58,7 +60,7 @@ if (-not (Test-Path $NodeModules)) {
 Write-Host "[1/2] Building Angular app (production)..." -ForegroundColor Yellow
 Push-Location $FrontendDir
 try {
-    & ng build --configuration production
+    & npx ng build --configuration production
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Angular build failed."
         exit 1
@@ -84,10 +86,15 @@ if ($LASTEXITCODE -ne 0) {
 
 # F60 (026-seo-aeo): inject the public origin + indexability into the built SEO artifacts.
 # Production (main) enables indexing; any other branch is treated as non-production (blanket noindex).
+# Default the public origin to the production host; an existing env var or -PublicOrigin overrides.
 if (-not $env:CADENCE_PUBLIC_ORIGIN) {
-    Write-Error "CADENCE_PUBLIC_ORIGIN env var is required (e.g. app.cadence.example.com)."
+    $env:CADENCE_PUBLIC_ORIGIN = $PublicOrigin
+}
+if (-not $env:CADENCE_PUBLIC_ORIGIN) {
+    Write-Error "CADENCE_PUBLIC_ORIGIN is required (e.g. cadenceapp.cc)."
     exit 1
 }
+Write-Host "Public origin: $($env:CADENCE_PUBLIC_ORIGIN)" -ForegroundColor DarkGray
 if ($Branch -eq "main") { $env:CADENCE_PUBLIC_ENV = "production" } else { $env:CADENCE_PUBLIC_ENV = "preview" }
 $InjectScript = Join-Path $RepoRoot "scripts\seo-inject-origin.mjs"
 Write-Host "[1b/2] Injecting SEO origin (env: $($env:CADENCE_PUBLIC_ENV))..." -ForegroundColor Yellow
