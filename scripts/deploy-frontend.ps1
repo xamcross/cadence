@@ -56,6 +56,19 @@ if (-not (Test-Path $NodeModules)) {
     }
 }
 
+# Inject the production API base URL into environment.prod.ts BEFORE building. Done here in PowerShell
+# (not the old Git Bash node one-liner) so the same-origin "/api" is never MSYS path-converted to a
+# Windows path like "C:/Program Files/Git/api" (which would make the SPA issue file:// API requests).
+# Defaults to same-origin "/api"; the script validates the value and fails the build on a bad one.
+if (-not $env:CADENCE_API_URL) { $env:CADENCE_API_URL = "/api" }
+$InjectApiScript = Join-Path $RepoRoot "scripts\inject-api-url.mjs"
+Write-Host "[0/2] Injecting API base URL (apiBaseUrl=$($env:CADENCE_API_URL))..." -ForegroundColor Yellow
+& node $InjectApiScript
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "API URL injection failed."
+    exit 1
+}
+
 # Production build
 Write-Host "[1/2] Building Angular app (production)..." -ForegroundColor Yellow
 Push-Location $FrontendDir
