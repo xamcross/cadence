@@ -41,7 +41,7 @@ type CancelState =
           <div class="actions">
             <button
               type="button"
-              class="action cancel"
+              class="action cancel btn btn--danger-soft"
               (click)="doCancel()"
               [disabled]="busy()"
               i18n="@@cancel.confirm.yes">
@@ -49,7 +49,7 @@ type CancelState =
             </button>
             <button
               type="button"
-              class="action reschedule"
+              class="action reschedule btn btn--brand"
               (click)="back()"
               [disabled]="busy()"
               i18n="@@cancel.confirm.no">
@@ -95,7 +95,7 @@ type CancelState =
 
         <section *ngSwitchCase="'retryable_error'">
           <p i18n="@@cancel.retry.body">We couldn't reach the server, so nothing was changed. Your interview is still booked.</p>
-          <button type="button" class="link-button" (click)="reset()" i18n="@@cancel.retry.action">Back</button>
+          <button type="button" class="link-button btn btn--link" (click)="reset()" i18n="@@cancel.retry.action">Back</button>
           <ng-container *ngTemplateOutlet="help"></ng-container>
         </section>
       </ng-container>

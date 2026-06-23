@@ -258,6 +258,38 @@ describe('BookingManageComponent (F20)', () => {
     });
   });
 
+  // ---- Brand-override contrast safety (030 design system) ----
+
+  describe('brand-override contrast safety (adversarial hue)', () => {
+    // The workspace brand --accent is overridden at runtime to an arbitrary validated hex (set on the
+    // component host). A near-white yellow is the canonical contrast-killer. The candidate-safety rule is
+    // that the FIXED --accent-ink/--accent-wash/--focus-ring tokens carry all text/fill/focus contrast and
+    // only the BORDER tracks the brand - so axe must stay clean and the brand button must NOT adopt the
+    // override for its fill or text. This guards the load-bearing rule against a future regression that
+    // re-derives ink/wash/fill from --accent. (The other axe specs run with the DEFAULT accent only.)
+    const ADVERSARIAL = '#ffe600';
+
+    it('booked state has no axe violations under an adversarial brand --accent', async () => {
+      const fixture = build();
+      (fixture.nativeElement as HTMLElement).style.setProperty('--accent', ADVERSARIAL);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const violations = await axeViolations(fixture.nativeElement);
+      expect(violations).withContext(violations.map(v => v.id).join(', ')).toEqual([]);
+    });
+
+    it('the brand (reschedule) button keeps FIXED ink + wash regardless of the brand hue', () => {
+      const fixture = build();
+      (fixture.nativeElement as HTMLElement).style.setProperty('--accent', ADVERSARIAL);
+      fixture.detectChanges();
+      const brand = fixture.nativeElement.querySelector('.action.reschedule') as HTMLElement;
+      const cs = getComputedStyle(brand);
+      // --accent-wash (#eef3fe) and --accent-ink (#11337a) are fixed - never the #ffe600 override.
+      expect(cs.backgroundColor).toBe('rgb(238, 243, 254)');
+      expect(cs.color).toBe('rgb(17, 51, 122)');
+    });
+  });
+
   // ---- Focus management + live region ----
 
   describe('focus management', () => {

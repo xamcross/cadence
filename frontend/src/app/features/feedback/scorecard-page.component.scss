@@ -1,3 +1,7 @@
+// F32 interviewer scorecard page (candidate-class, no login). Form controls use the global .input
+// primitive (select/textarea) and the buttons use .btn (.btn--brand submit / .btn--outline retry);
+// this file owns only the fieldset/row layout. Colours come from design tokens. Focus ring is global.
+
 .scorecard {
   max-width: 40rem;
   margin: 0 auto;
@@ -11,14 +15,11 @@
   margin-block-end: 1rem;
 }
 
-.state-heading:focus-visible {
-  outline: 3px solid currentColor;
-  outline-offset: 2px;
-}
+.intro { color: var(--ink-muted); margin-block-end: 1.25rem; }
 
 fieldset {
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   margin-block-end: 1.25rem;
   padding: 0.75rem 1rem;
 }
@@ -28,26 +29,25 @@ legend {
   padding: 0 0.35rem;
 }
 
+// Whole-row, label-wrapped activation targets >= 44px (WCAG 2.5.8).
 .radio,
 .rating {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  min-height: 44px; /* WCAG 2.5.8 target size */
+  min-height: 44px;
   padding: 0.25rem 0;
+  cursor: pointer;
 }
 
 .rating .dim {
   flex: 1;
 }
 
-select,
-textarea {
-  font: inherit;
-  min-height: 44px;
-  padding: 0.4rem 0.5rem;
-  width: 100%;
-  box-sizing: border-box;
+// The rating select sizes to its content within the row rather than stretching full-width.
+.rating select.input {
+  inline-size: auto;
+  min-inline-size: 5rem;
 }
 
 .comment {
@@ -61,31 +61,7 @@ textarea {
   margin-block-end: 0.35rem;
 }
 
-// Submit: brand colour on the BORDER only; AA-safe --accent-ink text on white/wash for any brand
-// colour (never white-on-accent — review #2). Fallbacks are the design-token defaults.
-.action {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0.6rem 1.2rem;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 6px;
-  border: 2px solid var(--accent, #1c5fd8);
-  background: #fff;
-  color: var(--accent-ink, #11337a);
-}
-
-.action:hover:not(:disabled) {
-  background: var(--accent-wash, #eef3fe);
-}
-
-.action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .error {
-  color: #8a1f1f;
+  color: var(--danger);
   font-weight: 600;
 }

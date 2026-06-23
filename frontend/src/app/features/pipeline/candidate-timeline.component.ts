@@ -13,10 +13,10 @@ import { PipelineService, TimelineEvent } from './pipeline.service';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <a routerLink="/pipeline" i18n="@@timeline.back">Back to pipeline</a>
+    <a routerLink="/pipeline" class="btn btn--link" i18n="@@timeline.back">Back to pipeline</a>
     <h1 i18n="@@timeline.title">Candidate timeline</h1>
     @if (notFound()) {
-      <p class="error" role="alert" i18n="@@timeline.notFound">This candidate is not available.</p>
+      <p class="error alert alert--danger" role="alert" i18n="@@timeline.notFound">This candidate is not available.</p>
     } @else if (loaded()) {
       @if (feedbackPending()) {
         <p class="pending" i18n="@@timeline.feedbackPending">Interviewer feedback is still pending.</p>
@@ -34,10 +34,8 @@ import { PipelineService, TimelineEvent } from './pipeline.service';
   `,
   styles: [`
     .timeline { list-style: none; padding: 0; }
-    .timeline li { padding: 0.5rem 0; border-bottom: 1px solid var(--line); display: flex; gap: 1rem; }
+    .timeline li { padding: var(--space-2) 0; border-bottom: 1px solid var(--line); display: flex; gap: var(--space-4); }
     time { color: var(--ink-muted); min-width: 12rem; }
-    .error { color: var(--danger); }
-    a { min-height: 44px; display: inline-block; }
   `]
 })
 export class CandidateTimelineComponent implements OnInit {

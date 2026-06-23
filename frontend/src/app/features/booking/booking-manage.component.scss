@@ -1,9 +1,12 @@
-// F20 candidate booking-management page — mobile-first (375px base), enhanced at 768/1280px.
-// Logical properties keep it RTL-safe; targets are >=44px; motion respects the user's preference.
+// F20 candidate booking-management page - mobile-first (375px base), enhanced at 768/1280px.
+// Logical properties keep it RTL-safe; targets are >=44px (from .btn); motion respects preference (global).
+// Buttons use the global primitives: reschedule = .btn--brand, cancel = .btn--danger-soft, slots =
+// .btn--outline, keep/back/try-again = .btn--link. This file owns only page layout + the action/slot
+// grids. Colours come from design tokens (no hardcoded hex). Focus ring is global.
 
 :host {
   display: block;
-  color: #1a1a1a;
+  color: var(--ink);
 }
 
 .booking {
@@ -22,98 +25,43 @@
   margin-block: 0 0.75rem;
 }
 
-// Programmatic focus targets (FR-024) + interactive controls share one visible focus ring.
-.state-heading:focus-visible,
-.action:focus-visible,
-.slot:focus-visible,
-.link-button:focus-visible {
-  outline: 3px solid var(--accent-ink, #11337a);
-  outline-offset: 2px;
-}
-
 .confirmed { font-weight: 600; margin-block-end: 0.5rem; }
 
 .zone,
 .hint,
-.help { color: #444; }
+.help { color: var(--ink-muted); }
 .zone { margin-block-end: 1rem; }
 
 .actions,
 .slots { display: grid; gap: 0.625rem; }
 .actions { margin-block: 1rem; }
 
-// Shared button base — all >=44px targets (WCAG 2.2 2.5.8) with a visible focus ring.
+// The action buttons are full-width on mobile; colour/border/focus come from the .btn primitives.
 .action,
-.slot,
-.link-button {
-  min-block-size: 44px;
-  min-inline-size: 44px;
-  font-size: 1rem;
-  cursor: pointer;
-
-  &:disabled { opacity: 0.5; cursor: default; }
-}
-
-.action,
-.slot { inline-size: 100%; padding: 0.75rem 1rem; border-radius: 8px; }
-
-.action { text-align: center; }
-.slot { text-align: start; border: 2px solid var(--accent, #1c5fd8); background: #fff; color: var(--accent-ink, #11337a); }
-.slot:hover:not(:disabled) { background: var(--accent-wash, #eef3fe); }
-
-// Primary action: brand colour on the BORDER + a light wash fill; text stays AA-safe --accent-ink
-// so contrast holds for ANY brand colour (never white-on-accent — review #2).
-.action.reschedule {
-  border: 2px solid var(--accent, #1c5fd8);
-  background: var(--accent-wash, #eef3fe);
-  color: var(--accent-ink, #11337a);
-  &:hover:not(:disabled) { background: #fff; }
-}
-
-.action.cancel {
-  border: 2px solid #8a1b1b;
-  background: #fff;
-  color: #8a1b1b;
-  &:hover:not(:disabled) { background: #fbeaea; }
-}
+.slot { inline-size: 100%; }
+.slot { justify-content: flex-start; text-align: start; }
 
 .slots { list-style: none; margin: 0; padding: 0; }
-
-// Subdued text-style button (keep current time / try again / back).
-.link-button {
-  padding: 0.5rem 0.75rem;
-  margin-block: 0.75rem;
-  background: transparent;
-  border: 2px solid transparent;
-  color: var(--accent-ink, #11337a);
-  text-decoration: underline;
-  &:hover { color: var(--accent, #1c5fd8); }
-}
 
 .hint { margin-block: 0.5rem; }
 .help { margin-block-start: 1.25rem; }
 
 .err {
-  color: #8a1b1b; // AA contrast on white; paired with role="alert" text (not colour alone).
+  color: var(--danger); // AA contrast; paired with role="alert" text (not colour alone).
   font-weight: 600;
   margin-block-start: 1rem;
 }
 
-// .visually-hidden is provided globally (styles.scss) — no local copy needed.
-
-// Tablet / desktop: a touch more breathing room and a two-column grid where space allows.
+// Tablet / desktop: a touch more breathing room and a two-/three-column grid where space allows.
 @media (min-width: 768px) {
   .booking { padding: 2rem 1.5rem; }
   .state-heading { font-size: 1.75rem; }
   .actions,
   .slots { grid-template-columns: repeat(2, 1fr); }
+  // The link-style buttons should not stretch to a full grid cell on wider screens.
+  .link-button { inline-size: auto; }
 }
 
 @media (min-width: 1280px) {
   .slots { grid-template-columns: repeat(3, 1fr); }
-}
-
-// Respect reduced-motion: no transitions/animations.
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

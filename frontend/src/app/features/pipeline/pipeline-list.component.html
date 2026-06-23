@@ -1,25 +1,25 @@
 <h1>{{ title }}</h1>
 
-<section class="filters">
-  <label>
+<section class="filters toolbar">
+  <label class="field">
     <span i18n="@@pipeline.filter.status">Status</span>
-    <select [(ngModel)]="status" (change)="applyFilters()">
+    <select class="input" [(ngModel)]="status" (change)="applyFilters()">
       <option value="ACTIVE" i18n="@@pipeline.status.active">Active</option>
       <option value="INCLUDE_CLOSED" i18n="@@pipeline.status.closed">Include closed</option>
     </select>
   </label>
-  <label>
+  <label class="field">
     <span i18n="@@pipeline.filter.sla">SLA</span>
-    <select [(ngModel)]="sla" (change)="applyFilters()">
+    <select class="input" [(ngModel)]="sla" (change)="applyFilters()">
       <option value="" i18n="@@pipeline.any">Any</option>
       <option value="RED">RED</option>
       <option value="AMBER">AMBER</option>
       <option value="GREEN">GREEN</option>
     </select>
   </label>
-  <label>
+  <label class="field">
     <span i18n="@@pipeline.filter.scheduling">Scheduling</span>
-    <select [(ngModel)]="scheduling" (change)="applyFilters()">
+    <select class="input" [(ngModel)]="scheduling" (change)="applyFilters()">
       <option value="" i18n="@@pipeline.any">Any</option>
       <option value="NO_LINK_SENT">No link sent</option>
       <option value="LINK_SENT">Link sent</option>
@@ -31,9 +31,9 @@
       <option value="EXPIRED">Expired</option>
     </select>
   </label>
-  <label>
+  <label class="field">
     <span i18n="@@pipeline.filter.sort">Sort</span>
-    <select [(ngModel)]="sort" (change)="applyFilters()">
+    <select class="input" [(ngModel)]="sort" (change)="applyFilters()">
       <option value="RECENT" i18n="@@pipeline.sort.recent">Most recent</option>
       <option value="SLA" i18n="@@pipeline.sort.sla">SLA</option>
       <option value="SCHEDULING" i18n="@@pipeline.sort.scheduling">Scheduling</option>
@@ -43,8 +43,8 @@
 </section>
 
 @if (canBulk()) {
-  <section class="bulk">
-    <button type="button" (click)="sendUpdateEmail()" [disabled]="selected().size === 0">{{ sendUpdate }}</button>
+  <section class="bulk toolbar">
+    <button type="button" class="btn btn--primary btn--sm" (click)="sendUpdateEmail()" [disabled]="selected().size === 0">{{ sendUpdate }}</button>
     <span>{{ selected().size }}</span>
   </section>
 }
@@ -58,15 +58,15 @@
 }
 
 @if (error()) {
-  <p class="error" role="alert">{{ errorMsg }}</p>
+  <p class="error alert alert--danger" role="alert">{{ errorMsg }}</p>
 } @else if (truncated()) {
-  <p class="truncated">{{ truncatedMsg }}</p>
+  <p class="truncated alert alert--warn">{{ truncatedMsg }}</p>
 }
 
 @if (rows().length === 0 && !loading()) {
   <p class="empty">{{ emptyMsg }}</p>
 } @else {
-  <table>
+  <table class="table">
     <thead>
       <tr>
         @if (canBulk()) { <th i18n="@@pipeline.col.select">Select</th> }
@@ -87,8 +87,10 @@
           }
           <td>{{ row.name }}</td>
           <td>{{ row.stage }}</td>
-          <td><span class="sla" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
-                    [class.green]="row.slaState === 'GREEN'">{{ row.slaState }}</span></td>
+          <td><span class="sla badge" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
+                    [class.green]="row.slaState === 'GREEN'"
+                    [class.badge--danger]="row.slaState === 'RED'" [class.badge--warn]="row.slaState === 'AMBER'"
+                    [class.badge--ok]="row.slaState === 'GREEN'">{{ row.slaState }}</span></td>
           <td>{{ row.schedulingStatus }}</td>
           <td>{{ row.requisitionTitle || '-' }}</td>
           <td><a [routerLink]="['/pipeline/candidate', row.candidateId, 'timeline']" i18n="@@pipeline.viewTimeline">View</a></td>

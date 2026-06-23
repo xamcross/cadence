@@ -38,9 +38,12 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
           </header>
 
           <nav class="launch__nav" aria-label="Sections" i18n-aria-label="@@shell.nav.label">
-            @for (group of groups(); track group.title) {
+            @for (group of groups(); track group.title; let i = $index) {
               <section class="launch__group">
-                <h2 class="launch__group-title eyebrow eyebrow--quiet">{{ group.title }}</h2>
+                <div class="launch__group-head">
+                  <h2 class="launch__group-title eyebrow eyebrow--quiet">{{ group.title }}</h2>
+                  <span class="kicker-index" aria-hidden="true">{{ idx(i + 1) }} / {{ idx(groups().length) }}</span>
+                </div>
                 <div class="launch__grid">
                   @for (item of group.items; track item.path) {
                     <a class="card launch__card" [routerLink]="item.path">
@@ -68,8 +71,10 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
     .lede { font-size: var(--step-1); margin-bottom: 0; }
 
     .launch__group { margin-bottom: var(--space-8); }
-    /* Font/size/tracking/colour come from the shared .eyebrow + .eyebrow--quiet primitives. */
-    .launch__group-title { margin-bottom: var(--space-4); }
+    /* Font/size/tracking/colour come from the shared .eyebrow + .eyebrow--quiet primitives. The
+       mono kicker-index ("01 / 05") is the section-counter signature, baseline-aligned to the title. */
+    .launch__group-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .launch__group-title { margin-bottom: 0; }
     .launch__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-4); }
 
     .launch__card {
@@ -89,6 +94,11 @@ interface NavGroup { readonly title: string; readonly items: readonly NavItem[];
     .launch__card-desc { grid-column: 1 / -1; margin-top: var(--space-1); font-size: var(--step--1); line-height: 1.45; }
     .launch__card-go { color: var(--accent); font-size: var(--step-1); line-height: 1; transition: transform 0.15s ease; }
     .launch__card:hover .launch__card-go { transform: translateX(3px); }
+    /* Reduced-motion users keep the colour/shadow change but no positional jump. */
+    @media (prefers-reduced-motion: reduce) {
+      .launch__card:hover { transform: none; }
+      .launch__card:hover .launch__card-go { transform: none; }
+    }
 
     .notice { max-width: 40rem; }
   `]
@@ -98,6 +108,11 @@ export class ShellComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly member = toSignal(this.auth.member$, { initialValue: null });
+
+  /** Zero-pad a section number for the mono "01 / 05" launchpad group counter. */
+  idx(n: number): string {
+    return String(n).padStart(2, '0');
+  }
 
   // Launchpad groups, filtered to the current member's persisted role. Mirrors app.routes.ts role gates;
   // the server + roleGuard are the real boundary (this only hides cards a role can't use).

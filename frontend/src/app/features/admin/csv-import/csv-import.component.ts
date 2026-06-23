@@ -18,10 +18,10 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
       <form class="upload" (submit)="$event.preventDefault()">
         <label for="csvFile">{{ chooseLabel }}</label>
         <input id="csvFile" type="file" accept=".csv,text/csv" (change)="onFile($event)" />
-        <button type="button" (click)="upload()" [disabled]="busy() || !file()">{{ uploadLabel }}</button>
+        <button type="button" class="btn btn--primary" (click)="upload()" [disabled]="busy() || !file()">{{ uploadLabel }}</button>
       </form>
 
-      <p class="error" *ngIf="error()">{{ error() }}</p>
+      <p class="error alert alert--danger" role="alert" *ngIf="error()">{{ error() }}</p>
 
       <article class="status" *ngIf="job() as j">
         <p><strong>{{ statusLabel }}</strong> {{ j.status }}</p>
@@ -32,21 +32,21 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
           <li>{{ rejectedLabel }} {{ j.rejectedCount }}</li>
           <li>{{ duplicateLabel }} {{ j.duplicatePendingCount }}</li>
         </ul>
-        <p *ngIf="j.rejectionReason" class="error">{{ rejectedFileLabel }} {{ j.rejectionReason }}</p>
+        <p *ngIf="j.rejectionReason" class="error alert alert--danger" role="alert">{{ rejectedFileLabel }} {{ j.rejectionReason }}</p>
 
-        <table class="rows" *ngIf="j.rowResults.length">
+        <table class="rows table" *ngIf="j.rowResults.length">
           <thead>
             <tr><th>{{ rowLabel }}</th><th>{{ outcomeLabel }}</th><th>{{ detailLabel }}</th></tr>
           </thead>
           <tbody>
             <tr *ngFor="let r of j.rowResults">
-              <td>{{ r.rowNumber }}</td>
+              <td class="num">{{ r.rowNumber }}</td>
               <td>{{ r.status }}</td>
               <td>
                 <span *ngIf="r.reason">{{ r.failingField }}: {{ r.reason }}</span>
                 <span *ngIf="r.status === 'DUPLICATE_PENDING'" class="dup-actions">
-                  <button type="button" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
-                  <button type="button" (click)="resolveRow(r.rowNumber, 'SKIP')" [disabled]="busy()">{{ skipLabel }}</button>
+                  <button type="button" class="btn btn--outline btn--sm" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="resolveRow(r.rowNumber, 'SKIP')" [disabled]="busy()">{{ skipLabel }}</button>
                 </span>
               </td>
             </tr>
@@ -54,8 +54,8 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
         </table>
 
         <div class="bulk" *ngIf="j.duplicatePendingCount > 0">
-          <button type="button" (click)="resolveAll('MERGE')" [disabled]="busy()">{{ mergeAllLabel }}</button>
-          <button type="button" (click)="resolveAll('SKIP')" [disabled]="busy()">{{ skipAllLabel }}</button>
+          <button type="button" class="btn btn--outline" (click)="resolveAll('MERGE')" [disabled]="busy()">{{ mergeAllLabel }}</button>
+          <button type="button" class="btn btn--ghost" (click)="resolveAll('SKIP')" [disabled]="busy()">{{ skipAllLabel }}</button>
         </div>
       </article>
     </section>

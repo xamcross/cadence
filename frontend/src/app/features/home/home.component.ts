@@ -39,7 +39,8 @@ import { AuthService } from '../../core/auth/auth.service';
         <p class="eyebrow eyebrow--rule" i18n="@@home.features.eyebrow">The product</p>
         <h2 id="features-h" i18n="@@home.features.title">What Cadence does</h2>
         <ul class="features__grid">
-          <li class="card feature">
+          <li class="card feature lift-card">
+            <span class="feature__num kicker-index" aria-hidden="true"></span>
             <span class="feature__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/><path d="m8.5 14.5 2.5 2.5 4.5-5"/>
@@ -48,7 +49,8 @@ import { AuthService } from '../../core/auth/auth.service';
             <h3 class="feature__title" i18n="@@home.features.scheduling.title">Self-scheduling</h3>
             <p class="muted" i18n="@@home.features.scheduling">One-link self-scheduling, rescheduling, and cancellation.</p>
           </li>
-          <li class="card feature">
+          <li class="card feature lift-card">
+            <span class="feature__num kicker-index" aria-hidden="true"></span>
             <span class="feature__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2.5 4 6v6c0 5 3.4 8.2 8 9.5 4.6-1.3 8-4.5 8-9.5V6Z"/><path d="m9 12 2.2 2.2L15.5 10"/>
@@ -57,7 +59,8 @@ import { AuthService } from '../../core/auth/auth.service';
             <h3 class="feature__title" i18n="@@home.features.noshow.title">No-show defense</h3>
             <p class="muted" i18n="@@home.features.noshow">A no-show confirmation cascade with recruiter alerts.</p>
           </li>
-          <li class="card feature">
+          <li class="card feature lift-card">
+            <span class="feature__num kicker-index" aria-hidden="true"></span>
             <span class="feature__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2.5h8l4 4V21a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 6 21Z"/><path d="M13.5 2.5V7h4.5M9 12h6M9 16h4"/>
@@ -66,7 +69,8 @@ import { AuthService } from '../../core/auth/auth.service';
             <h3 class="feature__title" i18n="@@home.features.status.title">Candidate status page</h3>
             <p class="muted" i18n="@@home.features.status">A private candidate status page — live stage, next step, and dates.</p>
           </li>
-          <li class="card feature">
+          <li class="card feature lift-card">
+            <span class="feature__num kicker-index" aria-hidden="true"></span>
             <span class="feature__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 14.5v2.5"/>
@@ -100,7 +104,7 @@ import { AuthService } from '../../core/auth/auth.service';
       background: radial-gradient(52rem 26rem at 50% -14%, var(--clay-wash), transparent 70%);
     }
     .hero__eyebrow { justify-content: center; }
-    .hero h1 { font-size: clamp(2.1rem, 7vw, var(--step-4)); margin-bottom: var(--space-5); }
+    .hero h1 { font-size: clamp(2.1rem, 7vw, var(--step-4)); letter-spacing: var(--track-hero); margin-bottom: var(--space-5); }
     .lede { font-size: var(--step-1); color: var(--ink-muted); max-width: 38rem; margin-inline: auto; margin-bottom: var(--space-8); overflow-wrap: break-word; }
     .hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center; }
 
@@ -110,9 +114,12 @@ import { AuthService } from '../../core/auth/auth.service';
     .features__grid {
       list-style: none; margin: 0; padding: 0; text-align: left;
       display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      counter-reset: feat;   /* the "01..04" feature numbering motif (decorative, aria-hidden) */
     }
-    .feature { overflow-wrap: break-word; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease; }
-    .feature:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    /* Hover lift + reduced-motion handling come from the shared .lift-card primitive. */
+    .feature { position: relative; overflow-wrap: break-word; counter-increment: feat; }
+    .feature__num { position: absolute; top: var(--space-5); inset-inline-end: var(--space-5); }
+    .feature__num::before { content: counter(feat, decimal-leading-zero); }
     .feature__icon {
       display: inline-flex; align-items: center; justify-content: center;
       width: 2.75rem; height: 2.75rem; margin-bottom: var(--space-4);

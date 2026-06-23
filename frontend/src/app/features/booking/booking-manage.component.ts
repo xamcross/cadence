@@ -60,7 +60,7 @@ type ManageState =
           <div class="actions">
             <button
               type="button"
-              class="action reschedule"
+              class="action reschedule btn btn--brand"
               (click)="startReschedule()"
               [disabled]="!view()?.canReschedule || busy()"
               [attr.aria-label]="rescheduleLabel()">
@@ -68,7 +68,7 @@ type ManageState =
             </button>
             <button
               type="button"
-              class="action cancel"
+              class="action cancel btn btn--danger-soft"
               (click)="goToCancel()"
               [disabled]="!view()?.canCancel || busy()"
               [attr.aria-label]="cancelLabel()">
@@ -98,7 +98,7 @@ type ManageState =
             <li *ngFor="let s of slots()">
               <button
                 type="button"
-                class="slot"
+                class="slot btn btn--outline"
                 (click)="confirmReschedule(s)"
                 [disabled]="busy()"
                 [attr.aria-label]="slotLabel(s)">
@@ -106,7 +106,7 @@ type ManageState =
               </button>
             </li>
           </ul>
-          <button type="button" class="link-button" (click)="reload()" i18n="@@booking.reschedule.keep">
+          <button type="button" class="link-button btn btn--link" (click)="reload()" i18n="@@booking.reschedule.keep">
             Keep my current time
           </button>
         </section>
@@ -121,7 +121,7 @@ type ManageState =
           <p i18n="@@booking.reschedule.empty.body">
             There are no alternative times available right now, so your current interview time stays booked. Your recruiter will follow up with new options.
           </p>
-          <button type="button" class="link-button" (click)="reload()" i18n="@@booking.reschedule.back">
+          <button type="button" class="link-button btn btn--link" (click)="reload()" i18n="@@booking.reschedule.back">
             Back to my booking
           </button>
           <ng-container *ngTemplateOutlet="help"></ng-container>
@@ -159,7 +159,7 @@ type ManageState =
 
         <section *ngSwitchCase="'retryable_error'">
           <p i18n="@@booking.retry.body">We couldn't load your interview details.</p>
-          <button type="button" class="link-button" (click)="reload(true)" i18n="@@booking.retry.action">Try again</button>
+          <button type="button" class="link-button btn btn--link" (click)="reload(true)" i18n="@@booking.retry.action">Try again</button>
           <ng-container *ngTemplateOutlet="help"></ng-container>
         </section>
       </ng-container>

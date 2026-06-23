@@ -15,40 +15,56 @@ import { WorkspaceConfig, WorkspaceService } from './workspace.service';
   template: `
     <main class="settings">
       <h1 i18n="@@workspace.settings.title">Workspace settings</h1>
-      @if (message()) { <p class="ok" role="status">{{ message() }}</p> }
-      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      @if (message()) { <p class="ok alert alert--ok" role="status">{{ message() }}</p> }
+      @if (error()) { <p class="error alert alert--danger" role="alert">{{ error() }}</p> }
 
       <section>
         <h2 i18n="@@workspace.settings.operational">Operational</h2>
         <form [formGroup]="ops" (ngSubmit)="saveOps()">
-          <label for="name" i18n="@@workspace.settings.name">Name</label>
-          <input id="name" type="text" formControlName="name" />
-          <label for="tz" i18n="@@workspace.settings.tz">Time zone</label>
-          <input id="tz" type="text" formControlName="timeZone" />
-          <label for="start" i18n="@@workspace.settings.start">Working hours start</label>
-          <input id="start" type="time" formControlName="start" />
-          <label for="end" i18n="@@workspace.settings.end">Working hours end</label>
-          <input id="end" type="time" formControlName="end" />
-          <label for="sla" i18n="@@workspace.settings.sla">SLA silence window (days)</label>
-          <input id="sla" type="number" formControlName="slaSilenceWindowDays" min="1" max="30" />
-          <label for="ret" i18n="@@workspace.settings.retention">Data-retention period (days)</label>
-          <input id="ret" type="number" formControlName="retentionPeriodDays" min="30" max="3650" />
-          <button type="submit" i18n="@@workspace.settings.save">Save</button>
+          <div class="field">
+            <label for="name" i18n="@@workspace.settings.name">Name</label>
+            <input class="input" id="name" type="text" formControlName="name" />
+          </div>
+          <div class="field">
+            <label for="tz" i18n="@@workspace.settings.tz">Time zone</label>
+            <input class="input" id="tz" type="text" formControlName="timeZone" />
+          </div>
+          <div class="field">
+            <label for="start" i18n="@@workspace.settings.start">Working hours start</label>
+            <input class="input" id="start" type="time" formControlName="start" />
+          </div>
+          <div class="field">
+            <label for="end" i18n="@@workspace.settings.end">Working hours end</label>
+            <input class="input" id="end" type="time" formControlName="end" />
+          </div>
+          <div class="field">
+            <label for="sla" i18n="@@workspace.settings.sla">SLA silence window (days)</label>
+            <input class="input" id="sla" type="number" formControlName="slaSilenceWindowDays" min="1" max="30" />
+          </div>
+          <div class="field">
+            <label for="ret" i18n="@@workspace.settings.retention">Data-retention period (days)</label>
+            <input class="input" id="ret" type="number" formControlName="retentionPeriodDays" min="30" max="3650" />
+          </div>
+          <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.save">Save</button>
         </form>
       </section>
 
       <section>
         <h2 i18n="@@workspace.settings.branding">Branding</h2>
         <form [formGroup]="branding" (ngSubmit)="saveBranding()">
-          <label for="color" i18n="@@workspace.settings.color">Brand colour (#RRGGBB)</label>
-          <input id="color" type="text" formControlName="brandColor" placeholder="#1F2937" />
-          <button type="submit" i18n="@@workspace.settings.saveColor">Save colour</button>
+          <div class="field">
+            <label for="color" i18n="@@workspace.settings.color">Brand colour (#RRGGBB)</label>
+            <input class="input" id="color" type="text" formControlName="brandColor" placeholder="#1F2937" />
+          </div>
+          <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.saveColor">Save colour</button>
         </form>
-        <label for="logo" i18n="@@workspace.settings.logo">Logo (PNG or JPEG, max 1 MB)</label>
-        <input id="logo" type="file" accept="image/png,image/jpeg" (change)="onLogo($event)"
-               aria-describedby="logo-err" />
+        <div class="field">
+          <label for="logo" i18n="@@workspace.settings.logo">Logo (PNG or JPEG, max 1 MB)</label>
+          <input id="logo" type="file" accept="image/png,image/jpeg" (change)="onLogo($event)"
+                 aria-describedby="logo-err" />
+        </div>
         <span id="logo-err" class="field-error" role="alert">{{ logoError() }}</span>
-        <button type="button" (click)="removeLogo()" i18n="@@workspace.settings.removeLogo">Remove logo</button>
+        <button type="button" class="btn btn--danger-soft" (click)="removeLogo()" i18n="@@workspace.settings.removeLogo">Remove logo</button>
       </section>
 
       <section>
@@ -59,13 +75,17 @@ import { WorkspaceConfig, WorkspaceService } from './workspace.service';
           <p i18n="@@workspace.settings.credNotSet">Provider credential: not set</p>
         }
         <form [formGroup]="email" (ngSubmit)="saveEmail()">
-          <label for="domain" i18n="@@workspace.settings.domain">Sending domain</label>
-          <input id="domain" type="text" formControlName="sendingDomain" placeholder="careers.example.com" />
-          <label for="cred" i18n="@@workspace.settings.cred">Provider credential (write-only)</label>
-          <input id="cred" type="password" formControlName="credential" autocomplete="off" />
-          <button type="submit" i18n="@@workspace.settings.saveEmail">Save email config</button>
+          <div class="field">
+            <label for="domain" i18n="@@workspace.settings.domain">Sending domain</label>
+            <input class="input" id="domain" type="text" formControlName="sendingDomain" placeholder="careers.example.com" />
+          </div>
+          <div class="field">
+            <label for="cred" i18n="@@workspace.settings.cred">Provider credential (write-only)</label>
+            <input class="input" id="cred" type="password" formControlName="credential" autocomplete="off" />
+          </div>
+          <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.saveEmail">Save email config</button>
         </form>
-        <button type="button" (click)="removeCredential()" i18n="@@workspace.settings.removeCred">Remove credential</button>
+        <button type="button" class="btn btn--danger-soft" (click)="removeCredential()" i18n="@@workspace.settings.removeCred">Remove credential</button>
       </section>
 
       <section>
@@ -73,27 +93,27 @@ import { WorkspaceConfig, WorkspaceService } from './workspace.service';
         @for (k of templateKeys(); track k) {
           <div class="lock-row">
             <span>{{ k }}</span>
-            <button type="button" (click)="toggleLock(k)">
+            <button type="button" class="btn btn--ghost btn--sm" (click)="toggleLock(k)">
               {{ config()?.templateLocks?.[k] ? unlockLabel : lockLabel }}
             </button>
           </div>
         }
         <form [formGroup]="lockForm" (ngSubmit)="addLock()">
-          <label for="tkey" i18n="@@workspace.settings.templateKey">Template key</label>
-          <input id="tkey" type="text" formControlName="key" />
-          <button type="submit" i18n="@@workspace.settings.lock">Lock</button>
+          <div class="field">
+            <label for="tkey" i18n="@@workspace.settings.templateKey">Template key</label>
+            <input class="input" id="tkey" type="text" formControlName="key" />
+          </div>
+          <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.lock">Lock</button>
         </form>
       </section>
     </main>
   `,
   styles: [`
-    .settings { max-width: 640px; margin: 1.5rem auto; padding: 0 1rem; }
-    section { margin-top: 2rem; border-top: 1px solid var(--line); padding-top: 1rem; }
-    label { display: block; margin-top: 0.75rem; font-weight: 600; }
-    input[type=text], input[type=number], input[type=time], input[type=password] { width: 100%; min-height: 44px; box-sizing: border-box; }
-    .lock-row { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0; }
-    button { min-height: 44px; margin-top: 1rem; }
-    .ok { color: var(--ok); } .error, .field-error { color: var(--danger); display: block; }
+    .settings { max-width: 640px; margin: var(--space-6) auto; padding: 0 var(--space-4); }
+    section { margin-top: var(--space-8); border-top: 1px solid var(--line); padding-top: var(--space-4); }
+    .lock-row { display: flex; gap: var(--space-4); align-items: center; margin: var(--space-2) 0; }
+    .ok, .error { margin-bottom: var(--space-4); }
+    .field-error { color: var(--danger); display: block; }
   `]
 })
 export class WorkspaceSettingsComponent implements OnInit {

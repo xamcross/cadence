@@ -20,7 +20,7 @@ import {
     <h1 i18n="@@tmpl.title">Interview templates</h1>
 
     @if (error(); as e) {
-      <p role="alert" class="error">{{ e }}</p>
+      <p role="alert" class="error alert alert--danger">{{ e }}</p>
     }
 
     <section class="list">
@@ -33,9 +33,9 @@ import {
           <li class="row">
             <span class="name">{{ t.name }}</span>
             <span class="meta" i18n="@@tmpl.list.meta">{{ t.durationMinutes }} min, max {{ t.dailyCapPerInterviewer }}/day</span>
-            <button type="button" (click)="edit(t)" i18n="@@tmpl.list.edit">Edit</button>
-            <button type="button" (click)="retire(t)" i18n="@@tmpl.list.retire">Retire</button>
-            <button type="button" (click)="preview(t)" i18n="@@tmpl.list.preview">Preview slots</button>
+            <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" i18n="@@tmpl.list.edit">Edit</button>
+            <button type="button" class="btn btn--danger-soft btn--sm" (click)="retire(t)" i18n="@@tmpl.list.retire">Retire</button>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@tmpl.list.preview">Preview slots</button>
           </li>
         }
       </ul>
@@ -44,17 +44,19 @@ import {
     <section class="form">
       <h2>{{ editingId() ? editTitle : newTitle }}</h2>
       <form (ngSubmit)="submit()">
-        <label i18n="@@tmpl.form.name">Name <input name="name" [(ngModel)]="name" required /></label>
-        <label i18n="@@tmpl.form.duration">Duration (min) <input name="duration" type="number" [(ngModel)]="durationMinutes" required /></label>
-        <label i18n="@@tmpl.form.cadence">Slot cadence (min) <input name="cadence" type="number" [(ngModel)]="slotCadenceMinutes" /></label>
-        <label i18n="@@tmpl.form.bufferBefore">Buffer before (min) <input name="bb" type="number" [(ngModel)]="bufferBeforeMinutes" /></label>
-        <label i18n="@@tmpl.form.bufferAfter">Buffer after (min) <input name="ba" type="number" [(ngModel)]="bufferAfterMinutes" /></label>
-        <label i18n="@@tmpl.form.cap">Daily cap per interviewer <input name="cap" type="number" [(ngModel)]="dailyCapPerInterviewer" required /></label>
-        <label i18n="@@tmpl.form.required">Required member IDs (comma-separated) <input name="req" [(ngModel)]="requiredCsv" /></label>
-        <button type="submit" [disabled]="saving()">{{ editingId() ? saveEdit : saveNew }}</button>
-        @if (editingId()) {
-          <button type="button" (click)="resetForm()" i18n="@@tmpl.form.cancel">Cancel</button>
-        }
+        <label class="field" i18n="@@tmpl.form.name">Name <input class="input" name="name" [(ngModel)]="name" required /></label>
+        <label class="field" i18n="@@tmpl.form.duration">Duration (min) <input class="input" name="duration" type="number" [(ngModel)]="durationMinutes" required /></label>
+        <label class="field" i18n="@@tmpl.form.cadence">Slot cadence (min) <input class="input" name="cadence" type="number" [(ngModel)]="slotCadenceMinutes" /></label>
+        <label class="field" i18n="@@tmpl.form.bufferBefore">Buffer before (min) <input class="input" name="bb" type="number" [(ngModel)]="bufferBeforeMinutes" /></label>
+        <label class="field" i18n="@@tmpl.form.bufferAfter">Buffer after (min) <input class="input" name="ba" type="number" [(ngModel)]="bufferAfterMinutes" /></label>
+        <label class="field" i18n="@@tmpl.form.cap">Daily cap per interviewer <input class="input" name="cap" type="number" [(ngModel)]="dailyCapPerInterviewer" required /></label>
+        <label class="field" i18n="@@tmpl.form.required">Required member IDs (comma-separated) <input class="input" name="req" [(ngModel)]="requiredCsv" /></label>
+        <div class="actions">
+          <button type="submit" class="btn btn--primary" [disabled]="saving()">{{ editingId() ? saveEdit : saveNew }}</button>
+          @if (editingId()) {
+            <button type="button" class="btn btn--link" (click)="resetForm()" i18n="@@tmpl.form.cancel">Cancel</button>
+          }
+        </div>
       </form>
     </section>
 
@@ -82,11 +84,10 @@ import {
     }
   `,
   styles: [`
-    .row { display: flex; align-items: center; gap: 1rem; padding: 0.4rem 0; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); padding: var(--space-1) 0; }
     .name { font-weight: 600; min-width: 10rem; }
-    form { display: flex; flex-direction: column; gap: 0.5rem; max-width: 28rem; }
-    button { min-height: 44px; }
-    .error { color: var(--danger); }
+    form { display: flex; flex-direction: column; gap: var(--space-2); max-width: 28rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   `]
 })
 export class InterviewTemplatesComponent implements OnInit {

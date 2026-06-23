@@ -15,9 +15,9 @@ import { Role } from '../../../core/auth/auth.models';
     <main class="members">
       <h1 i18n="@@members.title">Workspace members</h1>
       @if (error) {
-        <p class="error" role="alert">{{ error }}</p>
+        <p class="error alert alert--danger" role="alert">{{ error }}</p>
       }
-      <table>
+      <table class="table">
         <thead>
           <tr>
             <th i18n="@@members.name">Name</th>
@@ -30,7 +30,7 @@ import { Role } from '../../../core/auth/auth.models';
             <tr>
               <td>{{ m.displayName }}</td>
               <td>
-                <select [ngModel]="m.role" (ngModelChange)="onRoleChange(m, $event)" [attr.aria-label]="m.displayName">
+                <select class="input" [ngModel]="m.role" (ngModelChange)="onRoleChange(m, $event)" [attr.aria-label]="m.displayName">
                   @for (r of roles; track r) {
                     <option [value]="r">{{ r }}</option>
                   }
@@ -44,11 +44,8 @@ import { Role } from '../../../core/auth/auth.models';
     </main>
   `,
   styles: [`
-    .members { padding: 1rem; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--line); }
-    select { min-height: 44px; }
-    .error { color: var(--danger); }
+    .members { padding: var(--space-4); }
+    .error { margin-bottom: var(--space-4); }
   `]
 })
 export class MembersComponent implements OnInit {

@@ -50,7 +50,7 @@ type ScheduleState =
             <li *ngFor="let s of slots()">
               <button
                 type="button"
-                class="slot"
+                class="slot btn btn--outline"
                 (click)="confirm(s)"
                 [disabled]="busy()"
                 [attr.aria-label]="slotLabel(s)">
@@ -91,7 +91,7 @@ type ScheduleState =
 
         <section *ngSwitchCase="'retryable_error'">
           <p i18n="@@schedule.retry.body">We couldn't load your interview times.</p>
-          <button type="button" class="retry" (click)="reload(true)" i18n="@@schedule.retry.action">Try again</button>
+          <button type="button" class="retry btn btn--outline" (click)="reload(true)" i18n="@@schedule.retry.action">Try again</button>
           <ng-container *ngTemplateOutlet="help"></ng-container>
         </section>
       </ng-container>

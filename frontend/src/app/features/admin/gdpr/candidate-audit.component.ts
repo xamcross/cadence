@@ -10,15 +10,17 @@ import { GdprService, AuditEntry } from './gdpr.service';
   template: `
     <section class="gdpr">
       <h1 i18n="@@gdpr.audit.title">Candidate audit log</h1>
-      <label for="audit-cid" i18n="@@gdpr.audit.candidateId">Candidate ID</label>
-      <input id="audit-cid" name="cid" [(ngModel)]="candidateId" />
-      <button type="button" (click)="load()" i18n="@@gdpr.audit.load">Load log</button>
+      <div class="field">
+        <label for="audit-cid" class="field__label" i18n="@@gdpr.audit.candidateId">Candidate ID</label>
+        <input id="audit-cid" name="cid" class="input" [(ngModel)]="candidateId" />
+      </div>
+      <button type="button" class="btn btn--primary" (click)="load()" i18n="@@gdpr.audit.load">Load log</button>
 
       @if (loaded()) {
         @if (entries().length === 0) {
-          <p i18n="@@gdpr.audit.empty">No audit entries for this candidate.</p>
+          <p class="empty" i18n="@@gdpr.audit.empty">No audit entries for this candidate.</p>
         } @else {
-          <table>
+          <table class="table">
             <thead>
               <tr>
                 <th i18n="@@gdpr.audit.when">When</th>
@@ -41,16 +43,14 @@ import { GdprService, AuditEntry } from './gdpr.service';
         }
       }
       @if (error()) {
-        <p role="alert" class="msg">{{ error() }}</p>
+        <p role="alert" class="alert alert--danger msg">{{ error() }}</p>
       }
     </section>
   `,
   styles: [`
-    .gdpr { padding: 1rem; }
-    button, input { min-height: 44px; }
-    table { margin-top: 1rem; border-collapse: collapse; }
-    th, td { border: 1px solid var(--line); padding: 0.25rem 0.5rem; text-align: left; }
-    .msg { color: var(--danger); }
+    .gdpr { padding: var(--space-4); }
+    .table { margin-top: var(--space-4); }
+    .msg { margin-top: var(--space-4); }
   `]
 })
 export class CandidateAuditComponent {

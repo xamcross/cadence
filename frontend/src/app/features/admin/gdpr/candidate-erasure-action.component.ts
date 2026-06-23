@@ -14,44 +14,45 @@ import { GdprService } from './gdpr.service';
   template: `
     <section class="gdpr">
       <h1 i18n="@@gdpr.action.title">Candidate data actions</h1>
-      <label for="erase-cid" i18n="@@gdpr.action.candidateId">Candidate ID</label>
-      <input id="erase-cid" name="cid" [(ngModel)]="candidateId" />
+      <div class="field">
+        <label for="erase-cid" class="field__label" i18n="@@gdpr.action.candidateId">Candidate ID</label>
+        <input id="erase-cid" name="cid" class="input" [(ngModel)]="candidateId" />
+      </div>
 
       <fieldset>
         <legend i18n="@@gdpr.basis.legend">Lawful basis (email)</legend>
-        <select name="basis" [(ngModel)]="basis" aria-label="Lawful basis" i18n-aria-label="@@gdpr.basis.aria">
+        <select name="basis" class="input" [(ngModel)]="basis" aria-label="Lawful basis" i18n-aria-label="@@gdpr.basis.aria">
           <option value="LEGITIMATE_INTEREST" i18n="@@gdpr.basis.li">Legitimate interest</option>
           <option value="CONSENT" i18n="@@gdpr.basis.consent">Consent</option>
           <option value="CONTRACT" i18n="@@gdpr.basis.contract">Contract</option>
         </select>
-        <button type="button" (click)="recordBasis()" i18n="@@gdpr.basis.record">Record basis</button>
-        <button type="button" (click)="withdrawBasis()" i18n="@@gdpr.basis.withdraw">Withdraw basis</button>
+        <button type="button" class="btn btn--primary" (click)="recordBasis()" i18n="@@gdpr.basis.record">Record basis</button>
+        <button type="button" class="btn btn--ghost" (click)="withdrawBasis()" i18n="@@gdpr.basis.withdraw">Withdraw basis</button>
       </fieldset>
 
       <fieldset>
         <legend i18n="@@gdpr.erase.legend">Erase personal data</legend>
         @if (!confirming()) {
-          <button type="button" class="danger" (click)="confirming.set(true)" i18n="@@gdpr.erase.start">
+          <button type="button" class="danger btn btn--danger-soft" (click)="confirming.set(true)" i18n="@@gdpr.erase.start">
             Erase candidate data
           </button>
         } @else {
           <p i18n="@@gdpr.erase.confirmPrompt">This permanently erases the candidate's personal data. Continue?</p>
-          <button type="button" class="danger" (click)="erase()" i18n="@@gdpr.erase.confirm">Confirm erasure</button>
-          <button type="button" (click)="confirming.set(false)" i18n="@@gdpr.erase.cancel">Cancel</button>
+          <button type="button" class="danger btn btn--danger" (click)="erase()" i18n="@@gdpr.erase.confirm">Confirm erasure</button>
+          <button type="button" class="btn btn--ghost" (click)="confirming.set(false)" i18n="@@gdpr.erase.cancel">Cancel</button>
         }
       </fieldset>
 
       @if (message()) {
-        <p role="alert" class="msg">{{ message() }}</p>
+        <p role="alert" class="alert alert--accent msg">{{ message() }}</p>
       }
     </section>
   `,
   styles: [`
-    .gdpr { padding: 1rem; max-width: 32rem; }
-    button { min-height: 44px; margin-right: 0.5rem; }
-    .danger { color: var(--danger); }
-    .msg { margin-top: 1rem; }
-    input, select { min-height: 44px; }
+    .gdpr { padding: var(--space-4); max-width: 32rem; }
+    fieldset { margin-bottom: var(--space-4); }
+    button { margin-right: var(--space-2); }
+    .msg { margin-top: var(--space-4); }
   `]
 })
 export class CandidateErasureActionComponent {

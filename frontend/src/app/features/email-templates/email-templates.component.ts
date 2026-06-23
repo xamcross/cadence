@@ -17,7 +17,7 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
     <h1 i18n="@@et.title">Email templates</h1>
 
     @if (error(); as e) {
-      <p role="alert" class="error">{{ e }}</p>
+      <p role="alert" class="error alert alert--danger">{{ e }}</p>
     }
 
     <section class="list">
@@ -29,14 +29,14 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
           <li class="row">
             <span class="type">{{ t.messageType }}</span>
             <span class="source">{{ t.source }}</span>
-            @if (t.locked) { <span class="locked" i18n="@@et.locked">Locked</span> }
-            <button type="button" (click)="edit(t)" [disabled]="!canEdit(t)" i18n="@@et.edit">Edit</button>
-            <button type="button" (click)="preview(t)" i18n="@@et.preview">Preview</button>
+            @if (t.locked) { <span class="locked badge badge--danger" i18n="@@et.locked">Locked</span> }
+            <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" [disabled]="!canEdit(t)" i18n="@@et.edit">Edit</button>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@et.preview">Preview</button>
             @if (isAdmin) {
               @if (t.locked) {
-                <button type="button" (click)="setLock(t, false)" i18n="@@et.unlock">Unlock</button>
+                <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, false)" i18n="@@et.unlock">Unlock</button>
               } @else {
-                <button type="button" (click)="setLock(t, true)" i18n="@@et.lockbtn">Lock</button>
+                <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, true)" i18n="@@et.lockbtn">Lock</button>
               }
             }
           </li>
@@ -48,13 +48,15 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
       <section class="form">
         <h2 i18n="@@et.editing">Editing {{ t.messageType }}</h2>
         <form (ngSubmit)="save()">
-          <label i18n="@@et.subject">Subject <input name="subject" [(ngModel)]="subject" required /></label>
-          <label i18n="@@et.body">Body <textarea name="body" [(ngModel)]="body" required></textarea></label>
+          <label class="field" i18n="@@et.subject">Subject <input class="input" name="subject" [(ngModel)]="subject" required /></label>
+          <label class="field" i18n="@@et.body">Body <textarea class="input" name="body" [(ngModel)]="body" required></textarea></label>
           <p class="tokens" i18n="@@et.tokens">Available tokens: {{ t.permittedTokens.join(', ') }}</p>
-          <button type="submit" [disabled]="saving()" i18n="@@et.save">Save</button>
-          <button type="button" (click)="applyTone(t, 'FORMAL')" i18n="@@et.tone">Apply formal tone</button>
-          <button type="button" (click)="reset(t)" i18n="@@et.reset">Reset to default</button>
-          <button type="button" (click)="cancel()" i18n="@@et.cancel">Cancel</button>
+          <div class="actions">
+            <button type="submit" class="btn btn--primary" [disabled]="saving()" i18n="@@et.save">Save</button>
+            <button type="button" class="btn btn--ghost" (click)="applyTone(t, 'FORMAL')" i18n="@@et.tone">Apply formal tone</button>
+            <button type="button" class="btn btn--ghost" (click)="reset(t)" i18n="@@et.reset">Reset to default</button>
+            <button type="button" class="btn btn--link" (click)="cancel()" i18n="@@et.cancel">Cancel</button>
+          </div>
         </form>
       </section>
     }
@@ -65,7 +67,7 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
         <p class="psubject"><strong i18n="@@et.psubject">Subject:</strong> {{ r.subject }}</p>
         <pre class="pbody">{{ r.bodyText }}</pre>
         @if (r.missingFields.length > 0) {
-          <p role="alert" class="warning" i18n="@@et.missing">
+          <p role="alert" class="warning alert alert--warn" i18n="@@et.missing">
             Some fields had no value: {{ r.missingFields.join(', ') }}
           </p>
         }
@@ -73,16 +75,16 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
         @if (previewing(); as p) {
           <div class="send">
             <h3 i18n="@@et.sendTitle">Send to candidate</h3>
-            <label i18n="@@et.candidateId">
-              Candidate ID <input name="sendCandidateId" [(ngModel)]="sendCandidateId" />
+            <label class="field" i18n="@@et.candidateId">
+              Candidate ID <input class="input" name="sendCandidateId" [(ngModel)]="sendCandidateId" />
             </label>
-            <button type="button" (click)="send(p)" [disabled]="sending() || !sendCandidateId.trim()"
+            <button type="button" class="btn btn--primary" (click)="send(p)" [disabled]="sending() || !sendCandidateId.trim()"
                     i18n="@@et.sendbtn">Send to candidate</button>
             @if (sendStatus(); as s) {
-              <p role="status" class="sent" i18n="@@et.sendok">Email {{ s }} for candidate.</p>
+              <p role="status" class="sent alert alert--ok" i18n="@@et.sendok">Email {{ s }} for candidate.</p>
             }
             @if (sendError(); as se) {
-              <p role="alert" class="error">{{ se }}</p>
+              <p role="alert" class="error alert alert--danger">{{ se }}</p>
             }
           </div>
         }
@@ -90,9 +92,10 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
     }
   `,
   styles: [
-    `.error { color: var(--danger); } .warning { color: var(--warn); } .locked { color: var(--danger); font-weight: 600; }
-     .sent { color: var(--ok); } .send { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .75rem; }
-     .row { display: flex; gap: .75rem; align-items: center; } .tokens { font-size: .85rem; color: var(--ink-faint); }`
+    `.send { margin-top: var(--space-4); border-top: 1px solid var(--line); padding-top: var(--space-3); }
+     .row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+     .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+     .tokens { font-size: 0.85rem; color: var(--ink-faint); }`
   ]
 })
 export class EmailTemplatesComponent implements OnInit {

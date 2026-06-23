@@ -26,46 +26,46 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
       <h1 i18n="@@scheduling.title">Send scheduling link</h1>
 
       <form (ngSubmit)="send()" #f="ngForm">
-        <label i18n="@@scheduling.candidate">Candidate ID
-          <input name="candidateId" [(ngModel)]="candidateId" required />
+        <label class="field" i18n="@@scheduling.candidate">Candidate ID
+          <input class="input" name="candidateId" [(ngModel)]="candidateId" required />
         </label>
-        <label i18n="@@scheduling.template">Interview template ID
-          <input name="templateId" [(ngModel)]="templateId" required />
+        <label class="field" i18n="@@scheduling.template">Interview template ID
+          <input class="input" name="templateId" [(ngModel)]="templateId" required />
         </label>
-        <label i18n="@@scheduling.location">Location / dial-in (optional)
-          <input name="locationText" [(ngModel)]="locationText" />
+        <label class="field" i18n="@@scheduling.location">Location / dial-in (optional)
+          <input class="input" name="locationText" [(ngModel)]="locationText" />
         </label>
-        <label i18n="@@scheduling.rangeStart">From (optional)
-          <input name="rangeStart" type="date" [(ngModel)]="rangeStart" />
+        <label class="field" i18n="@@scheduling.rangeStart">From (optional)
+          <input class="input" name="rangeStart" type="date" [(ngModel)]="rangeStart" />
         </label>
-        <label i18n="@@scheduling.rangeEnd">To (optional)
-          <input name="rangeEnd" type="date" [(ngModel)]="rangeEnd" />
+        <label class="field" i18n="@@scheduling.rangeEnd">To (optional)
+          <input class="input" name="rangeEnd" type="date" [(ngModel)]="rangeEnd" />
         </label>
-        <button type="submit" [disabled]="busy() || !candidateId || !templateId"
+        <button type="submit" class="btn btn--primary" [disabled]="busy() || !candidateId || !templateId"
                 i18n="@@scheduling.send">Send scheduling link</button>
       </form>
 
-      <p class="ok" *ngIf="result() as r" i18n="@@scheduling.sent">
+      <p class="ok alert alert--ok" *ngIf="result() as r" i18n="@@scheduling.sent">
         Link sent — {{ r.offeredSlotCount }} slots offered, expires {{ r.expiresAt }}.
       </p>
-      <p class="err" *ngIf="error()">{{ error() }}</p>
+      <p class="err alert alert--danger" *ngIf="error()">{{ error() }}</p>
 
-      <div class="status" *ngIf="candidateId">
-        <button type="button" (click)="refreshStatus()" i18n="@@scheduling.refresh">Refresh status</button>
-        <span class="chip" *ngIf="statusView() as s">{{ statusLabel(s) }}</span>
+      <div class="status toolbar" *ngIf="candidateId">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="refreshStatus()" i18n="@@scheduling.refresh">Refresh status</button>
+        <span class="chip badge badge--accent" *ngIf="statusView() as s">{{ statusLabel(s) }}</span>
         <ng-container *ngIf="statusView() as s">
           <!-- F23: confirmation-cascade indicator — only meaningful while there is a live BOOKED interview. -->
-          <span class="chip confirmation" *ngIf="canManage(s)">{{ confirmationLabel(s) }}</span>
-          <button type="button" *ngIf="canManage(s)" [disabled]="busy()" (click)="reschedule()"
+          <span class="chip confirmation badge" *ngIf="canManage(s)">{{ confirmationLabel(s) }}</span>
+          <button type="button" class="btn btn--outline btn--sm" *ngIf="canManage(s)" [disabled]="busy()" (click)="reschedule()"
                   i18n="@@scheduling.reschedule">Reschedule</button>
-          <button type="button" *ngIf="canManage(s)" [disabled]="busy()" (click)="cancel()"
+          <button type="button" class="btn btn--danger-soft btn--sm" *ngIf="canManage(s)" [disabled]="busy()" (click)="cancel()"
                   i18n="@@scheduling.cancel">Cancel interview</button>
           <!-- F23: one-tap release of an unconfirmed slot — emphasised once the interview has escalated. -->
-          <button type="button" *ngIf="canManage(s)" [disabled]="busy()" (click)="release()"
+          <button type="button" class="btn btn--ghost btn--sm" *ngIf="canManage(s)" [disabled]="busy()" (click)="release()"
                   i18n="@@scheduling.release">Release slot</button>
         </ng-container>
       </div>
-      <p class="ok" *ngIf="manageMsg()" role="status">{{ manageMsg() }}</p>
+      <p class="ok alert alert--ok" *ngIf="manageMsg()" role="status">{{ manageMsg() }}</p>
 
       <!-- F30: candidate Status panel (US2). Recruiter/Admin publishes the honest status the candidate sees
            on /status, mirroring the server validation (in-progress requires stage + next step + date;
@@ -73,45 +73,45 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
       <div class="status-panel" *ngIf="candidateId">
         <h2 i18n="@@status.panel.title">Candidate status</h2>
 
-        <label>
+        <label class="field">
           <span i18n="@@status.panel.outcome">Outcome</span>
-          <select name="statusOutcome" [(ngModel)]="statusOutcome">
+          <select class="input" name="statusOutcome" [(ngModel)]="statusOutcome">
             <option value="IN_PROGRESS" i18n="@@status.panel.outcome.inProgress">In progress</option>
             <option value="COMPLETE_OFFER" i18n="@@status.panel.outcome.offer">Offer</option>
             <option value="COMPLETE_REJECTED" i18n="@@status.panel.outcome.rejected">Not progressing</option>
           </select>
         </label>
 
-        <label *ngIf="statusOutcome === 'IN_PROGRESS'">
+        <label class="field" *ngIf="statusOutcome === 'IN_PROGRESS'">
           <span i18n="@@status.panel.stage">Current stage</span>
-          <input name="statusStage" [(ngModel)]="statusStage" />
+          <input class="input" name="statusStage" [(ngModel)]="statusStage" />
         </label>
 
-        <label>
+        <label class="field">
           <span i18n="@@status.panel.next">What happens next</span>
-          <textarea name="statusNextStep" [(ngModel)]="statusNextStep" rows="2"></textarea>
+          <textarea class="input" name="statusNextStep" [(ngModel)]="statusNextStep" rows="2"></textarea>
         </label>
 
-        <label *ngIf="statusOutcome === 'IN_PROGRESS'">
+        <label class="field" *ngIf="statusOutcome === 'IN_PROGRESS'">
           <span i18n="@@status.panel.date">Expected by</span>
-          <input name="statusExpectedDate" type="date" [(ngModel)]="statusExpectedDate" />
+          <input class="input" name="statusExpectedDate" type="date" [(ngModel)]="statusExpectedDate" />
         </label>
 
-        <button type="button" class="status-publish" [disabled]="busy() || !statusValid()"
+        <button type="button" class="status-publish btn btn--primary" [disabled]="busy() || !statusValid()"
                 (click)="publishStatus()" i18n="@@status.panel.publish">Publish status</button>
 
-        <p class="err" *ngIf="!statusValid() && statusTouched()" role="status" i18n="@@status.panel.invalid">
+        <p class="err alert alert--danger" *ngIf="!statusValid() && statusTouched()" role="status" i18n="@@status.panel.invalid">
           An in-progress status needs a stage, a next step, and an expected date. A concluded status needs a closing message.
         </p>
-        <p class="ok" *ngIf="statusMsg()" role="status">{{ statusMsg() }}</p>
+        <p class="ok alert alert--ok" *ngIf="statusMsg()" role="status">{{ statusMsg() }}</p>
 
-        <div class="status-link" *ngIf="statusLink()">
+        <div class="status-link toolbar" *ngIf="statusLink()">
           <span class="link-value">{{ statusLink() }}</span>
-          <button type="button" (click)="copyStatusLink()" i18n="@@status.panel.copy">Copy status link</button>
-          <button type="button" [disabled]="busy()" (click)="rotateStatusLink()"
+          <button type="button" class="btn btn--ghost btn--sm" (click)="copyStatusLink()" i18n="@@status.panel.copy">Copy status link</button>
+          <button type="button" class="btn btn--outline btn--sm" [disabled]="busy()" (click)="rotateStatusLink()"
                   i18n="@@status.panel.rotate">Rotate link</button>
         </div>
-        <button type="button" *ngIf="!statusLink()" (click)="loadStatus()"
+        <button type="button" class="btn btn--ghost btn--sm" *ngIf="!statusLink()" (click)="loadStatus()"
                 i18n="@@status.panel.load">Load status</button>
       </div>
 
@@ -120,29 +120,31 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
            Internal screen (Lighthouse/WCAG N/A — F50/F51 precedent). No auto-send. -->
       <div class="sla-nudge-panel" *ngIf="candidateId">
         <h2 i18n="@@sla.panel.title">Communication SLA</h2>
-        <button type="button" (click)="loadSla()" i18n="@@sla.panel.load">Check SLA status</button>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="loadSla()" i18n="@@sla.panel.load">Check SLA status</button>
         <ng-container *ngIf="sla() as s">
-          <span class="sla-badge" [class.green]="s.slaState === 'GREEN'" [class.amber]="s.slaState === 'AMBER'"
-                [class.red]="s.slaState === 'RED'">{{ slaLabel(s.slaState) }}</span>
+          <span class="sla-badge badge" [class.green]="s.slaState === 'GREEN'" [class.amber]="s.slaState === 'AMBER'"
+                [class.red]="s.slaState === 'RED'"
+                [class.badge--ok]="s.slaState === 'GREEN'" [class.badge--warn]="s.slaState === 'AMBER'"
+                [class.badge--danger]="s.slaState === 'RED'">{{ slaLabel(s.slaState) }}</span>
 
           <div class="sla-draft" *ngIf="s.openDraftId">
             <p i18n="@@sla.panel.draftPending">A holding message is queued for your approval.</p>
-            <button type="button" [disabled]="slaBusy()" (click)="previewDraft()"
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="slaBusy()" (click)="previewDraft()"
                     i18n="@@sla.panel.preview">Preview draft</button>
-            <div class="sla-preview" *ngIf="draftPreview() as p">
+            <div class="sla-preview card" *ngIf="draftPreview() as p">
               <p class="subject">{{ p.subject }}</p>
               <p class="body" style="white-space: pre-wrap">{{ p.body }}</p>
-              <p class="warn" *ngIf="p.missingFields.length" role="status" i18n="@@sla.panel.missing">
+              <p class="warn alert alert--warn" *ngIf="p.missingFields.length" role="status" i18n="@@sla.panel.missing">
                 Some details are missing and shown as placeholders — fill in the candidate's status first.
               </p>
             </div>
-            <button type="button" class="sla-approve" [disabled]="slaBusy()" (click)="approveDraft(s.openDraftId)"
+            <button type="button" class="sla-approve btn btn--primary" [disabled]="slaBusy()" (click)="approveDraft(s.openDraftId)"
                     i18n="@@sla.panel.approve">Approve and send</button>
-            <button type="button" class="sla-dismiss" [disabled]="slaBusy()" (click)="dismissDraft(s.openDraftId)"
+            <button type="button" class="sla-dismiss btn btn--danger-soft" [disabled]="slaBusy()" (click)="dismissDraft(s.openDraftId)"
                     i18n="@@sla.panel.dismiss">Dismiss</button>
           </div>
         </ng-container>
-        <p class="ok" *ngIf="slaMsg()" role="status">{{ slaMsg() }}</p>
+        <p class="ok alert alert--ok" *ngIf="slaMsg()" role="status">{{ slaMsg() }}</p>
       </div>
     </section>
   `
