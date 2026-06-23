@@ -16,7 +16,7 @@
       "numberOfRuns": 3,
       "settings": {
         "formFactor": "mobile",
-        "throttlingMethod": "simulate",
+        "throttlingMethod": "devtools",
         "screenEmulation": {
           "mobile": true,
           "width": 375,
