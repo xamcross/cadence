@@ -29,6 +29,8 @@ import { AuthService } from '../../core/auth/auth.service';
         </p>
         <div class="hero__actions reveal reveal-3">
           <a class="cta btn btn--primary" routerLink="/login" i18n="@@home.cta">Sign in</a>
+          <!-- F70: public join / express-interest on-ramp for prospects without an account. -->
+          <a class="btn btn--outline" routerLink="/request-access" i18n="@@home.requestAccess">Request access</a>
           <a class="btn btn--ghost" href="#features" i18n="@@home.learn">See what it does</a>
         </div>
       </section>

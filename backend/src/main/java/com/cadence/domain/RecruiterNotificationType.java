@@ -35,5 +35,9 @@ public enum RecruiterNotificationType {
     /** An ATS write-back exhausted its retries and was dead-lettered (FR-018). */
     ATS_WRITEBACK_FAILED,
     /** An ATS inbound sync failed for a workspace; the connection is degraded (FR-019). */
-    ATS_SYNC_FAILED
+    ATS_SYNC_FAILED,
+    // F70 Join / Express-Interest (append-only — value-free): a new access-interest request was submitted.
+    // Workspace-scoped (any active Admin sees it), null candidateId (the ATS_SYNC_FAILED precedent); never any
+    // submitter PII, never emailed to the submitter (structural anti-amplification, SC-011).
+    INTEREST_REQUEST
 }

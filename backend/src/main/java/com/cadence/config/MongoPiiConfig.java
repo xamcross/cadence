@@ -5,6 +5,7 @@ import com.cadence.domain.CalendarConnection;
 import com.cadence.domain.Candidate;
 import com.cadence.domain.CsvImportFile;
 import com.cadence.domain.FeedbackRequest;
+import com.cadence.domain.InterestRequest;
 import com.cadence.domain.Invitation;
 import com.cadence.domain.Member;
 import com.cadence.domain.OAuthFlowState;
@@ -76,6 +77,14 @@ public class MongoPiiConfig {
                 // $set null on erasure (NEVER $unset — the F03 ClassCastException trap). Same converter; one bean.
                 registrar.registerConverter(CsvImportFile.class, "dataBase64", converter);
                 registrar.registerConverter(Candidate.class, "importStageLabel", converter);
+                // F70: encrypt the prospective-member interest submission PII at rest (data-model). emailHash and
+                // openEmailHash are NOT registered — they are keyed HMAC values stored as-is for the indexed
+                // lookup + dedup. Cleared on erasure with $set "[ERASED]" (NEVER $unset — the F03 ClassCastException
+                // trap). Same converter instance; one bean only.
+                registrar.registerConverter(InterestRequest.class, "name", converter);
+                registrar.registerConverter(InterestRequest.class, "email", converter);
+                registrar.registerConverter(InterestRequest.class, "organization", converter);
+                registrar.registerConverter(InterestRequest.class, "message", converter);
             }));
     }
 }

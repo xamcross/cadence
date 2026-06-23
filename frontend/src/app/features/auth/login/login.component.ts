@@ -44,6 +44,8 @@ import { AuthService } from '../../../core/auth/auth.service';
         </details>
 
         <a class="forgot" routerLink="/reset" i18n="@@login.forgot">Forgot your password?</a>
+        <!-- F70: public join / express-interest on-ramp for prospects without an account. -->
+        <a class="request-access-link" routerLink="/request-access" i18n="@@login.requestAccess">Don't have access? Request it</a>
       </section>
     </main>
   `,
@@ -66,6 +68,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     .fallback[open] > summary::before { content: "\\00d7"; }
     .fallback > form { margin-top: var(--space-4); }
     .forgot { display: inline-block; margin-top: var(--space-5); font-size: var(--step--1); }
+    .request-access-link { display: block; margin-top: var(--space-3); font-size: var(--step--1); min-height: 44px; }
   `]
 })
 export class LoginComponent {
