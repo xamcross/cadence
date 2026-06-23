@@ -33,6 +33,16 @@ export const routes: Routes = [
       import('./shared/not-authorized/not-authorized.component').then((m) => m.NotAuthorizedComponent)
   },
   {
+    // F70 join / express-interest form — PUBLIC, no login, no guard. Top-level sibling of the guarded shell
+    // so authGuard never fires (an anonymous prospect has no session), mirroring /schedule, /status.
+    // seo: PRIVATE — noindex,nofollow (R4): a POST-only form has no organic-search value and keeping it
+    // noindex preserves the deny-by-default route-seo guard. Linked from /login and the public home /.
+    path: 'request-access',
+    data: { seo: PRIVATE },
+    loadComponent: () =>
+      import('./features/request-access/request-access.component').then((m) => m.RequestAccessComponent)
+  },
+  {
     // Admin member directory + role administration (F02 US1). roleGuard runs after authGuard.
     path: 'admin/members',
     canActivate: [authGuard, roleGuard('ADMIN')],
@@ -165,6 +175,15 @@ export const routes: Routes = [
     data: { seo: PRIVATE },
     loadComponent: () =>
       import('./features/feedback/scorecard-page.component').then((m) => m.ScorecardPageComponent)
+  },
+  {
+    // F70 interest-request review queue — list / review / dismiss / invite-with-role / erase. Admin-only
+    // internal screen (no candidate-facing §IX gate — the F31/F50 internal-screen precedent).
+    path: 'admin/interest-requests',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    data: { seo: PRIVATE, shell: true },
+    loadComponent: () =>
+      import('./features/admin/interest-requests/interest-requests.component').then((m) => m.InterestRequestsComponent)
   },
   {
     // F40 ATS integration (Greenhouse) — connect/sync status/dead-letters. Admin-only internal screen.

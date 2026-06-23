@@ -42,3 +42,13 @@ cadence:
     sweep-batch-limit: 20
     job-ttl: PT2S
     processing-threshold: PT3S
+  # F70 test overrides. Tighter caps so the per-source and per-workspace flood ceilings are reachable in a
+  # deterministic test; default workspace fixed to the test workspace id.
+  interest:
+    default-workspace-id: ws1
+    retention-fallback-days: 180
+    max-per-ip-per-window: 3
+    ip-window: PT10M
+    max-per-workspace-per-window: 5
+    workspace-window: PT1H
+    min-fill-millis: 1500

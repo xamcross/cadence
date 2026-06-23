@@ -283,6 +283,19 @@ jobs:
           fi
           echo "F51 pipeline scan passed — no candidate name/stage sentinel found in test output."
 
+      - name: PII log scan -- F70 join/interest form (SC-010)
+        run: |
+          # F70 FR-009/SC-010: a public interest submission's PII (name/email/organization/message) must never
+          # reach logs/dead-letter/notification rows/persisted docs. InterestLogPiiScanTest + InterestNotificationIT
+          # drive submit + a forced-failure notify path with high-entropy sentinels and assert absence across the
+          # persisted artefacts; CI re-checks captured stdout (the captured-stdout backstop).
+          if grep -qE 'SENTINELF70NAME_zz9|sentinelf70email_zz9|SENTINELF70ORG_zz9|SENTINELF70MSG_zz9' test-output.txt; then
+            echo "ERROR: an F70 interest submitter PII sentinel appeared in test output -- zero PII policy violated."
+            grep -nE 'SENTINELF70NAME_zz9|sentinelf70email_zz9|SENTINELF70ORG_zz9|SENTINELF70MSG_zz9' test-output.txt
+            exit 1
+          fi
+          echo "F70 interest scan passed -- no submitter PII sentinel found in test output."
+
       - name: No-voice-capture scope guard — interviewer feedback is a form only (F32 SC-019)
         run: |
           # F32 SC-019: voice-to-scorecard capture is deferred to v1.5. Guard against a future contributor

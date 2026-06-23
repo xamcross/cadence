@@ -68,5 +68,9 @@ public enum AuthEventType {
     REQUISITION_CREATED,
     REQUISITION_UPDATED,
     REQUISITION_HM_ASSIGNED,
-    REQUISITION_HM_UNASSIGNED
+    REQUISITION_HM_UNASSIGNED,
+    // F70 Join / Express-Interest (append-only — never reorder). The CSV export of the admin review queue is a
+    // deliberate PII egress, so it is recorded as an attributable event; the outcome carries the status filter +
+    // row count only (no submitter name/email/organization/message — the DASHBOARD_EXPORTED precedent).
+    INTEREST_REQUESTS_EXPORTED
 }

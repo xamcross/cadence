@@ -274,6 +274,19 @@ cadence:
     sweep-batch-limit: 20
     job-ttl: PT24H
     processing-threshold: PT15M
+  # F70 Join / Express-Interest Request Form. The owning workspace is resolved server-side from
+  # default-workspace-id (FR-019; NEVER from submitter input). retention-fallback-days is used when a
+  # workspace leaves WorkspaceConfig.retentionPeriodDays at 0/unset (NOT immediate delete). The two limiter
+  # caps + the per-workspace DB-count ceiling are the layered anti-flood defence (R6): the per-source
+  # hashed-IP limiter is best-effort layer 1; the per-workspace DB ceiling is the durable layer 2.
+  interest:
+    default-workspace-id: ${CADENCE_INTEREST_DEFAULT_WORKSPACE_ID:cadence}
+    retention-fallback-days: 180
+    max-per-ip-per-window: 5
+    ip-window: PT10M
+    max-per-workspace-per-window: 100
+    workspace-window: PT1H
+    min-fill-millis: 1500
 
 # Spring Mail / JavaMailSender app-level default transport (the SmtpMailTransport builds per-workspace
 # senders from these defaults + the F03 credential — see MailConfig). STARTTLS on submission port 587.

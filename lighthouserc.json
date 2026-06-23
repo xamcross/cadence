@@ -10,12 +10,13 @@
         "http://localhost:4200/booking/cancel?token=lighthouse-demo",
         "http://localhost:4200/confirm?token=lighthouse-demo",
         "http://localhost:4200/status?token=lighthouse-demo",
-        "http://localhost:4200/feedback?token=lighthouse-demo"
+        "http://localhost:4200/feedback?token=lighthouse-demo",
+        "http://localhost:4200/request-access"
       ],
       "numberOfRuns": 3,
       "settings": {
         "formFactor": "mobile",
-        "throttlingMethod": "simulate",
+        "throttlingMethod": "devtools",
         "screenEmulation": {
           "mobile": true,
           "width": 375,
@@ -37,7 +38,7 @@
           }
         },
         {
-          "matchingUrlPattern": "http://localhost:4200/(schedule|booking|confirm|status|feedback).*",
+          "matchingUrlPattern": "http://localhost:4200/(schedule|booking|confirm|status|feedback|request-access).*",
           "aggregationMethod": "median",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.85 }],
