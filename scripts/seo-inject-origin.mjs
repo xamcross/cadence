@@ -80,6 +80,14 @@ if (existsSync(resourcesDir)) {
   }
 }
 
+// 031 (terms-privacy-notice): the generated /terms and /privacy static pages carry the SAME
+// __CADENCE_PUBLIC_ORIGIN__ / __CADENCE_ROBOTS__ placeholders. Without this, they would ship literal
+// placeholders (broken canonical, non-functional indexing). Substitute origin + per-page robots so a
+// non-production legal page is noindex on a direct fetch (FR-015/FR-017/SC-008).
+for (const slug of ['terms', 'privacy']) {
+  patchOptionalHtml(join(slug, 'index.html'));
+}
+
 // Non-production: append a global noindex header (production _headers stays byte-identical).
 if (!isProd) {
   const headers = join(distDir, '_headers');

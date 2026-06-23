@@ -130,3 +130,92 @@ test('non-prod inject -> a /resources page is noindex; prod inject -> index,foll
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// --- 031 (terms-privacy-notice) legal pages ------------------------------------------------------
+
+const L_TERMS = {
+  slug: 'terms', type: 'TERMS', title: 'Terms & Conditions', description: 'Our terms.',
+  version: '1.0', lastUpdated: '2026-06-10', draft: true,
+  bodyHtml: '<h2>Use</h2><p>See <a href="/privacy">privacy</a>.</p>'
+};
+const L_PRIVACY = {
+  slug: 'privacy', type: 'PRIVACY', title: 'Privacy Notice', description: 'How we handle data.',
+  version: '1.0', lastUpdated: '2026-06-12', draft: false,
+  bodyHtml: '<h2>Data</h2><p>See <a href="/terms">terms</a>.</p>'
+};
+
+function scaffoldLegal(root, legalPages) {
+  const legal = join(root, 'legal');
+  for (const d of legalPages) {
+    const dir = join(legal, d.slug);
+    mkdirSync(dir, { recursive: true });
+    const { bodyHtml, ...meta } = d;
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta), 'utf8');
+    writeFileSync(join(dir, 'body.html'), bodyHtml, 'utf8');
+  }
+  return legal;
+}
+
+test('generator emits /terms + /privacy, in sitemap + llms, non-Article schema, draft banner (031)', () => {
+  const { root, content, dist, srcIndex } = scaffold([A1, A2]);
+  try {
+    const legal = scaffoldLegal(root, [L_TERMS, L_PRIVACY]);
+    runGen({ CADENCE_CONTENT_DIR: content, CADENCE_LEGAL_DIR: legal, CADENCE_SRC_INDEX: srcIndex, CADENCE_BUILD_DATE: '2026-06-22' }, dist);
+    assert.ok(existsSync(join(dist, 'terms', 'index.html')), 'terms page emitted');
+    assert.ok(existsSync(join(dist, 'privacy', 'index.html')), 'privacy page emitted');
+    const sitemap = readFileSync(join(dist, 'sitemap.xml'), 'utf8');
+    assert.match(sitemap, /\/terms\/<\/loc>/);
+    assert.match(sitemap, /\/privacy\/<\/loc>/);
+    const llms = readFileSync(join(dist, 'llms.txt'), 'utf8');
+    assert.match(llms, /## Legal/);
+    assert.match(llms, /\/terms\//);
+    const terms = readFileSync(join(dist, 'terms', 'index.html'), 'utf8');
+    assert.equal((terms.match(/<h1>/g) || []).length, 1, 'single h1');
+    assert.match(terms, /"WebPage"/);
+    assert.match(terms, /"BreadcrumbList"/);
+    assert.ok(!/"BlogPosting"|"@type": "Article"|"FAQPage"/.test(terms), 'no article schema (FR-022f)');
+    assert.match(terms, /class="draft-banner"/, 'draft banner when draft:true');
+    const privacy = readFileSync(join(dist, 'privacy', 'index.html'), 'utf8');
+    assert.ok(!/class="draft-banner"/.test(privacy), 'no draft banner markup when draft:false');
+    const feed = readFileSync(join(dist, 'resources', 'feed.xml'), 'utf8');
+    assert.ok(!/\/terms\/|\/privacy\//.test(feed), 'feed excludes legal pages');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('REAL privacy content covers all 12 GDPR transparency topics + terms references privacy (SC-009/FR-004)', () => {
+  const { root, content, dist, srcIndex } = scaffold([A1, A2]);
+  try {
+    const realLegal = join(SCRIPT_DIR, '..', 'frontend', 'src', 'content', 'legal');
+    runGen({ CADENCE_CONTENT_DIR: content, CADENCE_LEGAL_DIR: realLegal, CADENCE_SRC_INDEX: srcIndex, CADENCE_BUILD_DATE: '2026-06-22' }, dist);
+    const privacy = readFileSync(join(dist, 'privacy', 'index.html'), 'utf8').toLowerCase();
+    for (const phrase of ['controller', 'lawful basis', 'recipients', 'international transfer',
+      'retention', 'your rights', 'supervisory authority', 'automated decision', 'indirect', 'cookies']) {
+      assert.ok(privacy.includes(phrase), 'real privacy notice must cover: ' + phrase);
+    }
+    const terms = readFileSync(join(dist, 'terms', 'index.html'), 'utf8');
+    assert.match(terms, /href="\/privacy"/, 'terms references the privacy notice');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('non-prod inject -> legal pages noindex; prod inject -> index,follow + trailing-slash canonical (031)', () => {
+  const { root, content, dist, srcIndex } = scaffold([A1, A2]);
+  try {
+    const legal = scaffoldLegal(root, [L_TERMS, L_PRIVACY]);
+    runGen({ CADENCE_CONTENT_DIR: content, CADENCE_LEGAL_DIR: legal, CADENCE_SRC_INDEX: srcIndex, CADENCE_BUILD_DATE: '2026-06-22' }, dist);
+    const preview = join(root, 'preview');
+    cpSync(dist, preview, { recursive: true });
+    execFileSync('node', [INJECT, preview], { env: { ...process.env, CADENCE_PUBLIC_ORIGIN: 'app.example.com', CADENCE_PUBLIC_ENV: 'preview' }, encoding: 'utf8' });
+    assert.match(readFileSync(join(preview, 'terms', 'index.html'), 'utf8'), /name="robots" content="noindex,nofollow"/);
+    execFileSync('node', [INJECT, dist], { env: { ...process.env, CADENCE_PUBLIC_ORIGIN: 'app.example.com', CADENCE_PUBLIC_ENV: 'production' }, encoding: 'utf8' });
+    const prodTerms = readFileSync(join(dist, 'terms', 'index.html'), 'utf8');
+    assert.match(prodTerms, /name="robots" content="index,follow"/);
+    assert.match(prodTerms, /<link rel="canonical" href="https:\/\/app\.example\.com\/terms\/"/);
+    assert.ok(!prodTerms.includes('__CADENCE_'), 'no placeholder remains');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

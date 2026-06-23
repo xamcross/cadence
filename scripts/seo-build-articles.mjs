@@ -25,6 +25,7 @@ const REPO_ROOT = join(SCRIPT_DIR, '..');
 // CONTENT_DIR / SRC_INDEX are overridable (CADENCE_CONTENT_DIR / CADENCE_SRC_INDEX) so the node:test
 // harness can point the generator at a temp fixture; default to the real first-party sources.
 const CONTENT_DIR = process.env.CADENCE_CONTENT_DIR || join(REPO_ROOT, 'frontend', 'src', 'content', 'articles');
+const LEGAL_DIR = process.env.CADENCE_LEGAL_DIR || join(REPO_ROOT, 'frontend', 'src', 'content', 'legal');
 const SRC_INDEX = process.env.CADENCE_SRC_INDEX || join(REPO_ROOT, 'frontend', 'src', 'index.html');
 
 const distDir = process.argv[2] || join('frontend', 'dist', 'cadence', 'browser');
@@ -69,6 +70,27 @@ function loadArticles(contentDir) {
   return out;
 }
 
+/** Scan each content/legal subdirectory into a legal page (meta.json + body.html). */
+function loadLegalPages(legalDir) {
+  if (!existsSync(legalDir)) return [];
+  const out = [];
+  for (const name of readdirSync(legalDir).sort()) {
+    const dir = join(legalDir, name);
+    if (!statSync(dir).isDirectory()) continue;
+    const metaPath = join(dir, 'meta.json');
+    const bodyPath = join(dir, 'body.html');
+    if (!existsSync(metaPath) || !existsSync(bodyPath)) {
+      throw new ArticleBuildError('incomplete_legal_page: ' + name + ' (needs meta.json + body.html)');
+    }
+    const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+    if (meta.slug !== name) {
+      throw new ArticleBuildError('legal_slug_dir_mismatch: dir "' + name + '" != slug "' + meta.slug + '"');
+    }
+    out.push({ ...meta, bodyHtml: readFileSync(bodyPath, 'utf8') });
+  }
+  return out;
+}
+
 function writeFileEnsured(path, contents) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, contents, 'utf8');
@@ -81,6 +103,7 @@ function main() {
   }
   const homeFaqQuestions = readHomeFaqQuestions(SRC_INDEX);
   const articles = loadArticles(CONTENT_DIR);
+  const legalPages = loadLegalPages(LEGAL_DIR);
 
   // Base llms.txt is the angular-asset-copied src version already in dist (we append the article list).
   const distLlms = join(distDir, 'llms.txt');
@@ -92,7 +115,7 @@ function main() {
 
   let artifacts;
   try {
-    artifacts = buildArtifacts(articles, baseLlms, ctx);
+    artifacts = buildArtifacts(articles, baseLlms, ctx, legalPages);
   } catch (e) {
     if (e instanceof ArticleBuildError) {
       console.error('seo-build-articles: ' + e.message);
@@ -106,13 +129,17 @@ function main() {
   }
   writeFileEnsured(join(distDir, 'resources', 'index.html'), artifacts.indexHtml);
   writeFileEnsured(join(distDir, 'resources', 'feed.xml'), artifacts.feed);
+  // 031 (terms-privacy): emit the static /terms and /privacy pages (served ahead of the SPA fallback).
+  for (const lp of artifacts.legalPages) {
+    writeFileEnsured(join(distDir, lp.slug, 'index.html'), lp.html);
+  }
   // Overwrite the angular-asset-copied sitemap.xml + llms.txt in dist (generator owns them).
   writeFileEnsured(join(distDir, 'sitemap.xml'), artifacts.sitemap);
   writeFileEnsured(join(distDir, 'llms.txt'), artifacts.llms);
 
   console.log(
-    'seo-build-articles: ' + articles.length + ' article(s) -> ' + distDir +
-    '/resources/ (+ sitemap.xml, llms.txt, resources/feed.xml), buildDate=' + buildDate
+    'seo-build-articles: ' + articles.length + ' article(s) + ' + legalPages.length + ' legal page(s) -> ' +
+    distDir + '/ (+ resources/, sitemap.xml, llms.txt, resources/feed.xml), buildDate=' + buildDate
   );
 }
 

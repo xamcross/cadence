@@ -27,8 +27,13 @@ public class MergeTokenCatalogue {
     /** "Looks like a token" — used to detect malformed/unknown tokens at save time. */
     public static final Pattern TOKEN_SCAN = Pattern.compile("\\{\\{[^{}]*\\}\\}");
 
+    // PRIVACY_LINK is universal: every built-in candidate-facing message type flows through
+    // EmailTemplateService.renderForSend, which injects the constant {{privacy_link}} value, so the
+    // token must be permitted for every type or it would render the literal {{privacy_link}}
+    // (GDPR Art. 14 reach, contract C-LINK-4 / research D8).
     private static final Set<MergeToken> UNIVERSAL =
-        EnumSet.of(MergeToken.CANDIDATE_NAME, MergeToken.RECRUITER_NAME, MergeToken.WORKSPACE_NAME);
+        EnumSet.of(MergeToken.CANDIDATE_NAME, MergeToken.RECRUITER_NAME, MergeToken.WORKSPACE_NAME,
+            MergeToken.PRIVACY_LINK);
 
     private final Map<EmailMessageType, Set<MergeToken>> permitted = new EnumMap<>(EmailMessageType.class);
 

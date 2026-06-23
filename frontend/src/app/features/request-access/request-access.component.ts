@@ -97,6 +97,13 @@ type RequestAccessState =
                 Retention: we keep your details only as long as needed to handle the request, then delete them.
               </li>
             </ul>
+            <!-- 031-terms-privacy-notice (T020/C-LINK-2): full Privacy Notice link added to the existing
+                 notice block (the 4-point summary above is retained, FR-009). Root-relative full-document
+                 anchor to the static /privacy page (outside the SPA router). Token-free page, so no
+                 target=_blank is required. -->
+            <p class="privacy__more">
+              <a class="privacy-link btn btn--link" href="/privacy" i18n="@@interest.privacy.link">Read our full Privacy Notice</a>
+            </p>
           </section>
         </section>
 

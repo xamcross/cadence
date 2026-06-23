@@ -305,4 +305,32 @@ describe('ScheduleComponent (F14)', () => {
       expect(loggedToken).toBe(false);
     });
   });
+
+  // ---- 031-terms-privacy-notice: per-surface Privacy link (T018, C-LINK-2/3, SC-002/006) ----
+
+  describe('Privacy Notice link', () => {
+    it('renders a token-safe /privacy link opening in a new tab', () => {
+      const link = build(() => of(open)).nativeElement.querySelector('a.privacy-link') as HTMLAnchorElement;
+      expect(link).withContext('a Privacy Notice link should be present').not.toBeNull();
+      // Root-relative full-document anchor (NOT routerLink) to the static /privacy page.
+      expect(link.getAttribute('href')).toBe('/privacy');
+      expect(link.hasAttribute('routerLink')).toBe(false);
+      // Token-page default: new tab + reverse-tabnabbing guard.
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+      // The href carries no candidate token / query / fragment.
+      expect(link.getAttribute('href')).not.toContain('tok123');
+      expect(link.getAttribute('href')).not.toContain('?');
+    });
+
+    it('writes no web storage when the Privacy link is clicked', () => {
+      const setItem = spyOn(Storage.prototype, 'setItem').and.callThrough();
+      const link = build(() => of(open)).nativeElement.querySelector('a.privacy-link') as HTMLAnchorElement;
+      // jsdom/Karma will not perform the navigation; assert the click itself triggers no storage write.
+      spyOn(link, 'click'); // avoid an actual navigation attempt in the test runner
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      const wroteToken = setItem.calls.allArgs().some((args) => args.join(' ').includes('tok123'));
+      expect(wroteToken).toBe(false);
+    });
+  });
 });

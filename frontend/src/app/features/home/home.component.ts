@@ -2,6 +2,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { PublicFooterComponent } from '../../shared/public-footer.component';
 
 /**
  * F60 (026-seo-aeo) public marketing home at `/` — the one indexable page.
@@ -17,7 +18,7 @@ import { AuthService } from '../../core/auth/auth.service';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, PublicFooterComponent],
   template: `
     <main class="home">
       <section class="hero">
@@ -95,6 +96,10 @@ import { AuthService } from '../../core/auth/auth.service';
         </div>
       </section>
     </main>
+
+    <!-- US3 (031-terms-privacy-notice): persistent legal discovery footer. Mounted HERE (not in
+         AppComponent) so it never leaks onto token cards / the authenticated shell (research D7). -->
+    <app-public-footer></app-public-footer>
   `,
   styles: [`
     .hero {

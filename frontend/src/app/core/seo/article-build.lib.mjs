@@ -202,6 +202,7 @@ const PAGE_STYLE = [
   'ul.cards { list-style: none; padding: 0; }',
   'ul.cards li { border: 1px solid #d6d6d6; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }',
   '.related a, .home-link { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 0.75rem; }',
+  '.draft-banner { border: 2px solid #b35900; background: #fff4e5; color: #1a1a1a; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 600; }',
   'body, main, h1, h2, p, li { overflow-wrap: anywhere; word-break: break-word; }'
 ].join('\n  ');
 
@@ -376,10 +377,121 @@ export function assembleIndexPage(articles, ctx) {
     '</main>\n</body>\n</html>\n';
 }
 
+// --- legal pages (031-terms-privacy-notice) -------------------------------------------------------
+// Conventional top-level /terms and /privacy, published as static HTML OUTSIDE the SPA route table
+// (the route-seo-inventory "exactly one indexable route" invariant holds). Non-article schema:
+// WebPage + BreadcrumbList (+ shared Organization), never BlogPosting/Article/FAQPage (FR-022f).
+
+const LEGAL_LINK_RE = /^(\/(terms|privacy)\/?|\/resources\/[a-z0-9-]+\/?|\/resources\/?|\/|#[a-z0-9-]*|https:\/\/[a-z0-9.-]+(?:\/[^\s"']*)?)$/i;
+
+/** Validate a legal-page meta (terms|privacy). Throws on failure. */
+export function validateLegalMeta(meta) {
+  if (!meta || typeof meta !== 'object') throw new ArticleBuildError('invalid_legal_meta: not an object');
+  if (meta.slug !== 'terms' && meta.slug !== 'privacy') {
+    throw new ArticleBuildError('invalid_legal_slug: ' + JSON.stringify(meta.slug));
+  }
+  if (typeof meta.title !== 'string' || meta.title.trim() === '') {
+    throw new ArticleBuildError('missing_legal_title: ' + meta.slug);
+  }
+  if (typeof meta.description !== 'string' || meta.description.trim() === '') {
+    throw new ArticleBuildError('missing_legal_description: ' + meta.slug);
+  }
+  if (typeof meta.version !== 'string' || meta.version.trim() === '') {
+    throw new ArticleBuildError('missing_legal_version: ' + meta.slug);
+  }
+  if (!isIsoDate(meta.lastUpdated)) throw new ArticleBuildError('invalid_legal_date: ' + meta.slug);
+  if (typeof meta.draft !== 'boolean') throw new ArticleBuildError('invalid_legal_draft: ' + meta.slug);
+}
+
+/** Body-safety lint for a legal page (allow-list incl. /terms, /privacy cross-links). Throws. */
+export function lintLegalBody(slug, bodyHtml) {
+  const lower = bodyHtml.toLowerCase();
+  for (const bad of ['<script', '<iframe', '<object', '<embed', '<style', '<h1']) {
+    if (lower.includes(bad)) throw new ArticleBuildError('unsafe_legal_body: ' + slug + ' contains ' + bad);
+  }
+  if (/\son[a-z]+\s*=/i.test(bodyHtml)) {
+    throw new ArticleBuildError('unsafe_legal_body: ' + slug + ' has an inline event handler');
+  }
+  if (/(href|src)\s*=\s*["']\s*(javascript|data):/i.test(bodyHtml)) {
+    throw new ArticleBuildError('unsafe_legal_body: ' + slug + ' has a javascript:/data: URL');
+  }
+  if (PII_TOKEN_RE.test(bodyHtml)) {
+    throw new ArticleBuildError('unsafe_legal_body: ' + slug + ' contains a token/email sentinel');
+  }
+  for (const m of bodyHtml.matchAll(/(?:href|src)\s*=\s*["']([^"']*)["']/gi)) {
+    const target = m[1].trim();
+    if (!LEGAL_LINK_RE.test(target)) {
+      throw new ArticleBuildError('unsafe_legal_body: ' + slug + ' link not on allow-list: ' + target);
+    }
+  }
+}
+
+/** Assemble one legal page (full HTML document string). Canonical is the trailing-slash served form. */
+export function assembleLegalPage(doc, ctx) {
+  const canonical = ctx.originBase + '/' + doc.slug + '/';
+  const ogImage = ctx.originBase + '/assets/og-cadence.png';
+  const orgId = ctx.originBase + '/' + ORG_ID;
+  const updated = humanDate(doc.lastUpdated);
+  const other = doc.slug === 'terms'
+    ? { href: '/privacy/', label: 'Privacy Notice' }
+    : { href: '/terms/', label: 'Terms & Conditions' };
+
+  const orgLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': orgId,
+    name: 'Cadence',
+    url: ctx.originBase + '/',
+    logo: ogImage
+  };
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: ctx.originBase + '/' },
+      { '@type': 'ListItem', position: 2, name: doc.title, item: canonical }
+    ]
+  };
+  const webPageLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': canonical,
+    url: canonical,
+    name: doc.title,
+    description: doc.description,
+    inLanguage: 'en',
+    isPartOf: { '@id': orgId },
+    publisher: { '@id': orgId },
+    dateModified: doc.lastUpdated
+  };
+  const ldBlocks = [orgLd, breadcrumbLd, webPageLd]
+    .map((b) => '<script type="application/ld+json">\n' + jsonLd(b) + '\n</script>')
+    .join('\n');
+
+  const draftBanner = doc.draft
+    ? '<div class="draft-banner" role="note">Draft - pending legal review. This text is a template and is not yet binding.</div>\n'
+    : '';
+
+  return '<!doctype html>\n<html lang="en">\n<head>\n' +
+    headCommon(doc.title + ' | Cadence', doc.description, canonical, ogImage, ROBOTS_PLACEHOLDER, 'website') + '\n' +
+    ldBlocks + '\n' +
+    '<style>' + PAGE_STYLE + '</style>\n' +
+    '</head>\n<body>\n<main>\n' +
+    draftBanner +
+    '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; ' +
+    '<span aria-current="page">' + escapeHtml(doc.title) + '</span></nav>\n' +
+    '<article>\n<h1>' + escapeHtml(doc.title) + '</h1>\n' +
+    '<p class="meta">Version ' + escapeHtml(doc.version) + ' &middot; Last updated ' + escapeHtml(updated) + '</p>\n' +
+    doc.bodyHtml + '\n</article>\n' +
+    '<footer>\n<p><a class="home-link" href="' + other.href + '">' + escapeHtml(other.label) + '</a> &middot; ' +
+    '<a class="home-link" href="/">&larr; Cadence home</a></p>\n</footer>\n' +
+    '</main>\n</body>\n</html>\n';
+}
+
 // --- crawl artifacts ------------------------------------------------------------------------------
 
-/** Build sitemap.xml from the article ALLOW-LIST only (never a route scan -- FR-007/SC-010). */
-export function buildSitemap(articles, ctx) {
+/** Build sitemap.xml from the article + legal ALLOW-LIST only (never a route scan -- FR-007/SC-010). */
+export function buildSitemap(articles, ctx, legalPages = []) {
   const newest = articles.reduce((acc, a) => (lastmodOf(a) > acc ? lastmodOf(a) : acc), ctx.buildDate);
   const entries = [];
   entries.push(
@@ -398,19 +510,32 @@ export function buildSitemap(articles, ctx) {
       lastmodOf(a) + '</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>'
     );
   }
+  for (const d of [...legalPages].sort((x, y) => (x.slug < y.slug ? -1 : 1))) {
+    entries.push(
+      '  <url>\n    <loc>' + ctx.originBase + '/' + d.slug + '/</loc>\n    <lastmod>' +
+      d.lastUpdated + '</lastmod>\n    <changefreq>yearly</changefreq>\n    <priority>0.5</priority>\n  </url>'
+    );
+  }
   return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
     entries.join('\n') + '\n</urlset>\n';
 }
 
-/** Append the per-article URL list to the base llms.txt (FR-013/SC-011). */
-export function buildLlms(baseLlms, articles, ctx) {
-  const trimmed = baseLlms.replace(/\s*$/, '');
-  if (!articles.length) return trimmed + '\n';
-  const lines = [...articles]
-    .sort((a, b) => (lastmodOf(b) < lastmodOf(a) ? -1 : 1))
-    .map((a) => '- ' + a.title + ': ' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/');
-  return trimmed + '\n\n## Articles\n\n- Resources index: ' + ctx.originBase + RESOURCES_PATH + '/\n' +
-    lines.join('\n') + '\n';
+/** Append the per-article and legal URL lists to the base llms.txt (FR-013/SC-011, FR-022c). */
+export function buildLlms(baseLlms, articles, ctx, legalPages = []) {
+  let out = baseLlms.replace(/\s*$/, '');
+  if (articles.length) {
+    const lines = [...articles]
+      .sort((a, b) => (lastmodOf(b) < lastmodOf(a) ? -1 : 1))
+      .map((a) => '- ' + a.title + ': ' + ctx.originBase + RESOURCES_PATH + '/' + a.slug + '/');
+    out += '\n\n## Articles\n\n- Resources index: ' + ctx.originBase + RESOURCES_PATH + '/\n' + lines.join('\n');
+  }
+  if (legalPages.length) {
+    const legalLines = [...legalPages]
+      .sort((a, b) => (a.slug < b.slug ? -1 : 1))
+      .map((d) => '- ' + d.title + ': ' + ctx.originBase + '/' + d.slug + '/');
+    out += '\n\n## Legal\n\n' + legalLines.join('\n');
+  }
+  return out + '\n';
 }
 
 /** Build an Atom feed for the library (Research D10). */
@@ -442,7 +567,7 @@ export function buildFeed(articles, ctx) {
 
 /** Validate + lint + de-dup the whole article set, then assemble every artifact.
  *  Throws ArticleBuildError on any violation (slug collision, bad meta, unsafe body, FAQ dup). */
-export function buildArtifacts(articles, baseLlms, ctx) {
+export function buildArtifacts(articles, baseLlms, ctx, legalPages = []) {
   const seen = new Set();
   const seenTitles = new Set();
   for (const a of articles) {
@@ -459,6 +584,14 @@ export function buildArtifacts(articles, baseLlms, ctx) {
   }
   faqDedupCheck(articles, ctx.homeFaqQuestions);
 
+  const seenLegal = new Set();
+  for (const d of legalPages) {
+    validateLegalMeta(d);
+    if (seenLegal.has(d.slug)) throw new ArticleBuildError('duplicate_legal_slug: ' + d.slug);
+    seenLegal.add(d.slug);
+    lintLegalBody(d.slug, d.bodyHtml);
+  }
+
   const relatedMap = computeRelated(articles);
   const bySlug = new Map(articles.map((a) => [a.slug, a]));
   const pages = articles.map((a) => ({
@@ -469,8 +602,9 @@ export function buildArtifacts(articles, baseLlms, ctx) {
   return {
     pages,
     indexHtml: assembleIndexPage(articles, ctx),
-    sitemap: buildSitemap(articles, ctx),
-    llms: buildLlms(baseLlms, articles, ctx),
+    legalPages: legalPages.map((d) => ({ slug: d.slug, html: assembleLegalPage(d, ctx) })),
+    sitemap: buildSitemap(articles, ctx, legalPages),
+    llms: buildLlms(baseLlms, articles, ctx, legalPages),
     feed: buildFeed(articles, ctx)
   };
 }

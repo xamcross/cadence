@@ -466,8 +466,13 @@ jobs:
           test -n "$ARTICLE" || { echo "ERROR: no /resources article page generated."; exit 1; }
           grep -qF 'name="robots" content="noindex,nofollow"' "$ARTICLE" || { echo "ERROR: non-prod /resources page not noindex."; exit 1; }
           grep -qF '__CADENCE_PUBLIC_ORIGIN__' "$ARTICLE" && { echo "ERROR: origin placeholder not substituted in /resources page."; exit 1; } || true
+          # 031 (terms-privacy SC-008): the static /terms + /privacy legal pages must also be noindex + placeholder-free in non-prod.
+          for L in terms privacy; do
+            grep -qF 'name="robots" content="noindex,nofollow"' "/tmp/seo-nonprod/$L/index.html" || { echo "ERROR: non-prod /$L legal page not noindex."; exit 1; }
+            grep -qF '__CADENCE_PUBLIC_ORIGIN__' "/tmp/seo-nonprod/$L/index.html" && { echo "ERROR: origin placeholder not substituted in /$L legal page."; exit 1; } || true
+          done
           rm -rf /tmp/seo-nonprod
-          echo "Non-production SEO injection verified (blanket noindex + /resources page noindex)."
+          echo "Non-production SEO injection verified (blanket noindex + /resources + /terms + /privacy noindex)."
 
       - name: Inject SEO origin + indexability into built artifacts (F60)
         working-directory: frontend
@@ -536,7 +541,7 @@ jobs:
           # could longest-match a private path and re-open it (robots.txt.md B1). Subset assertion catches it.
           node -e '
             const fs=require("fs");
-            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$","Allow: /resources$","Allow: /resources/"]);
+            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$","Allow: /resources$","Allow: /resources/","Allow: /terms$","Allow: /terms/$","Allow: /privacy$","Allow: /privacy/$"]);
             for (const l of fs.readFileSync(process.argv[1],"utf8").split(/\r?\n/)) {
               if (l.startsWith("Allow:") && !ok.has(l)) { console.error("ERROR: unexpected/over-broad robots Allow line: "+l); process.exit(1); }
             }
@@ -622,6 +627,48 @@ jobs:
               for (const t of ["BlogPosting","BreadcrumbList"]) if(!blocks.includes(t)){console.error("ERROR: "+slug+" JSON-LD missing "+t);process.exit(1);}
             }
             console.log("F61 article-library artifact scan passed ("+dirs.length+" articles).");
+          ' "$DIST"
+
+      - name: F71 legal-pages artifact scan — /terms + /privacy indexable, non-Article, no token/PII (031)
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          DIST=dist/cadence/browser
+          # (a) fail-closed: both legal pages MUST be emitted, else the SPA /* fallback silently serves the
+          #     noindex NotFound shell at /terms (FR-021/SC-013) - a 200, not a visible 404.
+          for L in terms privacy; do
+            test -s "$DIST/$L/index.html" || { echo "ERROR: legal page missing: $L/index.html (fail-closed)."; exit 1; }
+          done
+          # (b) token/PII + no-third-party-origin deny-grep over the legal pages, with positive control.
+          DENY='/schedule|/booking|/confirm|/status|/feedback|/admin|/pipeline|/scheduling|/calendar|/workspace|/interview-templates|/email-templates|/login|/accept-invite|/reset|token=|googleapis|gstatic|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}'
+          printf '/status?token=ZZSENTINELLEGAL googleapis.com sentinel@x.io\n' > /tmp/legal-negctl.txt
+          grep -qE "$DENY" /tmp/legal-negctl.txt || { echo "ERROR: legal deny-grep vacuous."; rm -f /tmp/legal-negctl.txt; exit 1; }
+          rm -f /tmp/legal-negctl.txt
+          if grep -rEn "$DENY" "$DIST/terms/index.html" "$DIST/privacy/index.html"; then
+            echo "ERROR: token/PII/third-party origin leaked into a legal page (FR-011/SC-010)."; exit 1
+          fi
+          # (c) _headers must NOT carry a path rule matching /terms or /privacy (they inherit the indexable default).
+          if grep -qE '^/(terms|privacy)' "$DIST/_headers"; then
+            echo "ERROR: _headers has a path rule matching /terms or /privacy (must inherit indexable default)."; exit 1
+          fi
+          # (d) per-page: single h1 (not SPA shell), html lang, canonical == trailing-slash served form,
+          #     sitemap+llms membership, WebPage+BreadcrumbList present, NO BlogPosting/Article/FAQPage (FR-022f).
+          node -e '
+            const fs=require("fs"); const DIST=process.argv[1];
+            const sm=fs.readFileSync(DIST+"/sitemap.xml","utf8"); const ll=fs.readFileSync(DIST+"/llms.txt","utf8");
+            for (const slug of ["terms","privacy"]) {
+              const h=fs.readFileSync(DIST+"/"+slug+"/index.html","utf8");
+              if ((h.match(/<h1>/g)||[]).length!==1){console.error("ERROR: "+slug+" not exactly one <h1> (SPA shell?).");process.exit(1);}
+              if (!/<html[^>]*\slang=/i.test(h)){console.error("ERROR: "+slug+" missing <html lang>.");process.exit(1);}
+              const m=h.match(/<link rel="canonical" href="(https:\/\/[^"]+)"/);
+              if(!m||!m[1].endsWith("/"+slug+"/")){console.error("ERROR: "+slug+" canonical not the trailing-slash served form.");process.exit(1);}
+              if(!sm.includes("/"+slug+"/</loc>")){console.error("ERROR: sitemap missing "+slug+".");process.exit(1);}
+              if(!ll.includes("/"+slug+"/")){console.error("ERROR: llms.txt missing "+slug+".");process.exit(1);}
+              const types=[...h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(x=>{try{return JSON.parse(x[1])["@type"];}catch(e){console.error("ERROR: "+slug+" invalid JSON-LD: "+e.message);process.exit(1);}});
+              for (const t of ["WebPage","BreadcrumbList"]) if(!types.includes(t)){console.error("ERROR: "+slug+" JSON-LD missing "+t);process.exit(1);}
+              for (const t of ["BlogPosting","Article","FAQPage"]) if(types.includes(t)){console.error("ERROR: "+slug+" must not emit article type "+t+" (FR-022f).");process.exit(1);}
+            }
+            console.log("F71 legal-pages artifact scan passed.");
           ' "$DIST"
 
       - name: Third-party-font guard — the candidate page must not leak the URL token via a CDN asset (F14 FR-025)

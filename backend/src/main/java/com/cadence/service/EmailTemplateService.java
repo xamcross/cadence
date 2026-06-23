@@ -9,6 +9,7 @@ import com.cadence.api.EmailTemplateDtos.ResetRequest;
 import com.cadence.api.EmailTemplateDtos.TemplateResponse;
 import com.cadence.api.EmailTemplateExceptions;
 import com.cadence.api.RbacExceptions;
+import com.cadence.config.AuthProperties;
 import com.cadence.config.EmailTemplateProperties;
 import com.cadence.domain.AuthEventType;
 import com.cadence.domain.Candidate;
@@ -61,12 +62,14 @@ public class EmailTemplateService {
     private final InterviewTemplateRepository interviewTemplates;
     private final AuthAuditService audit;
     private final EmailTemplateProperties props;
+    private final AuthProperties authProps;
     private final Clock clock;
 
     public EmailTemplateService(EmailTemplateRepository repo, BuiltInEmailTemplates builtins,
                                 TonePresetCatalogue tones, MergeTokenCatalogue catalogue, MergeRenderer renderer,
                                 CandidateRepository candidates, InterviewTemplateRepository interviewTemplates,
-                                AuthAuditService audit, EmailTemplateProperties props, Clock clock) {
+                                AuthAuditService audit, EmailTemplateProperties props, AuthProperties authProps,
+                                Clock clock) {
         this.repo = repo;
         this.builtins = builtins;
         this.tones = tones;
@@ -76,6 +79,7 @@ public class EmailTemplateService {
         this.interviewTemplates = interviewTemplates;
         this.audit = audit;
         this.props = props;
+        this.authProps = authProps;
         this.clock = clock;
     }
 
@@ -234,6 +238,11 @@ public class EmailTemplateService {
         Map<String, String> values = new HashMap<>();
         if (nonPiiContext != null) values.putAll(nonPiiContext);
         values.put("candidate_name", c.getName()); // decrypted on read; NEVER logged (PII stays inside F21)
+        // GDPR Art. 14 (FR-020, contract C-LINK-4): the Privacy Notice link is a CONSTANT, injected
+        // centrally here (never per call-site) so it carries no candidate token or PII. spaBaseUrl is
+        // absolute, yielding the http(s)://.../privacy the URL-typed renderer requires. Set LAST so a
+        // caller's nonPiiContext can never override it.
+        values.put("privacy_link", authProps.getSpaBaseUrl() + "/privacy");
 
         return renderer.render(type, eff.subject(), eff.body(), values);
     }
