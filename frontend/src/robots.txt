@@ -11,5 +11,9 @@ Allow: /*.css$
 Allow: /*.woff2$
 Allow: /resources$
 Allow: /resources/
+Allow: /terms$
+Allow: /terms/$
+Allow: /privacy$
+Allow: /privacy/$
 Disallow: /
 Sitemap: https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml

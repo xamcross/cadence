@@ -139,6 +139,15 @@ type StatusState =
 
       <!-- Transient, assertive errors — distinct from the heading so no double-announce. Always mounted. -->
       <p class="err" role="alert" aria-live="assertive" [class.visually-hidden]="!error()">{{ error() }}</p>
+
+      <!-- 031-terms-privacy-notice (T022/C-LINK-2/3): single inline Privacy Notice link. Root-relative
+           full-document anchor to the static /privacy page (outside the SPA router). Opens in a NEW TAB
+           (target=_blank + rel=noopener noreferrer) to preserve the candidate's in-memory token/state;
+           the href carries no token. -->
+      <p class="privacy-notice">
+        <a class="privacy-link btn btn--link" href="/privacy" target="_blank" rel="noopener noreferrer"
+           i18n="@@privacy.link">Privacy Notice</a>
+      </p>
     </main>
 
     <!-- Consistent help affordance: a generic, workspace-sourced "contact your recruiter" route. Never a

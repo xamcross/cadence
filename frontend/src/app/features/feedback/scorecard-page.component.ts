@@ -98,6 +98,15 @@ type FeedbackState =
           <button type="button" class="action retry btn btn--outline" (click)="reload()" i18n="@@feedback.retry.action">Try again</button>
         </section>
       </ng-container>
+
+      <!-- 031-terms-privacy-notice (T023/C-LINK-2/3): single inline Privacy Notice link. Root-relative
+           full-document anchor to the static /privacy page (outside the SPA router). Opens in a NEW TAB
+           (target=_blank + rel=noopener noreferrer) to preserve the in-memory token/state; no token in
+           the href. -->
+      <p class="privacy-notice">
+        <a class="privacy-link btn btn--link" href="/privacy" target="_blank" rel="noopener noreferrer"
+           i18n="@@privacy.link">Privacy Notice</a>
+      </p>
     </main>
   `
 })

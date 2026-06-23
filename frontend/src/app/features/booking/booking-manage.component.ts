@@ -167,6 +167,15 @@ type ManageState =
       <!-- Transient, assertive errors (conflict / open-reschedule failure) — distinct from the heading so no
            double-announce. Always mounted (text-changes, not node-insertion) so screen readers announce it. -->
       <p class="err" role="alert" aria-live="assertive" [class.visually-hidden]="!error()">{{ error() }}</p>
+
+      <!-- 031-terms-privacy-notice (T024/C-LINK-2/3): single inline Privacy Notice link. Root-relative
+           full-document anchor to the static /privacy page (outside the SPA router). Opens in a NEW TAB
+           (target=_blank + rel=noopener noreferrer) to preserve the candidate's in-memory token/state;
+           the href carries no token. -->
+      <p class="privacy-notice">
+        <a class="privacy-link btn btn--link" href="/privacy" target="_blank" rel="noopener noreferrer"
+           i18n="@@privacy.link">Privacy Notice</a>
+      </p>
     </main>
 
     <!-- Consistent help affordance: identical wording + placement across every "what next" state (WCAG 2.2 3.2.6). -->

@@ -12,6 +12,7 @@ import {
   buildSitemap,
   buildLlms,
   buildFeed,
+  assembleLegalPage,
   jsonLd,
   ArticleBuildError
 } from './article-build.lib.mjs';
@@ -322,6 +323,65 @@ describe('article-build.lib (F61)', () => {
       const el = render(out.pages[0].html);
       el.style.width = '375px';
       expect(el.scrollWidth).toBeLessThanOrEqual(el.clientWidth + 1);
+    });
+  });
+
+  // --- 031 (terms-privacy-notice) legal pages ---
+  describe('legal pages (assembleLegalPage)', () => {
+    let lhost: HTMLElement;
+    afterEach(() => { if (lhost) detachFromBody(lhost); });
+    function lrender(fullHtml: string): HTMLElement {
+      const style = (fullHtml.match(/<style>[\s\S]*?<\/style>/) || [''])[0];
+      const main = (fullHtml.match(/<main>[\s\S]*?<\/main>/) || [''])[0];
+      lhost = document.createElement('div');
+      lhost.innerHTML = style + main;
+      attachToBody(lhost);
+      return lhost;
+    }
+    function legal(over) {
+      return {
+        slug: 'terms', type: 'TERMS', title: 'Terms & Conditions', description: 'Our terms.',
+        version: '1.0', lastUpdated: '2026-06-10', draft: true,
+        bodyHtml: '<h2>Use</h2><p>See <a href="/privacy">privacy</a>.</p>', ...over
+      };
+    }
+
+    it('emits a single h1, trailing-slash canonical, WebPage+BreadcrumbList and NO article schema (T005/FR-022f)', () => {
+      const html = assembleLegalPage(legal({}), ctx());
+      expect((html.match(/<h1>/g) || []).length).toBe(1);
+      expect(html).toContain('<link rel="canonical" href="https://__CADENCE_PUBLIC_ORIGIN__/terms/">');
+      expect(html).toContain('"WebPage"');
+      expect(html).toContain('"BreadcrumbList"');
+      expect(html).not.toContain('"BlogPosting"');
+      expect(html).not.toContain('"@type": "Article"');
+      expect(html).not.toContain('"FAQPage"');
+    });
+
+    it('shows the draft banner when draft:true and hides it when draft:false (FR-018)', () => {
+      expect(assembleLegalPage(legal({ draft: true }), ctx())).toContain('class="draft-banner"');
+      expect(assembleLegalPage(legal({ draft: false }), ctx())).not.toContain('class="draft-banner"');
+    });
+
+    it('cross-links to the other doc + home carry the .home-link 44px class (FR-006)', () => {
+      const html = assembleLegalPage(legal({ slug: 'terms' }), ctx());
+      expect(html).toContain('<a class="home-link" href="/privacy/">');
+      expect(html).toContain('<a class="home-link" href="/">');
+    });
+
+    it('buildArtifacts includes /terms + /privacy in sitemap + llms and excludes them from the feed (T007)', () => {
+      const out = buildArtifacts(FIXTURE, '#', ctx(), [legal({ slug: 'terms' }), legal({ slug: 'privacy', type: 'PRIVACY', title: 'Privacy Notice' })]);
+      expect(out.legalPages.map((p) => p.slug).sort()).toEqual(['privacy', 'terms']);
+      expect(out.sitemap).toContain('/terms/</loc>');
+      expect(out.sitemap).toContain('/privacy/</loc>');
+      expect(out.llms).toContain('## Legal');
+      expect(out.feed).not.toContain('/terms/');
+    });
+
+    it('a legal page has zero WCAG 2.2 AA violations and 44px cross-links (T012/SC-004)', async () => {
+      const el = lrender(assembleLegalPage(legal({}), ctx()));
+      expect(await axeViolations(el)).toEqual([]);
+      const link = el.querySelector('.home-link') as HTMLElement;
+      expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     });
   });
 });

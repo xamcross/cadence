@@ -22,7 +22,11 @@ public enum MergeToken {
     FEEDBACK_LINK("feedback_link", true),
     EXPECTED_DATE("expected_date", false),
     // F23 No-Show Defense (append-only). URL-typed — the candidate attendance-confirmation link.
-    CONFIRM_LINK("confirm_link", true);
+    CONFIRM_LINK("confirm_link", true),
+    // F31.x Terms/Privacy (append-only, GDPR Art. 14). URL-typed - the public Privacy Notice link
+    // (<spaBaseUrl>/privacy). Its constant value is injected centrally in EmailTemplateService.renderForSend,
+    // never per call-site, so it carries no candidate token or PII (contract C-LINK-4, research D8).
+    PRIVACY_LINK("privacy_link", true);
 
     private final String token;
     private final boolean urlTyped;

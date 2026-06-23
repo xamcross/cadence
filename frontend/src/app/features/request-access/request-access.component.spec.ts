@@ -151,4 +151,21 @@ describe('RequestAccessComponent (F70)', () => {
     flushMicrotasks();
     expect(document.activeElement).toBe(fixture.nativeElement.querySelector('.state-heading'));
   }));
+
+  // ---- 031-terms-privacy-notice: full Privacy Notice link in the notice block (T018/T020, C-LINK-2) ----
+
+  it('adds a full /privacy link while RETAINING the 4-point notice', () => {
+    const el: HTMLElement = build().nativeElement;
+    // The 4-point summary is retained (not replaced - FR-009).
+    expect(el.querySelector('.privacy__collected')).toBeTruthy();
+    expect(el.querySelector('.privacy__purpose')).toBeTruthy();
+    expect(el.querySelector('.privacy__basis')).toBeTruthy();
+    expect(el.querySelector('.privacy__retention')).toBeTruthy();
+    // ...and a full Privacy Notice link is added inside the same notice block.
+    const link = el.querySelector('.privacy a.privacy-link') as HTMLAnchorElement;
+    expect(link).withContext('the notice block should contain a /privacy link').not.toBeNull();
+    // Root-relative full-document anchor (NOT routerLink) to the static /privacy page.
+    expect(link.getAttribute('href')).toBe('/privacy');
+    expect(link.hasAttribute('routerLink')).toBe(false);
+  });
 });

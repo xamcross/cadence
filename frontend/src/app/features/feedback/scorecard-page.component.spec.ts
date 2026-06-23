@@ -110,4 +110,28 @@ describe('ScorecardPageComponent (F32)', () => {
     flushMicrotasks();
     expect(document.activeElement).toBe(fixture.nativeElement.querySelector('.state-heading'));
   }));
+
+  // ---- 031-terms-privacy-notice: per-surface Privacy link (T018, C-LINK-2/3, SC-002/006) ----
+
+  describe('Privacy Notice link', () => {
+    it('renders a token-safe /privacy link opening in a new tab', () => {
+      const link = build().nativeElement.querySelector('a.privacy-link') as HTMLAnchorElement;
+      expect(link).withContext('a Privacy Notice link should be present').not.toBeNull();
+      expect(link.getAttribute('href')).toBe('/privacy');
+      expect(link.hasAttribute('routerLink')).toBe(false);
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+      expect(link.getAttribute('href')).not.toContain('tok123');
+      expect(link.getAttribute('href')).not.toContain('?');
+    });
+
+    it('writes no web storage when the Privacy link is clicked', () => {
+      const setItem = spyOn(Storage.prototype, 'setItem').and.callThrough();
+      const link = build().nativeElement.querySelector('a.privacy-link') as HTMLAnchorElement;
+      spyOn(link, 'click');
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      const wroteToken = setItem.calls.allArgs().some((args) => args.join(' ').includes('tok123'));
+      expect(wroteToken).toBe(false);
+    });
+  });
 });
