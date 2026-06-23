@@ -108,7 +108,7 @@ type StatusState =
 
         <section *ngSwitchCase="'retryable_error'">
           <p i18n="@@status.retry.body">We couldn't load your application status.</p>
-          <button type="button" class="action retry" (click)="reload(true)" i18n="@@status.retry.action">Try again</button>
+          <button type="button" class="action retry btn btn--outline" (click)="reload(true)" i18n="@@status.retry.action">Try again</button>
           <ng-container *ngTemplateOutlet="help"></ng-container>
         </section>
       </ng-container>
@@ -120,7 +120,7 @@ type StatusState =
         <ng-container *ngIf="!erasureAck(); else erasureAcked">
           <button
             type="button"
-            class="action erasure-request"
+            class="action erasure-request btn btn--outline"
             (click)="requestErasure()"
             [disabled]="erasureBusy()"
             i18n="@@status.erasure.action">

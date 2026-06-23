@@ -29,19 +29,19 @@ import { AtsService, AtsHealth } from './ats.service';
           <p *ngIf="p.deadLetterCount > 0" class="warn-text">{{ deadLetterCountLabel }} {{ p.deadLetterCount }}</p>
         </div>
 
-        <form class="connect" (ngSubmit)="connect(p.provider)" *ngIf="!p.credentialSet">
-          <label [attr.for]="'apiKey-' + p.provider">{{ apiKeyLabel }} ({{ p.provider }})</label>
-          <input [id]="'apiKey-' + p.provider" [name]="'apiKey-' + p.provider" type="password"
+        <form class="connect field" (ngSubmit)="connect(p.provider)" *ngIf="!p.credentialSet">
+          <label class="field__label" [attr.for]="'apiKey-' + p.provider">{{ apiKeyLabel }} ({{ p.provider }})</label>
+          <input class="input" [id]="'apiKey-' + p.provider" [name]="'apiKey-' + p.provider" type="password"
                  [ngModel]="keys[p.provider]" (ngModelChange)="keys[p.provider] = $event" autocomplete="off" />
-          <button type="submit" [disabled]="busy()">{{ connectLabel }}</button>
+          <button type="submit" class="btn btn--primary" [disabled]="busy()">{{ connectLabel }}</button>
         </form>
 
-        <button class="disconnect" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
+        <button class="disconnect btn btn--danger-soft" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
           {{ disconnectLabel }}
         </button>
       </article>
 
-      <p class="error" *ngIf="error()">{{ error() }}</p>
+      <p class="error alert alert--danger" role="alert" *ngIf="error()">{{ error() }}</p>
     </section>
   `,
   styleUrls: ['./ats-integration.component.scss']

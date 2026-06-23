@@ -77,7 +77,7 @@ type RequestAccessState =
 
             <p class="error" role="alert" *ngIf="errorMsg()">{{ errorMsg() }}</p>
 
-            <button type="submit" class="action submit" [disabled]="submitting() || !name || !email"
+            <button type="submit" class="action submit btn btn--primary" [disabled]="submitting() || !name || !email"
                     i18n="@@interest.submit">Request access</button>
           </form>
 
@@ -116,7 +116,7 @@ type RequestAccessState =
 
         <section *ngSwitchCase="'error'">
           <p i18n="@@interest.error.body">We couldn't send your request.</p>
-          <button type="button" class="action retry" (click)="backToForm()" i18n="@@interest.error.action">Try again</button>
+          <button type="button" class="action retry btn btn--outline" (click)="backToForm()" i18n="@@interest.error.action">Try again</button>
         </section>
       </ng-container>
     </main>

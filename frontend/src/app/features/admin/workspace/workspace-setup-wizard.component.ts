@@ -20,31 +20,43 @@ import { WorkspaceService } from './workspace.service';
       <p i18n="@@workspace.setup.intro">A few details to get your workspace ready.</p>
 
       @if (generalError()) {
-        <p class="error" role="alert">{{ generalError() }}</p>
+        <p class="error alert alert--danger" role="alert">{{ generalError() }}</p>
       }
 
       <form [formGroup]="form" (ngSubmit)="submit()">
-        <label for="name" i18n="@@workspace.setup.name">Workspace name</label>
-        <input id="name" type="text" formControlName="name" />
-        @if (fieldError('name')) { <span class="field-error" role="alert">{{ fieldError('name') }}</span> }
+        <div class="field">
+          <label for="name" i18n="@@workspace.setup.name">Workspace name</label>
+          <input class="input" id="name" type="text" formControlName="name" />
+          @if (fieldError('name')) { <span class="field-error" role="alert">{{ fieldError('name') }}</span> }
+        </div>
 
-        <label for="timeZone" i18n="@@workspace.setup.timezone">Time zone (IANA, e.g. Europe/London)</label>
-        <input id="timeZone" type="text" formControlName="timeZone" placeholder="Europe/London" />
-        @if (fieldError('timeZone')) { <span class="field-error" role="alert">{{ fieldError('timeZone') }}</span> }
+        <div class="field">
+          <label for="timeZone" i18n="@@workspace.setup.timezone">Time zone (IANA, e.g. Europe/London)</label>
+          <input class="input" id="timeZone" type="text" formControlName="timeZone" placeholder="Europe/London" />
+          @if (fieldError('timeZone')) { <span class="field-error" role="alert">{{ fieldError('timeZone') }}</span> }
+        </div>
 
-        <label for="start" i18n="@@workspace.setup.start">Working hours start</label>
-        <input id="start" type="time" formControlName="start" />
-        <label for="end" i18n="@@workspace.setup.end">Working hours end</label>
-        <input id="end" type="time" formControlName="end" />
-        @if (fieldError('workingHours')) { <span class="field-error" role="alert">{{ fieldError('workingHours') }}</span> }
+        <div class="field">
+          <label for="start" i18n="@@workspace.setup.start">Working hours start</label>
+          <input class="input" id="start" type="time" formControlName="start" />
+        </div>
+        <div class="field">
+          <label for="end" i18n="@@workspace.setup.end">Working hours end</label>
+          <input class="input" id="end" type="time" formControlName="end" />
+          @if (fieldError('workingHours')) { <span class="field-error" role="alert">{{ fieldError('workingHours') }}</span> }
+        </div>
 
-        <label for="sla" i18n="@@workspace.setup.sla">Default SLA silence window (days)</label>
-        <input id="sla" type="number" formControlName="slaSilenceWindowDays" min="1" max="30" />
-        @if (fieldError('slaSilenceWindowDays')) { <span class="field-error" role="alert">{{ fieldError('slaSilenceWindowDays') }}</span> }
+        <div class="field">
+          <label for="sla" i18n="@@workspace.setup.sla">Default SLA silence window (days)</label>
+          <input class="input" id="sla" type="number" formControlName="slaSilenceWindowDays" min="1" max="30" />
+          @if (fieldError('slaSilenceWindowDays')) { <span class="field-error" role="alert">{{ fieldError('slaSilenceWindowDays') }}</span> }
+        </div>
 
-        <label for="retention" i18n="@@workspace.setup.retention">Data-retention period (days)</label>
-        <input id="retention" type="number" formControlName="retentionPeriodDays" min="30" max="3650" />
-        @if (fieldError('retentionPeriodDays')) { <span class="field-error" role="alert">{{ fieldError('retentionPeriodDays') }}</span> }
+        <div class="field">
+          <label for="retention" i18n="@@workspace.setup.retention">Data-retention period (days)</label>
+          <input class="input" id="retention" type="number" formControlName="retentionPeriodDays" min="30" max="3650" />
+          @if (fieldError('retentionPeriodDays')) { <span class="field-error" role="alert">{{ fieldError('retentionPeriodDays') }}</span> }
+        </div>
 
         <div class="ack">
           <input id="ack" type="checkbox" formControlName="retentionAcknowledged" aria-describedby="ack-help" />
@@ -54,20 +66,18 @@ import { WorkspaceService } from './workspace.service';
           Candidate data older than the retention period will be flagged for deletion.
         </p>
 
-        <button type="submit" [disabled]="submitting()" i18n="@@workspace.setup.finish">Finish setup</button>
+        <button type="submit" class="btn btn--primary" [disabled]="submitting()" i18n="@@workspace.setup.finish">Finish setup</button>
       </form>
     </main>
   `,
   styles: [`
-    .wizard { max-width: 520px; margin: 2rem auto; padding: 0 1rem; }
-    label { display: block; margin-top: 1rem; font-weight: 600; }
-    input[type=text], input[type=number], input[type=time] { width: 100%; min-height: 44px; box-sizing: border-box; }
-    .ack { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+    .wizard { max-width: 520px; margin: var(--space-8) auto; padding: 0 var(--space-4); }
+    .ack { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
     .ack label { margin-top: 0; font-weight: 400; }
     .ack input { min-width: 24px; min-height: 24px; }
     .help { color: var(--ink-faint); font-size: 0.9rem; }
-    .field-error, .error { color: var(--danger); display: block; }
-    button { min-height: 44px; margin-top: 1.5rem; }
+    .field-error { color: var(--danger); display: block; }
+    .error { margin-bottom: var(--space-4); }
   `]
 })
 export class WorkspaceSetupWizardComponent {

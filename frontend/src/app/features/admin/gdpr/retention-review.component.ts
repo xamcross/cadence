@@ -9,7 +9,7 @@ import { GdprService, FlaggedView } from './gdpr.service';
     <section class="gdpr">
       <h1 i18n="@@gdpr.retention.title">Records over the retention period</h1>
       @if (loaded() && flagged().length === 0) {
-        <p i18n="@@gdpr.retention.empty">No candidate records are over the retention period.</p>
+        <p class="empty" i18n="@@gdpr.retention.empty">No candidate records are over the retention period.</p>
       }
       @for (f of flagged(); track f.candidateId) {
         <div class="row">
@@ -17,27 +17,25 @@ import { GdprService, FlaggedView } from './gdpr.service';
           <span i18n="@@gdpr.retention.lastContact">Last activity: {{ f.lastContactAt }}</span>
           <span i18n="@@gdpr.retention.flaggedAt">Flagged: {{ f.retentionFlaggedAt }}</span>
           @if (confirmingId() !== f.candidateId) {
-            <button type="button" class="danger" (click)="confirmingId.set(f.candidateId)"
+            <button type="button" class="danger btn btn--danger-soft btn--sm" (click)="confirmingId.set(f.candidateId)"
                     i18n="@@gdpr.retention.delete">Delete record</button>
           } @else {
             <span i18n="@@gdpr.retention.confirmPrompt">Permanently delete?</span>
-            <button type="button" class="danger" (click)="del(f.candidateId)"
+            <button type="button" class="danger btn btn--danger btn--sm" (click)="del(f.candidateId)"
                     i18n="@@gdpr.retention.confirm">Confirm</button>
-            <button type="button" (click)="confirmingId.set(null)" i18n="@@gdpr.retention.cancel">Cancel</button>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="confirmingId.set(null)" i18n="@@gdpr.retention.cancel">Cancel</button>
           }
         </div>
       }
       @if (message()) {
-        <p role="alert" class="msg">{{ message() }}</p>
+        <p role="alert" class="alert alert--accent msg">{{ message() }}</p>
       }
     </section>
   `,
   styles: [`
-    .gdpr { padding: 1rem; }
-    .row { display: flex; gap: 1rem; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
-    button { min-height: 44px; }
-    .danger { color: var(--danger); }
-    .msg { margin-top: 1rem; }
+    .gdpr { padding: var(--space-4); }
+    .row { display: flex; gap: var(--space-4); align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--line); }
+    .msg { margin-top: var(--space-4); }
   `]
 })
 export class RetentionReviewComponent implements OnInit {

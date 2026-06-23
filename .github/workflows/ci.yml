@@ -638,6 +638,20 @@ jobs:
           fi
           echo "Third-party-font guard passed — no googleapis/gstatic references."
 
+      - name: Off-origin url()/@import guard — no stylesheet may fetch from a third party (030 design system, FR-025)
+        working-directory: frontend
+        run: |
+          # Generalises the font-CDN guard: ANY off-origin url(http...) or @import url(http...) in a
+          # stylesheet is a third-party fetch that could leak the candidate URL token via Referer (and
+          # violates CSP font-src/img-src/style-src 'self'). Scoped to SCSS/CSS sources so the index.html
+          # JSON-LD / canonical https literals (not url()/@import) do not false-positive. Decorative
+          # backgrounds (e.g. grain) MUST be inline data: URIs, which this allows.
+          if grep -rnE "(url\(\s*['\"]?https?:)|(@import\s+(url\()?\s*['\"]?https?:)" src/ --include='*.scss' --include='*.css' ; then
+            echo "ERROR: an off-origin url()/@import was found in a stylesheet — candidate token-leak / CSP risk (FR-025)."
+            exit 1
+          fi
+          echo "Off-origin url()/@import guard passed — stylesheets are same-origin / inline only."
+
       - name: Serve built app (with candidate-API stub) and run Lighthouse CI
         working-directory: frontend
         run: |

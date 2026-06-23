@@ -1,91 +1,60 @@
+// F50 Core Dashboard (workbench voice - quiet, dense, hairline-separated). The header uses the global
+// .page__head + .toolbar, the window switch uses the global .segmented control (the .window-btn class is
+// retained only as a stable test hook), and Export uses .btn. This file owns only the dashboard container,
+// the metric cards, and the silence list. Metric figures are the serif tabular .metric-figure primitive.
+
 .dashboard {
-  padding: 1.5rem;
+  padding: var(--space-6);
   max-width: 70rem;
   margin: 0 auto;
-
-  &__head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  &__controls {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  &__windows {
-    display: inline-flex;
-    gap: 0.25rem;
-  }
-
-  &__metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: 1rem;
-  }
-
-  &__error {
-    color: var(--danger);
-    font-weight: 600;
-  }
 }
 
-.window-btn {
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  padding: 0.4rem 0.8rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-
-  &--active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--surface);
-  }
+.dashboard__error {
+  color: var(--danger);
+  font-weight: 600;
 }
 
-.export-btn {
-  border: 1px solid var(--accent);
-  background: var(--surface);
-  color: var(--accent-ink);
-  padding: 0.4rem 0.9rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+.dashboard__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
 }
 
 .metric {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1rem 1.25rem;
+  padding: var(--space-5) var(--space-6);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
 
-  h2 {
-    font-size: 0.95rem;
-    color: var(--ink-muted);
-    margin: 0 0 0.5rem;
-  }
+  // The metric label reuses the global .eyebrow .eyebrow--quiet primitive (mono caps) in the template,
+  // so no local font rule is needed here - only the bottom spacing under it.
+  h2 { margin: 0 0 var(--space-3); }
 
   &__value {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: var(--step-4);
     margin: 0;
+  }
+
+  // The unit (h, %) steps down so the figure reads as the hero.
+  &__unit {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    letter-spacing: 0;
   }
 
   &__detail {
     color: var(--ink-muted);
-    margin: 0.25rem 0 0;
+    margin: var(--space-2) 0 0;
+    font-variant-numeric: tabular-nums;
   }
 
   &__empty {
     color: var(--ink-faint);
     font-style: italic;
-    margin: 0.5rem 0 0;
+    margin: var(--space-2) 0 0;
   }
 
   &--silence {
@@ -102,26 +71,20 @@
 .silence-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.4rem 0;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--line);
+
+  &:last-child { border-bottom: 0; }
 
   &__name {
     flex: 1;
     overflow-wrap: anywhere;
+    font-weight: 500;
   }
 
   &__sev {
-    font-weight: 700;
-    width: 4rem;
-  }
-
-  &--red &__sev {
-    color: var(--danger);
-  }
-
-  &--amber &__sev {
-    color: var(--warn);
+    flex: none;
   }
 
   &__days {

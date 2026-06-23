@@ -1,47 +1,31 @@
 .csv-import {
   max-width: 60rem;
   margin: 0 auto;
-  padding: 1rem;
+  padding: var(--space-4);
 
   .upload {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--space-2);
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-4);
   }
 
   .counts {
     list-style: none;
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: var(--space-4);
     padding: 0;
-  }
-
-  .rows {
-    width: 100%;
-    border-collapse: collapse;
-
-    th,
-    td {
-      text-align: left;
-      padding: 0.25rem 0.5rem;
-      border-bottom: 1px solid var(--line);
-    }
   }
 
   .dup-actions {
     display: inline-flex;
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
 
   .bulk {
-    margin-top: 0.75rem;
+    margin-top: var(--space-3);
     display: flex;
-    gap: 0.5rem;
-  }
-
-  .error {
-    color: var(--danger);
+    gap: var(--space-2);
   }
 }

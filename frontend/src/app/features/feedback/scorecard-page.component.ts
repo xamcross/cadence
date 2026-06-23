@@ -54,7 +54,7 @@ type FeedbackState =
               <legend i18n="@@feedback.ratings.legend">Competency ratings (optional, 1–4)</legend>
               <label *ngFor="let dim of ratingDimensions()" class="rating">
                 <span class="dim">{{ dim }}</span>
-                <select [ngModel]="ratingFor(dim)" (ngModelChange)="setRating(dim, $event)"
+                <select class="input" [ngModel]="ratingFor(dim)" (ngModelChange)="setRating(dim, $event)"
                         [name]="'rating-' + dim" [attr.aria-label]="dim">
                   <option [ngValue]="null" i18n="@@feedback.rating.none">—</option>
                   <option [ngValue]="1">1</option>
@@ -67,12 +67,12 @@ type FeedbackState =
 
             <label class="comment">
               <span i18n="@@feedback.comment.label">Comments (optional)</span>
-              <textarea name="comment" [(ngModel)]="comment" rows="5" maxlength="5000"></textarea>
+              <textarea class="input" name="comment" [(ngModel)]="comment" rows="5" maxlength="5000"></textarea>
             </label>
 
             <p class="error" role="alert" *ngIf="errorMsg()">{{ errorMsg() }}</p>
 
-            <button type="submit" class="action submit" [disabled]="submitting() || !recommendation"
+            <button type="submit" class="action submit btn btn--brand" [disabled]="submitting() || !recommendation"
                     i18n="@@feedback.submit">Submit feedback</button>
           </form>
         </section>
@@ -95,7 +95,7 @@ type FeedbackState =
 
         <section *ngSwitchCase="'retryable_error'">
           <p i18n="@@feedback.retry.body">We couldn't load the scorecard.</p>
-          <button type="button" class="action retry" (click)="reload()" i18n="@@feedback.retry.action">Try again</button>
+          <button type="button" class="action retry btn btn--outline" (click)="reload()" i18n="@@feedback.retry.action">Try again</button>
         </section>
       </ng-container>
     </main>

@@ -16,14 +16,14 @@ import { RequisitionDto, RequisitionsService } from './requisitions.service';
 
     <section class="create">
       <h2 i18n="@@req.create.title">Create requisition</h2>
-      <input [(ngModel)]="newTitle" placeholder="Job title" i18n-placeholder="@@req.title.ph" />
-      <input [(ngModel)]="newLabel" placeholder="External label (optional)" i18n-placeholder="@@req.label.ph" />
-      <button type="button" (click)="create()" [disabled]="!newTitle.trim()" i18n="@@req.create.btn">Create</button>
+      <input class="input" [(ngModel)]="newTitle" placeholder="Job title" i18n-placeholder="@@req.title.ph" />
+      <input class="input" [(ngModel)]="newLabel" placeholder="External label (optional)" i18n-placeholder="@@req.label.ph" />
+      <button type="button" class="btn btn--primary" (click)="create()" [disabled]="!newTitle.trim()" i18n="@@req.create.btn">Create</button>
     </section>
 
-    @if (error()) { <p class="error" role="alert">{{ errorMsg }}</p> }
+    @if (error()) { <p class="error alert alert--danger" role="alert">{{ errorMsg }}</p> }
 
-    <table>
+    <table class="table">
       <thead><tr>
         <th i18n="@@req.col.title">Title</th>
         <th i18n="@@req.col.status">Status</th>
@@ -38,12 +38,12 @@ import { RequisitionDto, RequisitionsService } from './requisitions.service';
             <td>{{ r.externalLabel || '-' }}</td>
             <td>
               @if (r.status === 'OPEN') {
-                <button type="button" (click)="close(r)" i18n="@@req.close">Close</button>
+                <button type="button" class="btn btn--danger-soft btn--sm" (click)="close(r)" i18n="@@req.close">Close</button>
               } @else {
-                <button type="button" (click)="reopen(r)" i18n="@@req.reopen">Reopen</button>
+                <button type="button" class="btn btn--outline btn--sm" (click)="reopen(r)" i18n="@@req.reopen">Reopen</button>
               }
-              <input [(ngModel)]="assignMemberId[r.id]" placeholder="HM member id" i18n-placeholder="@@req.hm.ph" />
-              <button type="button" (click)="assign(r)" i18n="@@req.assign">Assign HM</button>
+              <input class="input" [(ngModel)]="assignMemberId[r.id]" placeholder="HM member id" i18n-placeholder="@@req.hm.ph" />
+              <button type="button" class="btn btn--outline btn--sm" (click)="assign(r)" i18n="@@req.assign">Assign HM</button>
             </td>
           </tr>
         }
@@ -52,17 +52,17 @@ import { RequisitionDto, RequisitionsService } from './requisitions.service';
 
     <section class="link">
       <h2 i18n="@@req.link.title">Link candidate to requisition</h2>
-      <input [(ngModel)]="linkCandidateId" placeholder="Candidate id" i18n-placeholder="@@req.cand.ph" />
-      <input [(ngModel)]="linkRequisitionId" placeholder="Requisition id" i18n-placeholder="@@req.req.ph" />
-      <button type="button" (click)="link()" i18n="@@req.link.btn">Link</button>
+      <input class="input" [(ngModel)]="linkCandidateId" placeholder="Candidate id" i18n-placeholder="@@req.cand.ph" />
+      <input class="input" [(ngModel)]="linkRequisitionId" placeholder="Requisition id" i18n-placeholder="@@req.req.ph" />
+      <button type="button" class="btn btn--primary" (click)="link()" i18n="@@req.link.btn">Link</button>
     </section>
   `,
   styles: [`
-    section { margin-bottom: 1.5rem; }
-    input, button { min-height: 44px; margin-right: 0.5rem; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--line); }
-    .error { color: var(--danger); }
+    section { margin-bottom: var(--space-6); }
+    .create input, .link input { max-width: 22rem; margin-right: var(--space-2); margin-bottom: var(--space-2); }
+    td input { max-width: 12rem; margin-right: var(--space-2); }
+    td .btn { margin-right: var(--space-2); }
+    .error { margin-bottom: var(--space-4); }
   `]
 })
 export class RequisitionsComponent implements OnInit {

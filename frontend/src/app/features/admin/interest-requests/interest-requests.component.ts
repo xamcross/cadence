@@ -24,23 +24,23 @@ import { Role } from '../../../core/auth/auth.models';
     <section class="interest-requests">
       <h1>{{ title }}</h1>
 
-      <div class="filter">
+      <div class="filter toolbar">
         <label for="statusFilter">{{ filterLabel }}</label>
-        <select id="statusFilter" name="statusFilter" [(ngModel)]="filter" (ngModelChange)="load()">
+        <select class="input" id="statusFilter" name="statusFilter" [(ngModel)]="filter" (ngModelChange)="load()">
           <option value="open" i18n="@@interestAdmin.filter.open">Open</option>
           <option value="reviewed" i18n="@@interestAdmin.filter.reviewed">Reviewed</option>
           <option value="invited" i18n="@@interestAdmin.filter.invited">Invited</option>
           <option value="dismissed" i18n="@@interestAdmin.filter.dismissed">Dismissed</option>
           <option value="all" i18n="@@interestAdmin.filter.all">All</option>
         </select>
-        <button type="button" class="act-export" (click)="exportCsv()"
+        <button type="button" class="act-export btn btn--outline" (click)="exportCsv()"
                 i18n="@@interestAdmin.act.export">Export CSV</button>
       </div>
 
-      <p class="error" *ngIf="error()">{{ error() }}</p>
+      <p class="error alert alert--danger" role="alert" *ngIf="error()">{{ error() }}</p>
       <p class="empty" *ngIf="!loading() && requests().length === 0" i18n="@@interestAdmin.empty">No requests in this view.</p>
 
-      <table class="rows" *ngIf="requests().length">
+      <table class="rows table" *ngIf="requests().length">
         <thead>
           <tr>
             <th i18n="@@interestAdmin.col.name">Name</th>
@@ -69,21 +69,21 @@ import { Role } from '../../../core/auth/auth.models';
             <td class="cell-status">{{ r.status }}</td>
             <td class="cell-submitted">{{ r.submittedAt | date: 'short' }}</td>
             <td class="cell-actions">
-              <button type="button" class="act-review" (click)="review(r)"
+              <button type="button" class="act-review btn btn--ghost btn--sm" (click)="review(r)"
                       [disabled]="busy() || r.status !== 'NEW'" i18n="@@interestAdmin.act.review">Mark reviewed</button>
-              <button type="button" class="act-dismiss" (click)="dismiss(r)"
+              <button type="button" class="act-dismiss btn btn--ghost btn--sm" (click)="dismiss(r)"
                       [disabled]="busy() || (r.status !== 'NEW' && r.status !== 'REVIEWED')"
                       i18n="@@interestAdmin.act.dismiss">Dismiss</button>
 
               <span class="invite-controls" *ngIf="r.status === 'NEW' || r.status === 'REVIEWED'">
-                <select [name]="'role-' + r.id" [(ngModel)]="roleFor[r.id]" [attr.aria-label]="roleSelectLabel">
+                <select class="input" [name]="'role-' + r.id" [(ngModel)]="roleFor[r.id]" [attr.aria-label]="roleSelectLabel">
                   <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
                 </select>
-                <button type="button" class="act-invite" (click)="invite(r)" [disabled]="busy()"
+                <button type="button" class="act-invite btn btn--primary btn--sm" (click)="invite(r)" [disabled]="busy()"
                         i18n="@@interestAdmin.act.invite">Invite</button>
               </span>
 
-              <button type="button" class="act-erase" (click)="erase(r)" [disabled]="busy()"
+              <button type="button" class="act-erase btn btn--danger-soft btn--sm" (click)="erase(r)" [disabled]="busy()"
                       i18n="@@interestAdmin.act.erase">Erase</button>
 
               <span class="row-note" *ngIf="noteFor[r.id]">{{ noteFor[r.id] }}</span>
@@ -94,16 +94,12 @@ import { Role } from '../../../core/auth/auth.models';
     </section>
   `,
   styles: [`
-    .interest-requests { padding: 1rem; }
-    .filter { display: flex; gap: 0.5rem; align-items: center; margin-block: 0.75rem 1rem; }
-    .filter select, .filter button, .invite-controls select { min-height: 44px; }
-    .rows { width: 100%; border-collapse: collapse; }
-    .rows th, .rows td { text-align: start; padding: 0.5rem; border-bottom: 1px solid var(--line, #ddd); vertical-align: top; }
-    .cell-actions button, .invite-controls { min-height: 44px; margin-inline-end: 0.375rem; margin-block-end: 0.25rem; }
-    .cell-actions button { min-height: 44px; }
-    .unverified { color: #666; font-size: 0.85em; }
-    .error { color: #8a1b1b; font-weight: 600; }
-    .row-note { display: inline-block; margin-inline-start: 0.5rem; color: #11337a; }
+    .interest-requests { padding: var(--space-4); }
+    .filter { margin-block: var(--space-3) var(--space-4); }
+    .rows td { vertical-align: top; }
+    .cell-actions button, .invite-controls { margin-inline-end: var(--space-1); margin-block-end: var(--space-1); }
+    .unverified { color: var(--ink-faint); font-size: 0.85em; }
+    .row-note { display: inline-block; margin-inline-start: var(--space-2); color: var(--accent-ink); }
   `]
 })
 export class InterestRequestsComponent implements OnInit {

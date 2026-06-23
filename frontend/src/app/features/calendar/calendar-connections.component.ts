@@ -21,7 +21,8 @@ interface ProviderDef {
     <h1 i18n="@@calendar.title">Calendar connections</h1>
 
     @if (banner(); as b) {
-      <p role="alert" [class.error]="b.type === 'error'" [class.success]="b.type === 'success'">{{ b.text }}</p>
+      <p role="alert" class="alert" [class.error]="b.type === 'error'" [class.success]="b.type === 'success'"
+         [class.alert--danger]="b.type === 'error'" [class.alert--ok]="b.type === 'success'">{{ b.text }}</p>
     }
 
     <ul class="providers">
@@ -30,22 +31,22 @@ interface ProviderDef {
           <span class="name">{{ p.label }}</span>
           @if (rowFor(p.enumName); as row) {
             @if (row.status === 'NEEDS_RECONNECTION') {
-              <span class="status reconnect" i18n="@@calendar.needsReconnection">Needs reconnection</span>
-              <button type="button" [disabled]="starting() === p.id" (click)="connect(p)"
+              <span class="status reconnect badge badge--danger" i18n="@@calendar.needsReconnection">Needs reconnection</span>
+              <button type="button" class="btn btn--primary btn--sm" [disabled]="starting() === p.id" (click)="connect(p)"
                       i18n="@@calendar.reconnect">Reconnect</button>
             } @else {
-              <span class="status connected" i18n="@@calendar.connectedAs">Connected as {{ row.connectedAccount }}</span>
+              <span class="status connected badge badge--ok" i18n="@@calendar.connectedAs">Connected as {{ row.connectedAccount }}</span>
               @if (confirmingDisconnect() === p.id) {
                 <span i18n="@@calendar.confirmDisconnect">Disconnect this calendar?</span>
-                <button type="button" (click)="disconnect(p)" i18n="@@calendar.confirmYes">Yes, disconnect</button>
-                <button type="button" (click)="confirmingDisconnect.set(null)" i18n="@@calendar.cancel">Cancel</button>
+                <button type="button" class="btn btn--danger btn--sm" (click)="disconnect(p)" i18n="@@calendar.confirmYes">Yes, disconnect</button>
+                <button type="button" class="btn btn--ghost btn--sm" (click)="confirmingDisconnect.set(null)" i18n="@@calendar.cancel">Cancel</button>
               } @else {
-                <button type="button" (click)="confirmingDisconnect.set(p.id)" i18n="@@calendar.disconnect">Disconnect</button>
+                <button type="button" class="btn btn--danger-soft btn--sm" (click)="confirmingDisconnect.set(p.id)" i18n="@@calendar.disconnect">Disconnect</button>
               }
             }
           } @else {
-            <span class="status notconnected" i18n="@@calendar.notConnected">Not connected</span>
-            <button type="button" [disabled]="starting() === p.id" (click)="connect(p)"
+            <span class="status notconnected badge" i18n="@@calendar.notConnected">Not connected</span>
+            <button type="button" class="btn btn--primary btn--sm" [disabled]="starting() === p.id" (click)="connect(p)"
                     i18n="@@calendar.connect">Connect</button>
           }
         </li>
@@ -54,7 +55,7 @@ interface ProviderDef {
 
     <section class="preview">
       <h2 i18n="@@calendar.preview.title">Preview my availability</h2>
-      <button type="button" [disabled]="previewing()" (click)="previewMine()"
+      <button type="button" class="btn btn--outline" [disabled]="previewing()" (click)="previewMine()"
               i18n="@@calendar.preview.button">Preview my availability</button>
       @if (preview(); as pv) {
         @if (pv.status === 'DATA') {
@@ -80,13 +81,9 @@ interface ProviderDef {
   `,
   styles: [`
     .providers { list-style: none; padding: 0; }
-    .provider { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0; }
+    .provider { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; }
     .name { font-weight: 600; min-width: 8rem; }
     .spacer { flex: 1; }
-    button { min-height: 44px; }
-    .error { color: var(--danger); }
-    .success { color: var(--ok); }
-    .reconnect { color: var(--danger); }
   `]
 })
 export class CalendarConnectionsComponent implements OnInit {

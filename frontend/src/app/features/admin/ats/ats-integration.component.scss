@@ -1,7 +1,7 @@
 .ats {
   max-width: 640px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: var(--space-4);
 }
 
 .badge {
@@ -24,19 +24,9 @@
   color: var(--warn);
 }
 
-.error {
-  color: var(--danger);
-}
-
 .connect {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin: 1rem 0;
-}
-
-.connect input,
-.connect button,
-.disconnect {
-  min-height: 44px;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
 }

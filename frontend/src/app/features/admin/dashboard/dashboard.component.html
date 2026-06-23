@@ -1,12 +1,15 @@
 <section class="dashboard">
-  <header class="dashboard__head">
-    <h1>{{ title }}</h1>
-    <div class="dashboard__controls">
-      <div class="dashboard__windows" role="group" [attr.aria-label]="title">
+  <header class="dashboard__head page__head">
+    <div class="page__title-group">
+      <p class="eyebrow eyebrow--quiet" i18n="@@dashboard.eyebrow">Analytics</p>
+      <h1>{{ title }}</h1>
+    </div>
+    <div class="dashboard__controls toolbar">
+      <div class="dashboard__windows segmented" role="group" [attr.aria-label]="title">
         @for (w of windows; track w) {
           <button
             type="button"
-            class="window-btn"
+            class="window-btn segmented__btn"
             [class.window-btn--active]="w === window()"
             [attr.aria-pressed]="w === window()"
             (click)="selectWindow(w)">
@@ -15,7 +18,7 @@
         }
       </div>
       @if (canExport()) {
-        <button type="button" class="export-btn" (click)="onExport()">{{ exportLabel }}</button>
+        <button type="button" class="export-btn btn btn--outline btn--sm" (click)="onExport()">{{ exportLabel }}</button>
       }
     </div>
   </header>
@@ -27,9 +30,9 @@
   @if (snapshot(); as snap) {
     <div class="dashboard__metrics">
       <article class="metric">
-        <h2>{{ ttsTitle }}</h2>
+        <h2 class="eyebrow eyebrow--quiet">{{ ttsTitle }}</h2>
         @if (snap.timeToSchedule.hasData) {
-          <p class="metric__value">{{ snap.timeToSchedule.medianHours }} {{ hoursUnit }}</p>
+          <p class="metric__value metric-figure">{{ snap.timeToSchedule.medianHours }} <span class="metric__unit">{{ hoursUnit }}</span></p>
           <p class="metric__detail">{{ snap.timeToSchedule.sampleCount }}</p>
         } @else {
           <p class="metric__empty">{{ noData }}</p>
@@ -37,9 +40,9 @@
       </article>
 
       <article class="metric">
-        <h2>{{ noShowTitle }}</h2>
+        <h2 class="eyebrow eyebrow--quiet">{{ noShowTitle }}</h2>
         @if (snap.noShow.applicable) {
-          <p class="metric__value">{{ (snap.noShow.rate! * 100) | number:'1.1-1' }}%</p>
+          <p class="metric__value metric-figure">{{ (snap.noShow.rate! * 100) | number:'1.1-1' }}<span class="metric__unit">%</span></p>
           <p class="metric__detail">{{ snap.noShow.noShowCount }} / {{ snap.noShow.qualifyingCount }}</p>
         } @else {
           <p class="metric__empty">{{ notApplicable }}</p>
@@ -47,15 +50,16 @@
       </article>
 
       <article class="metric metric--silence">
-        <h2>{{ silenceTitle }}</h2>
+        <h2 class="eyebrow eyebrow--quiet">{{ silenceTitle }}</h2>
         @if (snap.silenceList.length > 0) {
           <ul class="silence-list">
             @for (row of snap.silenceList; track row.candidateId) {
               <li class="silence-row" [class.silence-row--red]="row.severity === 'RED'"
                   [class.silence-row--amber]="row.severity === 'AMBER'">
                 <span class="silence-row__name">{{ row.candidateName }}</span>
-                <span class="silence-row__sev">{{ row.severity }}</span>
-                <span class="silence-row__days">{{ row.daysSilent }} {{ daysSilentSuffix }}</span>
+                <span class="silence-row__sev badge" [class.badge--danger]="row.severity === 'RED'"
+                      [class.badge--warn]="row.severity === 'AMBER'">{{ row.severity }}</span>
+                <span class="silence-row__days num">{{ row.daysSilent }} {{ daysSilentSuffix }}</span>
               </li>
             }
           </ul>

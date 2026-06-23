@@ -49,7 +49,7 @@ type ConfirmState =
           <div class="actions">
             <button
               type="button"
-              class="action reschedule"
+              class="action reschedule btn btn--brand"
               (click)="doConfirm()"
               [disabled]="busy()"
               i18n="@@confirm.prompt.yes">
@@ -88,7 +88,7 @@ type ConfirmState =
 
         <section *ngSwitchCase="'retryable_error'">
           <p i18n="@@confirm.retry.body">We couldn't reach the server, so nothing was changed. Your interview is still booked.</p>
-          <button type="button" class="link-button" (click)="reset()" i18n="@@confirm.retry.action">Back</button>
+          <button type="button" class="link-button btn btn--link" (click)="reset()" i18n="@@confirm.retry.action">Back</button>
           <ng-container *ngTemplateOutlet="help"></ng-container>
         </section>
       </ng-container>
