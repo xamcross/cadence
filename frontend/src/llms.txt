@@ -1,7 +1,7 @@
 # Cadence
 
 > Cadence is an interview-scheduling and candidate-experience platform that lets recruiters
-> schedule interviews, defend against no-shows, and keep candidates informed — without the
+> schedule interviews, defend against no-shows, and keep candidates informed - without the
 > candidate ever needing an account.
 
 ## What it is
@@ -16,6 +16,12 @@ GDPR-first: candidate data is encrypted, consent is recorded before contact, and
 
 In-house recruiters and talent teams who want fewer no-shows and a respectful candidate experience.
 
-## Links
+## Pages
 
-- Home: https://__CADENCE_PUBLIC_ORIGIN__/
+- [Cadence home](https://__CADENCE_PUBLIC_ORIGIN__/): Product overview, key features, and sign-in.
+- [Recruiting resources](https://__CADENCE_PUBLIC_ORIGIN__/resources/): Guides and articles on interview scheduling, no-show prevention, and candidate experience.
+
+## Optional
+
+- [Sitemap](https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml): Every public, indexable URL.
+- [Resources feed](https://__CADENCE_PUBLIC_ORIGIN__/resources/feed.xml): Atom feed of new recruiting resources.
