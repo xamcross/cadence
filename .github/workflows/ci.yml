@@ -541,7 +541,7 @@ jobs:
           # could longest-match a private path and re-open it (robots.txt.md B1). Subset assertion catches it.
           node -e '
             const fs=require("fs");
-            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$","Allow: /resources$","Allow: /resources/","Allow: /terms$","Allow: /terms/$","Allow: /privacy$","Allow: /privacy/$"]);
+            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$","Allow: /sitemap.xml$","Allow: /llms.txt$","Allow: /resources$","Allow: /resources/","Allow: /terms$","Allow: /terms/$","Allow: /privacy$","Allow: /privacy/$"]);
             for (const l of fs.readFileSync(process.argv[1],"utf8").split(/\r?\n/)) {
               if (l.startsWith("Allow:") && !ok.has(l)) { console.error("ERROR: unexpected/over-broad robots Allow line: "+l); process.exit(1); }
             }

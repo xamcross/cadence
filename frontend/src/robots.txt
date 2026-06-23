@@ -9,6 +9,8 @@ Allow: /assets/
 Allow: /*.js$
 Allow: /*.css$
 Allow: /*.woff2$
+Allow: /sitemap.xml$
+Allow: /llms.txt$
 Allow: /resources$
 Allow: /resources/
 Allow: /terms$
