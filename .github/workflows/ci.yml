@@ -486,7 +486,7 @@ jobs:
         run: |
           set -euo pipefail
           DIST=dist/cadence/browser
-          DENY='/schedule|/booking|/confirm|/status|/feedback|/admin|/pipeline|/scheduling|/calendar|/workspace|/interview-templates|/email-templates|/login|/accept-invite|/reset|token='
+          DENY='/schedule|/booking|/confirm|/status|/feedback|/admin|/pipeline|/scheduling|/calendar|/workspace|/interview-templates|/email-templates|/login|/accept-invite|/request-access|/reset|token='
           # Non-vacuity positive control: prove the deny-grep WOULD catch a leaked token/route before
           # trusting that it found none in the real artifacts (the repo's anti-vacuous-scan precedent).
           printf '/status?token=ZZSENTINELSEOTOKEN\n' > /tmp/seo-negctl.txt
@@ -503,8 +503,10 @@ jobs:
           for f in robots.txt sitemap.xml llms.txt index.html; do
             if [ ! -s "$DIST/$f" ]; then echo "ERROR: artifact missing/empty: $f"; exit 1; fi
           done
-          # (b) no private/token route in any artifact.
-          if grep -rEn "$DENY" "$DIST/robots.txt" "$DIST/sitemap.xml" "$DIST/llms.txt"; then
+          # (b) no private/token route in the sitemap or llms. robots.txt is NOT scanned here: under the
+          # allow-by-default model it intentionally LISTS the private prefixes as Disallow lines. Its own
+          # invariants (every private prefix Disallowed; no token value) are asserted in (d) below.
+          if grep -rEn "$DENY" "$DIST/sitemap.xml" "$DIST/llms.txt"; then
             echo "ERROR: a token/auth route leaked into a crawl-control artifact (SC-002)."; exit 1
           fi
           # JSON-LD lives in index.html; scan only the structured-data + head (the SPA bundles legitimately
@@ -512,7 +514,7 @@ jobs:
           node -e '
             const fs=require("fs"); const h=fs.readFileSync(process.argv[1],"utf8");
             const head=(h.match(/<head[\s\S]*?<\/head>/i)||[""])[0];
-            const deny=/\/schedule|\/booking|\/confirm|\/status|\/feedback|\/admin|\/pipeline|\/scheduling|\/calendar|\/workspace|\/interview-templates|\/email-templates|token=/;
+            const deny=/\/schedule|\/booking|\/confirm|\/status|\/feedback|\/admin|\/pipeline|\/scheduling|\/calendar|\/workspace|\/interview-templates|\/email-templates|\/request-access|token=/;
             if (deny.test(head)) { console.error("ERROR: a token/auth URL leaked into index.html <head> (SC-002)."); process.exit(1); }
             // (c) no leftover origin placeholder anywhere in the head.
             if (head.includes("__CADENCE_PUBLIC_ORIGIN__")||head.includes("__CADENCE_ROBOTS__")||head.includes("__CADENCE_INDEX__")) {
@@ -534,18 +536,40 @@ jobs:
           if grep -rEn '__CADENCE_PUBLIC_ORIGIN__' "$DIST/robots.txt" "$DIST/sitemap.xml" "$DIST/llms.txt"; then
             echo "ERROR: an unsubstituted origin placeholder remains in a text artifact."; exit 1
           fi
-          # (d) robots deny-by-default + a resolved Sitemap line + /status not matched by any Allow.
-          grep -qE '^Disallow: /' "$DIST/robots.txt" || { echo "ERROR: robots.txt missing 'Disallow: /'."; exit 1; }
+          # (d) allow-by-default robots: a resolved Sitemap line + EVERY private/token route prefix carries
+          # an explicit Disallow + no token value leaks in. The model was reversed from deny-by-default so
+          # new public URLs (e.g. sitemap.xml) are crawlable without an explicit Allow; the per-path
+          # X-Robots-Tag in _headers + the runtime <meta robots> remain the authoritative noindex layers.
+          # This list MUST stay in sync with the noindex routes in _headers.
           grep -qE '^Sitemap: https://' "$DIST/robots.txt" || { echo "ERROR: robots.txt missing resolved Sitemap line."; exit 1; }
-          # Every Allow: line MUST be in the known-safe render set — a broad wildcard (e.g. Allow: /*.png$)
-          # could longest-match a private path and re-open it (robots.txt.md B1). Subset assertion catches it.
           node -e '
             const fs=require("fs");
-            const ok=new Set(["Allow: /$","Allow: /favicon.ico","Allow: /assets/","Allow: /*.js$","Allow: /*.css$","Allow: /*.woff2$","Allow: /sitemap.xml$","Allow: /llms.txt$","Allow: /resources$","Allow: /resources/","Allow: /terms$","Allow: /terms/$","Allow: /privacy$","Allow: /privacy/$"]);
-            for (const l of fs.readFileSync(process.argv[1],"utf8").split(/\r?\n/)) {
-              if (l.startsWith("Allow:") && !ok.has(l)) { console.error("ERROR: unexpected/over-broad robots Allow line: "+l); process.exit(1); }
+            const txt=fs.readFileSync(process.argv[1],"utf8");
+            const disallowed=new Set(txt.split(/\r?\n/).filter(l=>l.startsWith("Disallow: ")).map(l=>l.slice(10).trim()));
+            // Floor: these private/token prefixes MUST be Disallowed regardless of _headers.
+            const required=["/schedule","/booking","/confirm","/status","/feedback","/app","/admin","/pipeline","/scheduling","/calendar","/workspace","/interview-templates","/email-templates","/login","/accept-invite","/request-access","/reset","/not-authorized"];
+            for (const r of required) {
+              if (!disallowed.has(r)) { console.error("ERROR: robots.txt missing Disallow for private route: "+r); process.exit(1); }
             }
-          ' "$DIST/robots.txt"
+            if (/token=/.test(txt)) { console.error("ERROR: robots.txt contains a token value."); process.exit(1); }
+            // Sync invariant (single source of truth = _headers): EVERY route carrying X-Robots-Tag: noindex
+            // in _headers MUST also be Disallowed in robots.txt, so a new private route added to the header
+            // noindex layer cannot silently become crawlable under the allow-by-default model. Derive each
+            // noindex route prefix from _headers (strip the trailing glob and slash) and assert coverage.
+            const hdr=fs.readFileSync(process.argv[2],"utf8").split(/\r?\n/);
+            let cur=null, noindex=[];
+            for (const l of hdr) {
+              if (/^#/.test(l)) { continue; }                      // comment (may itself mention "X-Robots-Tag: noindex")
+              else if (/^\//.test(l)) { cur=l.trim(); }            // a route-pattern line (e.g. /status* or /admin/*)
+              else if (cur && /^\s+X-Robots-Tag:\s*noindex/i.test(l)) { noindex.push(cur); cur=null; }  // its indented header
+            }
+            for (const route of noindex) {
+              const prefix=route.replace(/\*+$/,"").replace(/\/$/,"");  // /status* -> /status ; /admin/* -> /admin
+              if (prefix && prefix!=="/" && !disallowed.has(prefix)) {
+                console.error("ERROR: _headers noindex route "+route+" has no matching Disallow ("+prefix+") in robots.txt."); process.exit(1);
+              }
+            }
+          ' "$DIST/robots.txt" "$DIST/_headers"
           # (f) og:image path resolves to a built file.
           test -s "$DIST/assets/og-cadence.png" || { echo "ERROR: og:image asset missing in dist."; exit 1; }
           # (g) sitemap well-formed + every <loc> is an absolute https URL (no dep on xmllint).
@@ -590,7 +614,7 @@ jobs:
           if [ -z "$ARTICLES" ]; then echo "ERROR: no /resources/<slug>/index.html generated."; exit 1; fi
           # (b) deny scan over the article pages + feed (path-anchored so marketing prose like
           #     "interview scheduling" does not false-positive; only a literal /private-path or token= fails).
-          DENY='href="/schedule|href="/booking|href="/confirm|href="/status|href="/feedback|href="/admin|href="/pipeline|href="/scheduling|href="/calendar|href="/workspace|href="/interview-templates|href="/email-templates|href="/login|href="/accept-invite|href="/reset|href="/app|token='
+          DENY='href="/schedule|href="/booking|href="/confirm|href="/status|href="/feedback|href="/admin|href="/pipeline|href="/scheduling|href="/calendar|href="/workspace|href="/interview-templates|href="/email-templates|href="/login|href="/accept-invite|href="/request-access|href="/reset|href="/app|token='
           # positive control: prove the deny-grep is live.
           printf 'href="/admin/secret" token=ZZSENTINEL\n' > /tmp/f61-negctl.txt
           grep -qE "$DENY" /tmp/f61-negctl.txt || { echo "ERROR: F61 deny-grep vacuous."; rm -f /tmp/f61-negctl.txt; exit 1; }
@@ -640,7 +664,7 @@ jobs:
             test -s "$DIST/$L/index.html" || { echo "ERROR: legal page missing: $L/index.html (fail-closed)."; exit 1; }
           done
           # (b) token/PII + no-third-party-origin deny-grep over the legal pages, with positive control.
-          DENY='/schedule|/booking|/confirm|/status|/feedback|/admin|/pipeline|/scheduling|/calendar|/workspace|/interview-templates|/email-templates|/login|/accept-invite|/reset|token=|googleapis|gstatic|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}'
+          DENY='/schedule|/booking|/confirm|/status|/feedback|/admin|/pipeline|/scheduling|/calendar|/workspace|/interview-templates|/email-templates|/login|/accept-invite|/request-access|/reset|token=|googleapis|gstatic|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}'
           printf '/status?token=ZZSENTINELLEGAL googleapis.com sentinel@x.io\n' > /tmp/legal-negctl.txt
           grep -qE "$DENY" /tmp/legal-negctl.txt || { echo "ERROR: legal deny-grep vacuous."; rm -f /tmp/legal-negctl.txt; exit 1; }
           rm -f /tmp/legal-negctl.txt

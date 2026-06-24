@@ -26,7 +26,7 @@ function scaffold(articles) {
   mkdirSync(dist, { recursive: true });
   // minimal dist artifacts the pipeline expects
   writeFileSync(join(dist, 'llms.txt'), '# Cadence\n\n> base summary\n', 'utf8');
-  writeFileSync(join(dist, 'robots.txt'), 'User-agent: *\nAllow: /resources/\nDisallow: /\nSitemap: https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml\n', 'utf8');
+  writeFileSync(join(dist, 'robots.txt'), 'User-agent: *\nDisallow: /app\nDisallow: /status\nSitemap: https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml\n', 'utf8');
   writeFileSync(join(dist, 'sitemap.xml'), '<?xml version="1.0"?><urlset></urlset>', 'utf8');
   writeFileSync(join(dist, 'index.html'),
     '<!doctype html><html lang="en"><head><meta name="robots" content="__CADENCE_ROBOTS__">' +

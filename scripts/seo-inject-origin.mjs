@@ -8,15 +8,17 @@
 // Env:
 //   CADENCE_PUBLIC_ORIGIN   (required) e.g. https://app.cadence.example.com  - origin only, no path.
 //   CADENCE_PUBLIC_ENV      'production' enables indexing; ANY other value (preview/unset) =>
-//                           deny-by-default: all-disallow robots.txt + noindex everywhere.
+//                           non-prod fail-closed: all-disallow robots.txt + noindex everywhere.
+//                           (The prod robots.txt itself is allow-by-default: everything crawlable
+//                           except the explicit Disallow list of token/auth prefixes it ships.)
 //
 // Substitutions (in robots.txt / sitemap.xml / llms.txt / index.html):
 //   __CADENCE_PUBLIC_ORIGIN__  -> the validated origin host (no scheme)
 //   __CADENCE_ROBOTS__         -> 'index,follow' (prod) | 'noindex,nofollow' (non-prod)   [index.html]
 //   __CADENCE_INDEX__          -> 'enabled' (prod) | 'disabled' (non-prod)                [index.html]
 //
-// Non-production additionally: overwrites robots.txt with an all-disallow body and appends a global
-// X-Robots-Tag: noindex rule to _headers (production _headers is left byte-identical).
+// Non-production additionally: overwrites the allow-by-default robots.txt with an all-disallow body and
+// appends a global X-Robots-Tag: noindex rule to _headers (production _headers is left byte-identical).
 
 import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

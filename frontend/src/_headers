@@ -40,6 +40,8 @@
   X-Robots-Tag: noindex, nofollow
 /accept-invite*
   X-Robots-Tag: noindex, nofollow
+/request-access*
+  X-Robots-Tag: noindex, nofollow
 /reset*
   X-Robots-Tag: noindex, nofollow
 /not-authorized*
