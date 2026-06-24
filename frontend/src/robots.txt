@@ -1,21 +1,29 @@
-# Cadence - only the public home page and the assets needed to render it are crawlable.
-# Everything else (auth, app, and per-candidate token pages) is disallowed by default.
+# Cadence - allow-by-default. Everything is crawlable EXCEPT the per-candidate token pages and the
+# authenticated app, which are explicitly disallowed below. Public marketing, the /resources content
+# library, the /terms + /privacy legal pages, and crawl artifacts (sitemap.xml, llms.txt) are therefore
+# crawlable without needing an explicit Allow for each one. (The prior deny-by-default model kept
+# silently blocking new public URLs such as sitemap.xml.) The per-path X-Robots-Tag: noindex in _headers
+# and the runtime <meta name=robots> remain the authoritative noindex layers for token/auth pages.
 # Origin in the Sitemap line is substituted at build time (scripts/seo-inject-origin.mjs).
 # Non-production builds replace this whole file with an all-disallow body.
+# NOTE: keep this Disallow list in sync with the noindex routes in _headers (CI asserts it).
 User-agent: *
-Allow: /$
-Allow: /favicon.ico
-Allow: /assets/
-Allow: /*.js$
-Allow: /*.css$
-Allow: /*.woff2$
-Allow: /sitemap.xml$
-Allow: /llms.txt$
-Allow: /resources$
-Allow: /resources/
-Allow: /terms$
-Allow: /terms/$
-Allow: /privacy$
-Allow: /privacy/$
-Disallow: /
+Disallow: /schedule
+Disallow: /booking
+Disallow: /confirm
+Disallow: /status
+Disallow: /feedback
+Disallow: /app
+Disallow: /admin
+Disallow: /pipeline
+Disallow: /scheduling
+Disallow: /calendar
+Disallow: /workspace
+Disallow: /interview-templates
+Disallow: /email-templates
+Disallow: /login
+Disallow: /accept-invite
+Disallow: /request-access
+Disallow: /reset
+Disallow: /not-authorized
 Sitemap: https://__CADENCE_PUBLIC_ORIGIN__/sitemap.xml
