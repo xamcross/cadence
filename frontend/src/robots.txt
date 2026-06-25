@@ -8,6 +8,7 @@
 # Non-production builds replace this whole file with an all-disallow body.
 # NOTE: keep this Disallow list in sync with the noindex routes in _headers (CI asserts it).
 User-agent: *
+Allow: /
 Disallow: /schedule
 Disallow: /booking
 Disallow: /confirm
