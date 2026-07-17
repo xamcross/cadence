@@ -1,0 +1,52 @@
+<h2>Calendars</h2>
+<p>
+  Interview scheduling is only as good as its calendar data, so Cadence connects to each
+  interviewer's real calendar with individually authorised, revocable OAuth connections.
+</p>
+<ul>
+  <li><a href="/integrations/google-calendar/">Google Calendar</a>: live free/busy reads and
+    automatic event management for Google Workspace teams.</li>
+  <li><a href="/integrations/microsoft-365/">Microsoft 365</a>: the same live availability and
+    event lifecycle for Outlook and Microsoft 365 calendars.</li>
+</ul>
+<p>
+  Mixed teams work naturally: a panel can span one interviewer on Google and another on Microsoft 365,
+  and the availability intersection just works.
+</p>
+
+<h2>Applicant tracking systems</h2>
+<p>
+  Keep your ATS as the system of record while Cadence runs scheduling and candidate communication.
+  Candidates sync in, and scheduling outcomes write back, so nobody re-keys data.
+</p>
+<ul>
+  <li><a href="/integrations/greenhouse/">Greenhouse</a>: API-key connection, candidate sync, and
+    stage write-back.</li>
+  <li><a href="/integrations/lever/">Lever</a>: the same sync and write-back model for Lever
+    workspaces.</li>
+</ul>
+
+<h2>No ATS? CSV import</h2>
+<p>
+  Teams without an ATS bring candidates in with CSV upload: per-row validation with clear error
+  reporting, injection-safe parsing of untrusted files, encrypted storage of the uploaded file while
+  the import runs, and provenance recorded on every imported candidate. It is the fastest way to get
+  a real pipeline into Cadence in an afternoon.
+</p>
+
+<h2>How connections are secured</h2>
+<p>
+  Every integration credential, OAuth tokens and API keys alike, is encrypted at rest, scoped to the
+  workspace, and revocable in one action. Access uses the narrowest scopes each provider offers for
+  the job, connection health is surfaced in the app, and a reconnect is requested the moment a
+  provider reports a token problem, before it breaks an interview. Integration activity lands in the
+  audit log keyed by internal identifiers, in line with the practices in
+  <a href="/resources/gdpr-safe-recruiting/">privacy-safe recruiting</a>.
+</p>
+
+<h2>Start connecting</h2>
+<p>
+  See <a href="/features/">the full feature overview</a> for how integrations power scheduling,
+  no-show defense, and status pages, or sign in from the <a href="/">Cadence home page</a> to connect
+  your first calendar.
+</p>

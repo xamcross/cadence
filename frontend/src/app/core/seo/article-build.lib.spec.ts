@@ -9,6 +9,9 @@ import {
   computeRelated,
   faqDedupCheck,
   lintBody,
+  lintPageBody,
+  validatePageMeta,
+  assembleMarketingPage,
   buildSitemap,
   buildLlms,
   buildFeed,
@@ -33,7 +36,7 @@ function art(over) {
     datePublished: '2026-06-01',
     theme: 'no-shows',
     related: [],
-    bodyHtml: '<h2>Section</h2><p>Body with a <a href="/resources/a-two">link</a>.</p>',
+    bodyHtml: '<h2>Section</h2><p>Body with a <a href="/resources/a-two/">link</a>.</p>',
     ...over
   };
 }
@@ -272,7 +275,13 @@ describe('article-build.lib (F61)', () => {
       expect(() => lintBody('x', '<script>alert(1)</script>')).toThrowError(/script/);
       expect(() => lintBody('x', '<p onclick="x()">y</p>')).toThrowError(/event handler/);
       expect(() => lintBody('x', '<a href="/status?token=abc">x</a>')).toThrowError(ArticleBuildError);
-      expect(() => lintBody('x', '<p><a href="/resources/ok">k</a> <a href="/">home</a> <a href="https://example.com/x">ext</a></p>')).not.toThrow();
+      expect(() => lintBody('x', '<p><a href="/resources/ok/">k</a> <a href="/">home</a> <a href="https://example.com/x">ext</a></p>')).not.toThrow();
+      expect(() => lintBody('x', '<p><a href="/features/">f</a> <a href="/integrations/lever/">l</a> <a href="/terms/">t</a></p>')).not.toThrow();
+    });
+
+    it('lintBody rejects the no-trailing-slash internal form (it costs every visitor a 308 hop)', () => {
+      expect(() => lintBody('x', '<p><a href="/resources/no-slash">k</a></p>')).toThrowError(/allow-list/);
+      expect(() => lintBody('x', '<p><a href="/features">f</a></p>')).toThrowError(/allow-list/);
     });
 
     it('lintBody rejects an embedded email/token sentinel (FR-011/SC-005)', () => {
@@ -342,7 +351,7 @@ describe('article-build.lib (F61)', () => {
       return {
         slug: 'terms', type: 'TERMS', title: 'Terms & Conditions', description: 'Our terms.',
         version: '1.0', lastUpdated: '2026-06-10', draft: true,
-        bodyHtml: '<h2>Use</h2><p>See <a href="/privacy">privacy</a>.</p>', ...over
+        bodyHtml: '<h2>Use</h2><p>See <a href="/privacy/">privacy</a>.</p>', ...over
       };
     }
 
@@ -382,6 +391,78 @@ describe('article-build.lib (F61)', () => {
       expect(await axeViolations(el)).toEqual([]);
       const link = el.querySelector('.home-link') as HTMLElement;
       expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    });
+  });
+
+  // --- marketing pages (seo/audit-improvements) ---
+  describe('marketing pages (assembleMarketingPage)', () => {
+    let mhost: HTMLElement;
+    afterEach(() => { if (mhost) detachFromBody(mhost); });
+    function mrender(fullHtml: string): HTMLElement {
+      const style = (fullHtml.match(/<style>[\s\S]*?<\/style>/) || [''])[0];
+      const main = (fullHtml.match(/<main>[\s\S]*?<\/main>/) || [''])[0];
+      mhost = document.createElement('div');
+      mhost.innerHTML = style + main;
+      attachToBody(mhost);
+      return mhost;
+    }
+    function page(over) {
+      return {
+        slug: 'features', title: 'Cadence features', description: 'What the product does.',
+        lastUpdated: '2026-07-17',
+        faq: [{ q: 'How does self-scheduling work?', a: 'The candidate picks a slot from a private link.' }],
+        bodyHtml: '<h2>Overview</h2><p>See <a href="/pricing/">pricing</a> and <a href="/resources/a-one/">a guide</a>.</p>',
+        ...over
+      };
+    }
+
+    it('emits a single h1, trailing-slash canonical, WebPage+BreadcrumbList+FAQPage, robots placeholder', () => {
+      const html = assembleMarketingPage(page({}), ctx());
+      expect((html.match(/<h1>/g) || []).length).toBe(1);
+      expect(html).toContain('<link rel="canonical" href="https://__CADENCE_PUBLIC_ORIGIN__/features/">');
+      expect(html).toContain('"WebPage"');
+      expect(html).toContain('"BreadcrumbList"');
+      expect(html).toContain('"FAQPage"');
+      expect(html).toContain('content="__CADENCE_ROBOTS__"');
+      expect(html).not.toContain('"BlogPosting"');
+    });
+
+    it('a nested integration page gets the /integrations/ hub breadcrumb', () => {
+      const html = assembleMarketingPage(page({ slug: 'integrations/greenhouse', title: 'Greenhouse integration' }), ctx());
+      expect(html).toContain('<link rel="canonical" href="https://__CADENCE_PUBLIC_ORIGIN__/integrations/greenhouse/">');
+      expect(html).toContain('href="/integrations/"');
+      const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+      const bc = blocks.find((b) => b['@type'] === 'BreadcrumbList');
+      expect(bc.itemListElement.length).toBe(3);
+      expect(bc.itemListElement[1].name).toBe('Integrations');
+    });
+
+    it('validatePageMeta rejects a reserved/private first segment and an over-length description', () => {
+      expect(() => validatePageMeta(page({ slug: 'admin' }))).toThrowError(/reserved_page_slug/);
+      expect(() => validatePageMeta(page({ slug: 'status/x' }))).toThrowError(/reserved_page_slug/);
+      expect(() => validatePageMeta(page({ description: 'x'.repeat(161) }))).toThrowError(/page_description_too_long/);
+      expect(() => validatePageMeta(page({}))).not.toThrow();
+    });
+
+    it('lintPageBody applies the shared allow-list (rejects private routes + no-slash internal links)', () => {
+      expect(() => lintPageBody('p', '<a href="/login">sign in</a>')).toThrowError(/allow-list/);
+      expect(() => lintPageBody('p', '<a href="/pricing">no slash</a>')).toThrowError(/allow-list/);
+      expect(() => lintPageBody('p', '<a href="/vs/calendly/">cmp</a> <a href="/integrations/">hub</a>')).not.toThrow();
+    });
+
+    it('buildArtifacts emits marketing pages into pages+sitemap+llms and excludes them from the feed', () => {
+      const out = buildArtifacts(FIXTURE, '# Cadence\n', ctx(), [], [page({}), page({ slug: 'pricing', title: 'Cadence pricing', faq: [] })]);
+      expect(out.marketingPages.map((p) => p.slug).sort()).toEqual(['features', 'pricing']);
+      expect(out.sitemap).toContain('/features/</loc>');
+      expect(out.sitemap).toContain('/pricing/</loc>');
+      expect(out.llms).toContain('## Product');
+      expect(out.llms).toContain('/features/');
+      expect(out.feed).not.toContain('/features/');
+    });
+
+    it('a marketing page has zero WCAG 2.2 AA violations', async () => {
+      const el = mrender(assembleMarketingPage(page({}), ctx()));
+      expect(await axeViolations(el)).toEqual([]);
     });
   });
 });

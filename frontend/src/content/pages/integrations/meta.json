@@ -1,0 +1,7 @@
+{
+  "slug": "integrations",
+  "title": "Integrations: calendars, ATS, and CSV import",
+  "description": "Connect Google Calendar, Microsoft 365, Greenhouse, and Lever, or run standalone with CSV import. Scoped, revocable access with encrypted credentials.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/integrations.png"
+}

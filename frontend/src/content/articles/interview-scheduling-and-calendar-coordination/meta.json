@@ -1,12 +1,16 @@
 {
   "slug": "interview-scheduling-and-calendar-coordination",
   "title": "Interview scheduling and calendar coordination",
-  "summary": "Coordinating interview panels across calendars is where most recruiting time disappears. Self-scheduling links, real free/busy checks, and time-zone-aware invites turn a chain of emails into a single confident booking.",
+  "summary": "Replace scheduling email tennis with one self-scheduling link backed by live free/busy checks, atomic slot reservation, and time-zone-safe calendar invites.",
   "datePublished": "2026-06-22",
+  "dateUpdated": "2026-07-17",
   "theme": "scheduling",
   "related": ["reducing-interview-no-shows", "gdpr-safe-recruiting"],
+  "ogImage": "/assets/og/interview-scheduling-and-calendar-coordination.png",
   "faq": [
     { "q": "How do you avoid double-booking interviewers?", "a": "Check each interviewer's real free/busy availability at the moment of booking and reserve the slot atomically, so two candidates can never claim the same time." },
-    { "q": "What time zone should interview invites use?", "a": "Always present times in the candidate's own time zone and store the absolute instant, so an interview never drifts by an hour across a daylight-saving change." }
+    { "q": "What time zone should interview invites use?", "a": "Always present times in the candidate's own time zone and store the absolute instant, so an interview never drifts by an hour across a daylight-saving change." },
+    { "q": "How do you schedule a panel interview across busy calendars?", "a": "Compute the live free/busy intersection of the whole panel, hold the chosen slot for every member atomically, and rebuild the event set when any interviewer changes rather than patching it by hand." },
+    { "q": "What scheduling rules protect interviewers from overload?", "a": "Working-hours windows, buffers between interviews, and daily interview caps, enforced by the slot engine itself so the humane schedule is the default rather than a manual favour." }
   ]
 }

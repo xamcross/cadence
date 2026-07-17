@@ -1,0 +1,40 @@
+<h2>What the integration does</h2>
+<p>
+  The Microsoft 365 integration connects Cadence to Outlook and Microsoft 365 calendars through the
+  Microsoft Graph API. It does the same two jobs as every Cadence calendar connection: read true
+  free/busy availability at the moment a candidate books, and manage the interview events themselves,
+  creating panel events on booking, rebuilding them on a reschedule, and removing them on a
+  cancellation.
+</p>
+<ul>
+  <li>Live availability from each interviewer's real calendar, checked at booking time.</li>
+  <li>Automatic event lifecycle for the whole panel, with clean teardown on changes.</li>
+  <li>Absolute-instant storage, so a booking never drifts across a daylight-saving boundary.</li>
+</ul>
+
+<h2>How connection works</h2>
+<p>
+  Each interviewer connects their own Microsoft work account through the standard Microsoft sign-in
+  and consent flow. Access is per-person and scoped to availability and event management; there is no
+  tenant-wide grant to review and no shared mailbox to maintain. Tokens are encrypted at rest, and a
+  connection can be revoked by the interviewer or a workspace admin at any time.
+</p>
+
+<h2>Built for the way Microsoft estates behave</h2>
+<p>
+  Conditional-access policies, password rotations, and admin-revoked grants are normal life in a
+  Microsoft tenant, so Cadence treats a failing connection as an expected event: the refresh failure
+  is detected, the connection is flagged, and the interviewer is asked to reconnect before the gap
+  reaches a candidate's booking page. Recruiters see connection health in the app rather than
+  discovering it through a half-empty slot list.
+</p>
+
+<h2>Works alongside Google Calendar</h2>
+<p>
+  Mixed panels are first-class: an interviewer on Microsoft 365 and another on
+  <a href="/integrations/google-calendar/">Google Calendar</a> intersect availability exactly as a
+  single-provider panel would. The scheduling engine behind it, atomic slot reservation, panel
+  coordination, and working-hours rules, is described in
+  <a href="/resources/interview-scheduling-and-calendar-coordination/">interview scheduling and
+  calendar coordination</a>, or see <a href="/integrations/">all integrations</a>.
+</p>

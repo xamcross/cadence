@@ -54,7 +54,7 @@ function runGen(env, dist) {
 const A1 = {
   slug: 'reducing-no-shows', title: 'Reducing no-shows', summary: 'A short lead answer.',
   datePublished: '2026-06-01', theme: 'no-shows', related: ['candidate-care'],
-  bodyHtml: '<h2>Why</h2><p>Body with a <a href="/resources/candidate-care">link</a>.</p>'
+  bodyHtml: '<h2>Why</h2><p>Body with a <a href="/resources/candidate-care/">link</a>.</p>'
 };
 const A2 = {
   slug: 'candidate-care', title: 'Candidate care', summary: 'Another short lead answer.',
@@ -136,12 +136,12 @@ test('non-prod inject -> a /resources page is noindex; prod inject -> index,foll
 const L_TERMS = {
   slug: 'terms', type: 'TERMS', title: 'Terms & Conditions', description: 'Our terms.',
   version: '1.0', lastUpdated: '2026-06-10', draft: true,
-  bodyHtml: '<h2>Use</h2><p>See <a href="/privacy">privacy</a>.</p>'
+  bodyHtml: '<h2>Use</h2><p>See <a href="/privacy/">privacy</a>.</p>'
 };
 const L_PRIVACY = {
   slug: 'privacy', type: 'PRIVACY', title: 'Privacy Notice', description: 'How we handle data.',
   version: '1.0', lastUpdated: '2026-06-12', draft: false,
-  bodyHtml: '<h2>Data</h2><p>See <a href="/terms">terms</a>.</p>'
+  bodyHtml: '<h2>Data</h2><p>See <a href="/terms/">terms</a>.</p>'
 };
 
 function scaffoldLegal(root, legalPages) {
@@ -195,7 +195,90 @@ test('REAL privacy content covers all 12 GDPR transparency topics + terms refere
       assert.ok(privacy.includes(phrase), 'real privacy notice must cover: ' + phrase);
     }
     const terms = readFileSync(join(dist, 'terms', 'index.html'), 'utf8');
-    assert.match(terms, /href="\/privacy"/, 'terms references the privacy notice');
+    assert.match(terms, /href="\/privacy\/"/, 'terms references the privacy notice');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// --- marketing pages (seo/audit-improvements) ----------------------------------------------------
+
+function scaffoldPages(root, pages) {
+  const pagesDir = join(root, 'pages');
+  mkdirSync(pagesDir, { recursive: true });
+  for (const p of pages) {
+    const dir = join(pagesDir, ...p.slug.split('/'));
+    mkdirSync(dir, { recursive: true });
+    const { bodyHtml, ...meta } = p;
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta), 'utf8');
+    writeFileSync(join(dir, 'body.html'), bodyHtml, 'utf8');
+  }
+  return pagesDir;
+}
+
+const P_FEATURES = {
+  slug: 'features', title: 'Cadence features', description: 'What the product does.',
+  lastUpdated: '2026-07-17',
+  bodyHtml: '<h2>Overview</h2><p>See <a href="/integrations/greenhouse/">the Greenhouse integration</a>.</p>'
+};
+const P_GREENHOUSE = {
+  slug: 'integrations/greenhouse', title: 'Greenhouse integration', description: 'Sync with Greenhouse.',
+  lastUpdated: '2026-07-17',
+  bodyHtml: '<h2>How it works</h2><p>Back to <a href="/features/">features</a>.</p>'
+};
+
+test('generator emits marketing pages (incl. nested), lists them in sitemap + llms, inject flips robots', () => {
+  const { root, content, dist, srcIndex } = scaffold([A1, A2]);
+  try {
+    const pages = scaffoldPages(root, [P_FEATURES, P_GREENHOUSE]);
+    runGen({ CADENCE_CONTENT_DIR: content, CADENCE_PAGES_DIR: pages, CADENCE_SRC_INDEX: srcIndex, CADENCE_BUILD_DATE: '2026-07-17' }, dist);
+    assert.ok(existsSync(join(dist, 'features', 'index.html')), 'features page emitted');
+    assert.ok(existsSync(join(dist, 'integrations', 'greenhouse', 'index.html')), 'nested integration page emitted');
+    const sitemap = readFileSync(join(dist, 'sitemap.xml'), 'utf8');
+    assert.match(sitemap, /\/features\/<\/loc>/);
+    assert.match(sitemap, /\/integrations\/greenhouse\/<\/loc>/);
+    const llms = readFileSync(join(dist, 'llms.txt'), 'utf8');
+    assert.match(llms, /## Product/);
+    assert.match(llms, /\/features\//);
+    const feed = readFileSync(join(dist, 'resources', 'feed.xml'), 'utf8');
+    assert.ok(!/\/features\//.test(feed), 'feed excludes marketing pages');
+
+    // preview (non-prod): the marketing page must be noindex + placeholder-free on a direct fetch
+    const preview = join(root, 'preview');
+    cpSync(dist, preview, { recursive: true });
+    execFileSync('node', [INJECT, preview], {
+      env: { ...process.env, CADENCE_PUBLIC_ORIGIN: 'app.example.com', CADENCE_PUBLIC_ENV: 'preview' }, encoding: 'utf8'
+    });
+    const previewPage = readFileSync(join(preview, 'integrations', 'greenhouse', 'index.html'), 'utf8');
+    assert.match(previewPage, /name="robots" content="noindex,nofollow"/, 'non-prod marketing page must be noindex');
+    assert.ok(!previewPage.includes('__CADENCE_'), 'placeholders substituted in nested page');
+
+    // production: index,follow + resolved canonical
+    execFileSync('node', [INJECT, dist], {
+      env: { ...process.env, CADENCE_PUBLIC_ORIGIN: 'app.example.com', CADENCE_PUBLIC_ENV: 'production' }, encoding: 'utf8'
+    });
+    const prodPage = readFileSync(join(dist, 'features', 'index.html'), 'utf8');
+    assert.match(prodPage, /name="robots" content="index,follow"/);
+    assert.match(prodPage, /<link rel="canonical" href="https:\/\/app\.example\.com\/features\/"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a marketing page whose meta slug mismatches its directory fails the build', () => {
+  const { root, content, dist, srcIndex } = scaffold([A1, A2]);
+  try {
+    const pages = scaffoldPages(root, [{ ...P_FEATURES, slug: 'features' }]);
+    // break the slug after scaffolding (dir stays "features")
+    writeFileSync(join(pages, 'features', 'meta.json'),
+      JSON.stringify({ slug: 'other', title: 'x', description: 'y', lastUpdated: '2026-07-17' }), 'utf8');
+    let failed = false;
+    try {
+      runGen({ CADENCE_CONTENT_DIR: content, CADENCE_PAGES_DIR: pages, CADENCE_SRC_INDEX: srcIndex, CADENCE_BUILD_DATE: '2026-07-17' }, dist);
+    } catch {
+      failed = true;
+    }
+    assert.ok(failed, 'generator should exit non-zero on a page slug/dir mismatch');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

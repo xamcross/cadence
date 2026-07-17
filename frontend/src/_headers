@@ -1,7 +1,16 @@
 /*
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+
+# Hashed Angular bundles (main-*.js / chunk-*.js / styles-*.css) are content-addressed, so they are
+# safe to cache forever; a new deploy changes the filename. HTML/robots/sitemap keep the default
+# short-lived caching (Cloudflare Pages), so freshness of pages is unaffected.
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
 
 # F60 (026-seo-aeo): page-level X-Robots-Tag: noindex for EVERY token-bearing and authenticated route
 # (FR-008/SC-003). This is the second, independent layer that works for ALL crawler classes — including

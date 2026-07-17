@@ -91,7 +91,9 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
         </p>
         <div class="hero__actions">
           <a class="btn btn--primary" routerLink="/login" i18n="@@home.cta2">Sign in to your workspace</a>
-          <!-- F61: plain href (NOT routerLink) so it leaves the SPA and loads the static /resources library. -->
+          <!-- F61 / seo: plain hrefs (NOT routerLink) so these leave the SPA and load the static pages. -->
+          <a class="btn btn--ghost" href="/features/" i18n="@@home.featuresPage">Explore features</a>
+          <a class="btn btn--ghost" href="/pricing/" i18n="@@home.pricingPage">Pricing</a>
           <a class="btn btn--ghost resources-link" href="/resources/" i18n="@@home.resources">Recruiting resources</a>
         </div>
       </section>

@@ -1,0 +1,12 @@
+{
+  "slug": "pricing",
+  "title": "Pricing",
+  "description": "Cadence is free while in early access. Every feature included: scheduling, no-show defense, status pages, calendar sync, ATS integration, and GDPR tooling.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/pricing.png",
+  "faq": [
+    { "q": "How much does Cadence cost during early access?", "a": "Nothing. Early-access workspaces get every feature free, including calendar sync, ATS integrations, no-show defense, and GDPR tooling." },
+    { "q": "Will there be paid plans later?", "a": "Yes, team plans will be announced before general availability. Early-access workspaces will get clear notice and a migration path before any billing starts." },
+    { "q": "Is there a limit on candidates or interviews during early access?", "a": "No hard caps are applied during early access; fair-use rate limits protect the platform but do not constrain normal recruiting volumes." }
+  ]
+}

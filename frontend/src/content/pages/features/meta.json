@@ -1,0 +1,12 @@
+{
+  "slug": "features",
+  "title": "Interview scheduling software features",
+  "description": "Self-scheduling links, no-show defense, candidate status pages, calendar sync, ATS integration, and GDPR-safe data handling in one recruiting tool.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/features.png",
+  "faq": [
+    { "q": "How does candidate self-scheduling work?", "a": "The recruiter sends one private link; the candidate picks from slots where every required interviewer is genuinely free, shown in the candidate's own time zone. The slot is reserved atomically and calendar events are created automatically." },
+    { "q": "What happens when a candidate does not confirm an interview?", "a": "Cadence runs a confirmation cascade: a reminder with one-tap confirmation, then a recruiter alert if the candidate stays silent, so the team can rebook or release the slot before the interview is wasted." },
+    { "q": "Can interviewers leave structured feedback?", "a": "Yes. After each interview, interviewers get a private scorecard link with a submission deadline and reminders; recruiters see submitted scorecards on the candidate record." }
+  ]
+}

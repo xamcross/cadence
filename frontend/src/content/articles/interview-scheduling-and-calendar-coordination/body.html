@@ -1,35 +1,161 @@
 <h2>Where scheduling time really goes</h2>
 <p>
   The email tennis of "does Tuesday work?" is the most expensive habit in recruiting. Every round trip
-  adds a day, and a panel of three interviewers multiplies the problem. The fix is not working faster at
-  a broken process; it is replacing the back-and-forth with a single self-scheduling step backed by real
+  adds a day, and a panel of three interviewers multiplies the problem. Count the true cost of one
+  booking made by hand: find the interviewers' free slots, propose two or three to the candidate, wait,
+  discover one interviewer took a meeting in the gap, start again. Multiply by every candidate in the
+  pipeline and scheduling quietly becomes a part-time job. The fix is not working faster at a broken
+  process; it is replacing the back-and-forth with a single self-scheduling step backed by real
   calendar data.
 </p>
 
-<h2>Let candidates self-schedule against real availability</h2>
+<h2>The anatomy of a self-scheduling flow</h2>
 <p>
-  Send the candidate one link that offers only slots when the required interviewers are genuinely free.
-  When the candidate picks a time, reserve it atomically so two candidates can never grab the same slot,
-  and write the event straight to the interviewers' calendars. No coordinator, no clashes, no guesswork.
+  A reliable self-scheduling flow has five moves, and the order matters:
 </p>
 <ul>
-  <li>Read each interviewer's free/busy availability at the moment of booking, not from a stale cache.</li>
-  <li>Reserve the chosen slot atomically to prevent double-booking a panel member.</li>
-  <li>Create and update the calendar events automatically, and tear them down on a cancellation.</li>
+  <li>The recruiter sends the candidate one private booking link for the interview stage.</li>
+  <li>The page shows only slots where every required interviewer is genuinely free, in the
+    candidate's own time zone.</li>
+  <li>The candidate picks a time, and the slot is reserved atomically at that instant.</li>
+  <li>Calendar events are written to every interviewer's calendar, and the candidate gets a
+    confirmation with an invite attached.</li>
+  <li>The same link becomes the candidate's manage link: reschedule and cancellation live there,
+    with no login and no reply-required email.</li>
 </ul>
+<p>
+  Each move removes a failure mode: no proposed-slot-gone-stale, no double-booking, no forgotten
+  invite, no "please email us to change the time". The candidate does one thing; the system does the
+  rest.
+</p>
+
+<h2>Read real availability, not a stale cache</h2>
+<p>
+  Send the candidate one link that offers only slots when the required interviewers are genuinely
+  free, and read each interviewer's free/busy availability at the moment of booking, not from a cache
+  computed an hour ago. Calendars churn constantly: meetings appear, focus blocks move, someone books
+  leave. A slot list that was correct this morning is a double-booking by lunch. The moment of truth
+  is the candidate's click, so that is when availability must be checked against the live calendar.
+</p>
+
+<h2>Reserve atomically, or two candidates will collide</h2>
+<p>
+  When the candidate picks a time, reserve it atomically so two candidates can never grab the same
+  slot, and write the event straight to the interviewers' calendars. The race is real: two candidates
+  with the same link-set, looking at the same attractive Friday slot, will eventually click within
+  seconds of each other. Whichever claim lands second must lose cleanly and see fresh alternatives,
+  not a silent double-booking that surfaces as two nervous strangers in one meeting room. This is a
+  systems property, not a policy; either the reservation is atomic or the collision is a matter of
+  time.
+</p>
+
+<h2>Panels: coordinate several calendars at once</h2>
+<p>
+  A panel interview is the availability intersection of everyone in the room, which is why it is the
+  scheduling case that breaks manual coordination first. Three busy calendars can easily share only two
+  or three viable slots a week, and those disappear fast. The playbook that keeps panels sane: compute
+  the intersection against live free/busy for the whole panel; hold the claimed slot for everyone
+  atomically; and when one interviewer becomes unavailable, rebuild the event set rather than leaving
+  a half-updated panel. If your pipeline caps how many interviews a person carries in a day, enforce
+  it in the slot maths, not in a wiki page nobody reads mid-booking.
+</p>
 
 <h2>Get time zones and daylight saving right</h2>
 <p>
   Always show the candidate times in their own time zone, and store the absolute instant rather than a
   wall-clock label. This is what keeps an interview from silently shifting by an hour when a region
-  changes its clocks. Small details here prevent the most embarrassing scheduling failures.
+  changes its clocks. The classic failure: an interview booked across a daylight-saving boundary, where
+  the candidate's "14:00" and the interviewer's "14:00" part ways over a weekend. Storing the instant
+  and rendering it per-viewer makes the problem impossible rather than merely unlikely. Small details
+  here prevent the most embarrassing scheduling failures.
 </p>
 
-<h2>Fewer clashes, fewer drop-offs</h2>
+<h2>Working hours, buffers, and caps</h2>
 <p>
-  A clean scheduling workflow also reduces no-shows, because a candidate who chose their own slot is far
-  more likely to attend; see <a href="/resources/reducing-interview-no-shows">reducing interview
-  no-shows</a> for the confirmation cascade that complements it. And since calendar connections touch
-  personal data, combine it with <a href="/resources/gdpr-safe-recruiting">privacy-safe recruiting</a>
-  to keep access minimal and auditable.
+  Live availability tells you when an interviewer is free; scheduling rules decide when they are
+  <em>offerable</em>. The difference protects your team. Working-hours windows keep a candidate in
+  another region from booking your engineer at 06:30. Buffers between interviews leave room for notes
+  and a coffee, so the fourth conversation of the day is as fair as the first. Daily caps stop
+  interview load from silently eating a whole calendar in a hiring push. Encode these as rules the
+  slot engine applies automatically, and the humane schedule becomes the default schedule rather than
+  a favour someone has to remember to do.
+</p>
+
+<h2>Reschedules and cancellations without drama</h2>
+<p>
+  A reschedule is not an exception; it is a normal path that deserves the same quality as the first
+  booking. The candidate's manage link should offer new slots from the same live availability, claim
+  the new time atomically, tear down the old calendar events, and create the new ones, keeping the
+  history connected so the recruiter sees one candidate journey rather than two unrelated bookings.
+  Cancellations should release every interviewer's time immediately. Done this way, a conflict costs
+  the candidate thirty seconds and costs your team nothing; done by email, it costs days and
+  occasionally the candidate. A clean scheduling workflow also reduces no-shows, because a candidate
+  who chose their own slot is far more likely to attend; see
+  <a href="/resources/reducing-interview-no-shows/">reducing interview no-shows</a> for the
+  confirmation cascade that complements it.
+</p>
+
+<h2>Keep humans in the loop, not in the loop-de-loop</h2>
+<p>
+  Automation should remove the clerical work, not the recruiter's awareness. The recruiter still wants
+  to know the moment a booking lands, a candidate reschedules, or a slot expires unclaimed, as
+  notifications, not as chores. The distinction to hold on to: humans decide who interviews and what
+  happens next; the system executes calendars, invites, reminders, and the bookkeeping in between.
+  Teams that get this split right spend their recovered hours on sourcing and candidate conversations,
+  which is where recruiting actually happens.
+</p>
+
+<h2>What a good booking day looks like</h2>
+<p>
+  Put the pieces together and a scheduling day changes shape. Morning: three candidates passed
+  screening yesterday and each already holds a booking link; two have booked overnight, in their own
+  time zones, without a single email. Midday: a panel member accepts a conflicting meeting, the
+  affected slot silently leaves every open booking page, and nothing needs fixing because nothing
+  broke. Afternoon: a candidate reschedules Friday's interview to Monday; the old events vanish from
+  four calendars, new ones appear, and the recruiter reads about it in a notification rather than
+  organising it. The coordinator role does not disappear; it moves up a level, from arranging
+  meetings to running a pipeline.
+</p>
+
+<h2>The metrics that prove it works</h2>
+<p>
+  Scheduling automation pays for itself measurably, so measure it. Time-to-interview, from "passed
+  screening" to "interview happened", is the headline number, and self-scheduling typically collapses
+  it from a week of email tennis to a same-day booking. Watch the supporting cast too: coordinator
+  hours per hire, the double-booking count (which should be zero, structurally), the reschedule rate
+  (a healthy sign when it replaces silent drop-offs), and the no-show rate that falls when candidates
+  choose their own times. If a number refuses to move, the bottleneck is usually upstream of the
+  tooling: not enough interviewer availability offered, or approval steps between screening and the
+  booking link.
+</p>
+
+<h2>Questions to ask any scheduling tool</h2>
+<p>
+  Whether you evaluate Cadence or anything else, the failure modes in this guide translate into an
+  evaluation checklist:
+</p>
+<ul>
+  <li>Is availability read live at booking time, or from a cache that can go stale?</li>
+  <li>Is the slot reservation atomic under two simultaneous candidates?</li>
+  <li>Does a panel booking create, update, and tear down events for every member together?</li>
+  <li>Are times stored as instants and rendered per-viewer time zone, daylight-saving safe?</li>
+  <li>Can working hours, buffers, and daily caps be enforced in the slot computation itself?</li>
+  <li>Does the candidate manage the booking from one link, with no account?</li>
+  <li>What exactly happens on a reschedule, and does history stay connected?</li>
+</ul>
+<p>
+  A vendor who answers these crisply has been burned by the right problems; a vendor who waves at
+  them will introduce you to each one personally.
+</p>
+
+<h2>Connect the calendars you already use</h2>
+<p>
+  All of this runs on your existing calendar estate. Cadence connects to
+  <a href="/integrations/google-calendar/">Google Calendar</a> and
+  <a href="/integrations/microsoft-365/">Microsoft 365</a> with per-interviewer OAuth connections, so
+  free/busy reads and event writes use each person's real calendar with revocable, scoped access. And
+  since calendar connections touch personal data, combine the workflow with
+  <a href="/resources/gdpr-safe-recruiting/">privacy-safe recruiting</a> to keep access minimal and
+  auditable. The result is a booking flow you can trust end to end: live availability, atomic
+  reservations, tidy events, and a candidate who only ever had to click once.
 </p>

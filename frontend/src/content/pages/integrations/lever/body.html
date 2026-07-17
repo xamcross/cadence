@@ -1,0 +1,43 @@
+<h2>Lever stays the system of record</h2>
+<p>
+  The Lever integration follows the same principle as every Cadence ATS connection: Lever remains the
+  source of truth for your pipeline, and Cadence runs the scheduling and candidate communication
+  around it. Opportunities sync from Lever into Cadence, interviews are booked through self-scheduling
+  links with no-show defense, and scheduling outcomes write back to the linked Lever candidate.
+</p>
+
+<h2>Sync in, write back</h2>
+<p>
+  A recurring sync brings active Lever candidates into Cadence, matched by identity to avoid
+  duplicates, with each record linked to its Lever opportunity and stage. Outcomes flow the other way
+  through a retrying outbox: bookings, completions, and drop-offs update the Lever record in order,
+  exactly once, even across a temporary Lever outage. Sync runs are visible per provider with counts,
+  timestamps, and categorised errors, so the state of the connection is never a mystery.
+</p>
+
+<h2>Runs alongside Greenhouse</h2>
+<p>
+  Connections are per-provider, so a workspace can run Lever and
+  <a href="/integrations/greenhouse/">Greenhouse</a> side by side, which makes ATS migrations
+  undramatic: each candidate stays linked to the provider they came from, and both write-backs run
+  independently. Teams with no ATS at all use CSV import instead; see
+  <a href="/integrations/">all integrations</a>.
+</p>
+
+<h2>Connection and security</h2>
+<p>
+  A workspace admin connects Lever with an API credential scoped to what the sync needs. The
+  credential is encrypted at rest, never displayed after entry, rotatable, and removable in one
+  action. GDPR erasure covers the ATS-linked fields Cadence holds, and integration activity is
+  audited by internal identifiers only, in line with
+  <a href="/resources/gdpr-safe-recruiting/">privacy-safe recruiting</a>.
+</p>
+
+<h2>Where this fits</h2>
+<p>
+  Lever tracks the pipeline; Cadence makes the interviews happen: live-calendar
+  <a href="/resources/interview-scheduling-and-calendar-coordination/">self-scheduling</a>, the
+  <a href="/resources/reducing-interview-no-shows/">no-show confirmation cascade</a>, candidate status
+  pages, and interviewer scorecards. See the <a href="/features/">full feature overview</a> for the
+  complete picture.
+</p>

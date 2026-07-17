@@ -16,16 +16,20 @@ on the next build; remove it -> the page 404s and disappears from every artifact
   "dateUpdated": "2026-07-01",
   "theme": "no-shows",
   "related": ["another-slug"],
+  "ogImage": "/assets/og/my-article-slug.png",
   "faq": [{ "q": "A question distinct from the home FAQ", "a": "A concise answer." }]
 }
 ```
 
 - `slug` MUST equal the directory name and match `^[a-z0-9]+(-[a-z0-9]+)*$`; it must be unique.
 - `summary` is required and MUST be <= 60 words (it is the lead paragraph and meta description).
+  Keep it <= 160 characters so search engines do not truncate it.
 - `datePublished` / `dateUpdated` are `YYYY-MM-DD`; `dateUpdated` (optional) must be >= `datePublished`.
 - `theme` is one of: `no-shows`, `candidate-experience`, `scheduling`, `privacy`.
 - `related` (optional) lists other slugs; the generator completes reciprocal back-links and, if empty,
   auto-fills from the same theme.
+- `ogImage` (optional) is a per-article social card, `/assets/og/<name>.png` (1200x630, committed under
+  `frontend/src/assets/og/`, regenerate with `scripts/gen-og-images.ps1`); the brand card is the default.
 - `faq` (optional) becomes a per-article `FAQPage`. Questions MUST NOT duplicate the home FAQ in
   `index.html` (the build fails on a near-duplicate, FR-021).
 
@@ -33,8 +37,11 @@ on the next build; remove it -> the page 404s and disappears from every artifact
 
 - A safe HTML **fragment** (no `<html>/<head>/<body>` wrapper, no `<h1>` -- the page `<h1>` is the title).
 - Start headings at `<h2>`.
-- Links/images may only target the public allow-list: `/resources/...`, `/`, an in-page `#anchor`, or an
-  external `https://` URL. No `<script>/<iframe>/<style>`, no inline `on*=` handlers, no `javascript:`/
+- Links/images may only target the public allow-list: `/resources/<slug>/`, `/resources/`, `/terms/`,
+  `/privacy/`, `/features/`, `/pricing/`, `/integrations/`, `/integrations/<x>/`, `/vs/<x>/`, `/`, an
+  in-page `#anchor`, or an external `https://` URL. Internal directory links MUST use the
+  trailing-slash form (the no-slash form 308-redirects on Cloudflare Pages; the build fails on it).
+  No `<script>/<iframe>/<style>`, no inline `on*=` handlers, no `javascript:`/
   `data:` URLs, and no candidate token/email (the build fails otherwise -- FR-011/FR-020).
 
 ## Build / preview

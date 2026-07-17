@@ -26,6 +26,7 @@ const REPO_ROOT = join(SCRIPT_DIR, '..');
 // harness can point the generator at a temp fixture; default to the real first-party sources.
 const CONTENT_DIR = process.env.CADENCE_CONTENT_DIR || join(REPO_ROOT, 'frontend', 'src', 'content', 'articles');
 const LEGAL_DIR = process.env.CADENCE_LEGAL_DIR || join(REPO_ROOT, 'frontend', 'src', 'content', 'legal');
+const PAGES_DIR = process.env.CADENCE_PAGES_DIR || join(REPO_ROOT, 'frontend', 'src', 'content', 'pages');
 const SRC_INDEX = process.env.CADENCE_SRC_INDEX || join(REPO_ROOT, 'frontend', 'src', 'index.html');
 
 const distDir = process.argv[2] || join('frontend', 'dist', 'cadence', 'browser');
@@ -91,6 +92,38 @@ function loadLegalPages(legalDir) {
   return out;
 }
 
+/** Scan content/pages into marketing pages (meta.json + body.html), one nesting level deep
+ *  (e.g. pages/features -> "features", pages/integrations/greenhouse -> "integrations/greenhouse").
+ *  A directory may BOTH be a page (own meta.json) and hold child pages (the /integrations hub). */
+function loadMarketingPages(pagesDir) {
+  if (!existsSync(pagesDir)) return [];
+  const out = [];
+  const scanDir = (dir, rel, recurse) => {
+    for (const name of readdirSync(dir).sort()) {
+      const child = join(dir, name);
+      if (!statSync(child).isDirectory()) continue;
+      const slug = rel ? rel + '/' + name : name;
+      const metaPath = join(child, 'meta.json');
+      const bodyPath = join(child, 'body.html');
+      const hasMeta = existsSync(metaPath);
+      const hasBody = existsSync(bodyPath);
+      if (hasMeta !== hasBody) {
+        throw new ArticleBuildError('incomplete_page: ' + slug + ' (needs meta.json + body.html)');
+      }
+      if (hasMeta) {
+        const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+        if (meta.slug !== slug) {
+          throw new ArticleBuildError('page_slug_dir_mismatch: dir "' + slug + '" != slug "' + meta.slug + '"');
+        }
+        out.push({ ...meta, bodyHtml: readFileSync(bodyPath, 'utf8') });
+      }
+      if (recurse) scanDir(child, slug, false);
+    }
+  };
+  scanDir(pagesDir, '', true);
+  return out;
+}
+
 function writeFileEnsured(path, contents) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, contents, 'utf8');
@@ -104,6 +137,7 @@ function main() {
   const homeFaqQuestions = readHomeFaqQuestions(SRC_INDEX);
   const articles = loadArticles(CONTENT_DIR);
   const legalPages = loadLegalPages(LEGAL_DIR);
+  const marketingPages = loadMarketingPages(PAGES_DIR);
 
   // Base llms.txt is the angular-asset-copied src version already in dist (we append the article list).
   const distLlms = join(distDir, 'llms.txt');
@@ -115,7 +149,7 @@ function main() {
 
   let artifacts;
   try {
-    artifacts = buildArtifacts(articles, baseLlms, ctx, legalPages);
+    artifacts = buildArtifacts(articles, baseLlms, ctx, legalPages, marketingPages);
   } catch (e) {
     if (e instanceof ArticleBuildError) {
       console.error('seo-build-articles: ' + e.message);
@@ -133,12 +167,17 @@ function main() {
   for (const lp of artifacts.legalPages) {
     writeFileEnsured(join(distDir, lp.slug, 'index.html'), lp.html);
   }
+  // seo/audit-improvements: emit the commercial marketing pages (/features, /pricing, /integrations/*, /vs/*).
+  for (const mp of artifacts.marketingPages) {
+    writeFileEnsured(join(distDir, ...mp.slug.split('/'), 'index.html'), mp.html);
+  }
   // Overwrite the angular-asset-copied sitemap.xml + llms.txt in dist (generator owns them).
   writeFileEnsured(join(distDir, 'sitemap.xml'), artifacts.sitemap);
   writeFileEnsured(join(distDir, 'llms.txt'), artifacts.llms);
 
   console.log(
-    'seo-build-articles: ' + articles.length + ' article(s) + ' + legalPages.length + ' legal page(s) -> ' +
+    'seo-build-articles: ' + articles.length + ' article(s) + ' + legalPages.length + ' legal page(s) + ' +
+    marketingPages.length + ' marketing page(s) -> ' +
     distDir + '/ (+ resources/, sitemap.xml, llms.txt, resources/feed.xml), buildDate=' + buildDate
   );
 }

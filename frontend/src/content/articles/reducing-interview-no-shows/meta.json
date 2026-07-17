@@ -1,12 +1,16 @@
 {
   "slug": "reducing-interview-no-shows",
   "title": "How to reduce interview no-shows",
-  "summary": "Interview no-shows waste recruiter time and stall pipelines. Reduce them with timely confirmations, one-tap reschedule links, and a respectful reminder cadence that treats candidates as partners, not numbers.",
+  "summary": "Cut interview no-shows with timely confirmations, one-tap reschedule links, faster scheduling, and a respectful reminder cadence that keeps candidates engaged.",
   "datePublished": "2026-06-22",
+  "dateUpdated": "2026-07-17",
   "theme": "no-shows",
   "related": ["candidate-experience-best-practices", "interview-scheduling-and-calendar-coordination"],
+  "ogImage": "/assets/og/reducing-interview-no-shows.png",
   "faq": [
     { "q": "What causes interview no-shows?", "a": "Common causes are forgotten appointments, competing offers, unclear logistics, and a scheduling process that feels impersonal. Most are preventable with a confirmation step and a timely reminder." },
-    { "q": "How far in advance should I send an interview reminder?", "a": "A reminder roughly 24 hours before the interview, paired with a one-tap confirmation, gives candidates time to confirm or reschedule while keeping the interview top of mind." }
+    { "q": "How far in advance should I send an interview reminder?", "a": "A reminder roughly 24 hours before the interview, paired with a one-tap confirmation, gives candidates time to confirm or reschedule while keeping the interview top of mind." },
+    { "q": "How do you calculate an interview no-show rate?", "a": "Divide silent non-attendances by all completed bookings over the same period, and split it by interview stage and role family. High-volume roles typically run several times the rate of senior searches." },
+    { "q": "Should a candidate get a second chance after a no-show?", "a": "Yes, once. Offer a single easy rebook link with a warm note that assumes good faith. A second silent miss is the point to close the process respectfully." }
   ]
 }
