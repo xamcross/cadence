@@ -97,11 +97,18 @@ export function validateMeta(meta, knownSlugs) {
     if (!knownSlugs.has(r)) throw new ArticleBuildError('unresolved_related: ' + meta.slug + ' -> ' + r);
     if (r === meta.slug) throw new ArticleBuildError('self_related: ' + meta.slug);
   }
+  if (meta.ogImage !== undefined && !/^\/assets\/og\/[a-z0-9-]+\.png$/.test(meta.ogImage)) {
+    throw new ArticleBuildError('invalid_og_image: ' + meta.slug + ' (must be /assets/og/<name>.png)');
+  }
 }
 
 // --- body safety lint (allow-list, FR-011/FR-020) -------------------------------------------------
 
-const PUBLIC_LINK_RE = /^(\/resources\/[a-z0-9-]+\/?|\/resources\/?|\/|#[a-z0-9-]*|https:\/\/[a-z0-9.-]+(?:\/[^\s"']*)?)$/i;
+// Internal directory links MUST use the trailing-slash form (/resources/<slug>/, /terms/, /features/,
+// /integrations/<x>/, ...): Cloudflare Pages serves the directory index at the slash URL and
+// 308-redirects the no-slash form, so a no-slash internal link costs every visitor (and crawler) a
+// redirect hop. The lint REJECTS the no-slash form outright — build-time enforcement of the served form.
+const PUBLIC_LINK_RE = /^(\/|#[a-z0-9-]*|https:\/\/[a-z0-9.-]+(?:\/[^\s"']*)?|\/resources\/(?:[a-z0-9-]+\/)?|\/(?:terms|privacy|features|pricing|integrations)\/|\/(?:integrations|vs)\/[a-z0-9-]+\/)$/i;
 const PII_TOKEN_RE = /token=|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 
 /** Reject an unsafe body fragment (defense-in-depth; content is first-party). Throws on violation. */
@@ -237,7 +244,10 @@ export function assembleArticlePage(article, related, ctx) {
   // Trailing slash: Cloudflare Pages serves the directory-index page at /resources/<slug>/ and
   // 308-redirects the no-slash form, so the self-canonical must use the slash (matches served URL).
   const canonical = ctx.originBase + RESOURCES_PATH + '/' + article.slug + '/';
-  const ogImage = ctx.originBase + '/assets/og-cadence.png';
+  // Per-article social card when authored (meta.ogImage, validated shape); brand card otherwise.
+  // The Organization logo ALWAYS stays the brand card — it identifies the publisher, not the article.
+  const ogImage = ctx.originBase + (article.ogImage || '/assets/og-cadence.png');
+  const orgLogo = ctx.originBase + '/assets/og-cadence.png';
   const orgId = ctx.originBase + '/' + ORG_ID;
   const published = humanDate(article.datePublished);
   const updated = article.dateUpdated ? humanDate(article.dateUpdated) : null;
@@ -251,7 +261,7 @@ export function assembleArticlePage(article, related, ctx) {
     '@id': orgId,
     name: 'Cadence',
     url: ctx.originBase + '/',
-    logo: ogImage
+    logo: orgLogo
   };
   const breadcrumbLd = {
     '@context': 'https://schema.org',
@@ -382,8 +392,6 @@ export function assembleIndexPage(articles, ctx) {
 // (the route-seo-inventory "exactly one indexable route" invariant holds). Non-article schema:
 // WebPage + BreadcrumbList (+ shared Organization), never BlogPosting/Article/FAQPage (FR-022f).
 
-const LEGAL_LINK_RE = /^(\/(terms|privacy)\/?|\/resources\/[a-z0-9-]+\/?|\/resources\/?|\/|#[a-z0-9-]*|https:\/\/[a-z0-9.-]+(?:\/[^\s"']*)?)$/i;
-
 /** Validate a legal-page meta (terms|privacy). Throws on failure. */
 export function validateLegalMeta(meta) {
   if (!meta || typeof meta !== 'object') throw new ArticleBuildError('invalid_legal_meta: not an object');
@@ -420,7 +428,7 @@ export function lintLegalBody(slug, bodyHtml) {
   }
   for (const m of bodyHtml.matchAll(/(?:href|src)\s*=\s*["']([^"']*)["']/gi)) {
     const target = m[1].trim();
-    if (!LEGAL_LINK_RE.test(target)) {
+    if (!PUBLIC_LINK_RE.test(target)) {
       throw new ArticleBuildError('unsafe_legal_body: ' + slug + ' link not on allow-list: ' + target);
     }
   }
@@ -488,10 +496,152 @@ export function assembleLegalPage(doc, ctx) {
     '</main>\n</body>\n</html>\n';
 }
 
+// --- marketing pages (seo/audit-improvements) -----------------------------------------------------
+// Commercial static pages (/features, /pricing, /integrations/<x>, /vs/<x>) published OUTSIDE the SPA
+// route table exactly like the legal pages, so the route-seo-inventory "exactly one indexable route"
+// invariant holds. Schema: WebPage + BreadcrumbList (+ shared Organization, + optional FAQPage for
+// AEO). They join sitemap.xml + llms.txt but are excluded from the Atom feed (articles only).
+
+const PAGE_SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)?$/;
+// First path segment must not shadow a private/token route (robots-Disallowed), a reserved artifact
+// path, or a content type with its own pipeline. Keep in sync with robots.txt's Disallow list.
+const RESERVED_PAGE_PREFIXES = new Set([
+  'resources', 'terms', 'privacy', 'assets', 'api', 'oauth2',
+  'schedule', 'booking', 'confirm', 'status', 'feedback', 'app', 'admin', 'pipeline', 'scheduling',
+  'calendar', 'workspace', 'interview-templates', 'email-templates', 'login', 'accept-invite',
+  'request-access', 'reset', 'not-authorized'
+]);
+
+/** Validate a marketing-page meta. Throws on failure. */
+export function validatePageMeta(meta) {
+  if (!meta || typeof meta !== 'object') throw new ArticleBuildError('invalid_page_meta: not an object');
+  if (typeof meta.slug !== 'string' || !PAGE_SLUG_RE.test(meta.slug)) {
+    throw new ArticleBuildError('invalid_page_slug: ' + JSON.stringify(meta.slug));
+  }
+  if (RESERVED_PAGE_PREFIXES.has(meta.slug.split('/')[0])) {
+    throw new ArticleBuildError('reserved_page_slug: ' + meta.slug);
+  }
+  if (typeof meta.title !== 'string' || meta.title.trim() === '') {
+    throw new ArticleBuildError('missing_page_title: ' + meta.slug);
+  }
+  if (typeof meta.description !== 'string' || meta.description.trim() === '') {
+    throw new ArticleBuildError('missing_page_description: ' + meta.slug);
+  }
+  if (meta.description.length > 160) {
+    throw new ArticleBuildError('page_description_too_long: ' + meta.slug + ' (>160 chars, it is the meta description)');
+  }
+  if (!isIsoDate(meta.lastUpdated)) throw new ArticleBuildError('invalid_page_date: ' + meta.slug);
+  for (const f of meta.faq || []) {
+    if (!f || typeof f.q !== 'string' || typeof f.a !== 'string' || !f.q.trim() || !f.a.trim()) {
+      throw new ArticleBuildError('invalid_page_faq: ' + meta.slug);
+    }
+  }
+  if (meta.ogImage !== undefined && !/^\/assets\/og\/[a-z0-9-]+\.png$/.test(meta.ogImage)) {
+    throw new ArticleBuildError('invalid_page_og_image: ' + meta.slug + ' (must be /assets/og/<name>.png)');
+  }
+}
+
+/** Body-safety lint for a marketing page (same allow-list as articles/legal). Throws. */
+export function lintPageBody(slug, bodyHtml) {
+  const lower = bodyHtml.toLowerCase();
+  for (const bad of ['<script', '<iframe', '<object', '<embed', '<style', '<h1']) {
+    if (lower.includes(bad)) throw new ArticleBuildError('unsafe_page_body: ' + slug + ' contains ' + bad);
+  }
+  if (/\son[a-z]+\s*=/i.test(bodyHtml)) {
+    throw new ArticleBuildError('unsafe_page_body: ' + slug + ' has an inline event handler');
+  }
+  if (/(href|src)\s*=\s*["']\s*(javascript|data):/i.test(bodyHtml)) {
+    throw new ArticleBuildError('unsafe_page_body: ' + slug + ' has a javascript:/data: URL');
+  }
+  if (PII_TOKEN_RE.test(bodyHtml)) {
+    throw new ArticleBuildError('unsafe_page_body: ' + slug + ' contains a token/email sentinel');
+  }
+  for (const m of bodyHtml.matchAll(/(?:href|src)\s*=\s*["']([^"']*)["']/gi)) {
+    const target = m[1].trim();
+    if (!PUBLIC_LINK_RE.test(target)) {
+      throw new ArticleBuildError('unsafe_page_body: ' + slug + ' link not on public allow-list: ' + target);
+    }
+  }
+}
+
+/** Assemble one marketing page (full HTML document string). Canonical is the trailing-slash form. */
+export function assembleMarketingPage(page, ctx) {
+  const canonical = ctx.originBase + '/' + page.slug + '/';
+  const ogImage = ctx.originBase + (page.ogImage || '/assets/og-cadence.png');
+  const orgLogo = ctx.originBase + '/assets/og-cadence.png';
+  const orgId = ctx.originBase + '/' + ORG_ID;
+  const updated = humanDate(page.lastUpdated);
+
+  const orgLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': orgId,
+    name: 'Cadence',
+    url: ctx.originBase + '/',
+    logo: orgLogo
+  };
+  // Nested integration pages get the /integrations/ hub as an intermediate crumb (it is a real page).
+  const crumbs = [{ '@type': 'ListItem', position: 1, name: 'Home', item: ctx.originBase + '/' }];
+  if (page.slug.startsWith('integrations/')) {
+    crumbs.push({ '@type': 'ListItem', position: 2, name: 'Integrations', item: ctx.originBase + '/integrations/' });
+  }
+  crumbs.push({ '@type': 'ListItem', position: crumbs.length + 1, name: page.title, item: canonical });
+  const breadcrumbLd = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs };
+  const webPageLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': canonical,
+    url: canonical,
+    name: page.title,
+    description: page.description,
+    inLanguage: 'en',
+    isPartOf: { '@id': orgId },
+    publisher: { '@id': orgId },
+    dateModified: page.lastUpdated
+  };
+  const faqLd = page.faq && page.faq.length
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: page.faq.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a }
+        }))
+      }
+    : null;
+  const ldBlocks = [orgLd, breadcrumbLd, webPageLd, faqLd]
+    .filter(Boolean)
+    .map((b) => '<script type="application/ld+json">\n' + jsonLd(b) + '\n</script>')
+    .join('\n');
+
+  const crumbHtml = page.slug.startsWith('integrations/')
+    ? '<a href="/">Home</a> &rsaquo; <a href="/integrations/">Integrations</a> &rsaquo; ' +
+      '<span aria-current="page">' + escapeHtml(page.title) + '</span>'
+    : '<a href="/">Home</a> &rsaquo; <span aria-current="page">' + escapeHtml(page.title) + '</span>';
+
+  return '<!doctype html>\n<html lang="en">\n<head>\n' +
+    headCommon(page.title + ' | Cadence', page.description, canonical, ogImage, ROBOTS_PLACEHOLDER, 'website') + '\n' +
+    ldBlocks + '\n' +
+    '<style>' + PAGE_STYLE + '</style>\n' +
+    '</head>\n<body>\n<main>\n' +
+    '<nav class="crumbs" aria-label="Breadcrumb">' + crumbHtml + '</nav>\n' +
+    '<article>\n<h1>' + escapeHtml(page.title) + '</h1>\n' +
+    '<p class="lead">' + escapeHtml(page.description) + '</p>\n' +
+    '<p class="meta">Updated ' + escapeHtml(updated) + '</p>\n' +
+    page.bodyHtml + '\n</article>\n' +
+    '<footer>\n<p><a class="home-link" href="/">&larr; Cadence home</a> &middot; ' +
+    '<a class="home-link" href="/features/">Features</a> &middot; ' +
+    '<a class="home-link" href="/pricing/">Pricing</a> &middot; ' +
+    '<a class="home-link" href="/integrations/">Integrations</a> &middot; ' +
+    '<a class="home-link" href="/resources/">Resources</a></p>\n</footer>\n' +
+    '</main>\n</body>\n</html>\n';
+}
+
 // --- crawl artifacts ------------------------------------------------------------------------------
 
-/** Build sitemap.xml from the article + legal ALLOW-LIST only (never a route scan -- FR-007/SC-010). */
-export function buildSitemap(articles, ctx, legalPages = []) {
+/** Build sitemap.xml from the article + legal + marketing ALLOW-LIST only (never a route scan -- FR-007/SC-010). */
+export function buildSitemap(articles, ctx, legalPages = [], marketingPages = []) {
   const newest = articles.reduce((acc, a) => (lastmodOf(a) > acc ? lastmodOf(a) : acc), ctx.buildDate);
   const entries = [];
   entries.push(
@@ -502,6 +652,12 @@ export function buildSitemap(articles, ctx, legalPages = []) {
     entries.push(
       '  <url>\n    <loc>' + ctx.originBase + RESOURCES_PATH + '/</loc>\n    <lastmod>' + newest +
       '</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>'
+    );
+  }
+  for (const p of [...marketingPages].sort((x, y) => (x.slug < y.slug ? -1 : 1))) {
+    entries.push(
+      '  <url>\n    <loc>' + ctx.originBase + '/' + p.slug + '/</loc>\n    <lastmod>' +
+      p.lastUpdated + '</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>'
     );
   }
   for (const a of [...articles].sort((x, y) => (x.slug < y.slug ? -1 : 1))) {
@@ -520,9 +676,15 @@ export function buildSitemap(articles, ctx, legalPages = []) {
     entries.join('\n') + '\n</urlset>\n';
 }
 
-/** Append the per-article and legal URL lists to the base llms.txt (FR-013/SC-011, FR-022c). */
-export function buildLlms(baseLlms, articles, ctx, legalPages = []) {
+/** Append the marketing, per-article, and legal URL lists to the base llms.txt (FR-013/SC-011, FR-022c). */
+export function buildLlms(baseLlms, articles, ctx, legalPages = [], marketingPages = []) {
   let out = baseLlms.replace(/\s*$/, '');
+  if (marketingPages.length) {
+    const pageLines = [...marketingPages]
+      .sort((a, b) => (a.slug < b.slug ? -1 : 1))
+      .map((p) => '- ' + p.title + ': ' + ctx.originBase + '/' + p.slug + '/');
+    out += '\n\n## Product\n\n' + pageLines.join('\n');
+  }
   if (articles.length) {
     const lines = [...articles]
       .sort((a, b) => (lastmodOf(b) < lastmodOf(a) ? -1 : 1))
@@ -567,7 +729,7 @@ export function buildFeed(articles, ctx) {
 
 /** Validate + lint + de-dup the whole article set, then assemble every artifact.
  *  Throws ArticleBuildError on any violation (slug collision, bad meta, unsafe body, FAQ dup). */
-export function buildArtifacts(articles, baseLlms, ctx, legalPages = []) {
+export function buildArtifacts(articles, baseLlms, ctx, legalPages = [], marketingPages = []) {
   const seen = new Set();
   const seenTitles = new Set();
   for (const a of articles) {
@@ -592,6 +754,16 @@ export function buildArtifacts(articles, baseLlms, ctx, legalPages = []) {
     lintLegalBody(d.slug, d.bodyHtml);
   }
 
+  const seenPage = new Set();
+  for (const p of marketingPages) {
+    validatePageMeta(p);
+    if (seenPage.has(p.slug)) throw new ArticleBuildError('duplicate_page_slug: ' + p.slug);
+    seenPage.add(p.slug);
+    lintPageBody(p.slug, p.bodyHtml);
+  }
+  // Marketing FAQPage questions must not near-duplicate the home FAQ either (same FR-021 gate).
+  faqDedupCheck(marketingPages.map((p) => ({ slug: p.slug, title: p.title, faq: p.faq })), ctx.homeFaqQuestions);
+
   const relatedMap = computeRelated(articles);
   const bySlug = new Map(articles.map((a) => [a.slug, a]));
   const pages = articles.map((a) => ({
@@ -603,8 +775,9 @@ export function buildArtifacts(articles, baseLlms, ctx, legalPages = []) {
     pages,
     indexHtml: assembleIndexPage(articles, ctx),
     legalPages: legalPages.map((d) => ({ slug: d.slug, html: assembleLegalPage(d, ctx) })),
-    sitemap: buildSitemap(articles, ctx, legalPages),
-    llms: buildLlms(baseLlms, articles, ctx, legalPages),
+    marketingPages: marketingPages.map((p) => ({ slug: p.slug, html: assembleMarketingPage(p, ctx) })),
+    sitemap: buildSitemap(articles, ctx, legalPages, marketingPages),
+    llms: buildLlms(baseLlms, articles, ctx, legalPages, marketingPages),
     feed: buildFeed(articles, ctx)
   };
 }

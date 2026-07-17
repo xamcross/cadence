@@ -1,0 +1,11 @@
+{
+  "slug": "integrations/microsoft-365",
+  "title": "Microsoft 365 calendar integration",
+  "description": "Live free/busy availability and automatic interview event management on Microsoft 365 and Outlook calendars, with per-interviewer OAuth and scoped access.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/integrations-microsoft-365.png",
+  "faq": [
+    { "q": "Which Microsoft calendars does the integration cover?", "a": "Any calendar on a Microsoft 365 work account, including Outlook calendars, connected per-interviewer through the standard Microsoft sign-in and consent flow." },
+    { "q": "Can a panel mix Microsoft 365 and Google Calendar interviewers?", "a": "Yes. Cadence computes the availability intersection across providers, so mixed panels schedule exactly like single-provider ones." }
+  ]
+}

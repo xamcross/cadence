@@ -1,0 +1,11 @@
+{
+  "slug": "integrations/lever",
+  "title": "Lever integration for interview scheduling",
+  "description": "Keep Lever as your system of record while Cadence schedules interviews: candidate sync in, outcome write-back out, encrypted credential connection.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/integrations-lever.png",
+  "faq": [
+    { "q": "Can Cadence connect to Lever and Greenhouse at the same time?", "a": "Yes. Connections are per-provider, so a workspace migrating between ATS platforms can run both, with each candidate linked to the provider they came from." },
+    { "q": "What happens to Lever data when a candidate is erased?", "a": "A GDPR erasure in Cadence purges the candidate's personal fields including the ATS-linked ones Cadence holds, and the audit trail keeps only internal identifiers." }
+  ]
+}

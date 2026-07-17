@@ -1,0 +1,11 @@
+{
+  "slug": "vs/calendly",
+  "title": "Cadence vs Calendly for recruiting teams",
+  "description": "Calendly is a great general-purpose scheduler. Cadence is recruiting-native: no-show defense, candidate status pages, ATS write-back, and GDPR tooling.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/vs-calendly.png",
+  "faq": [
+    { "q": "When is Calendly enough for recruiting?", "a": "For simple one-to-one screens booked against a single calendar, a general-purpose scheduler works well. The gaps appear around panels, no-show recovery, candidate status, ATS write-back, and erasure duties." },
+    { "q": "Does switching from Calendly disrupt candidates?", "a": "No. Candidates never create an account with either tool; with Cadence they receive the same kind of booking link, plus a manage link and a private status page for the rest of the process." }
+  ]
+}

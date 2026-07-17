@@ -1,0 +1,11 @@
+{
+  "slug": "integrations/greenhouse",
+  "title": "Greenhouse integration for interview scheduling",
+  "description": "Keep Greenhouse as your system of record while Cadence schedules interviews: candidate sync in, stage write-back out, encrypted API-key connection.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/integrations-greenhouse.png",
+  "faq": [
+    { "q": "How does the Greenhouse connection authenticate?", "a": "A workspace admin adds a Greenhouse Harvest API key with the minimum permissions for candidate reads and stage updates. The key is encrypted at rest and can be rotated or removed at any time." },
+    { "q": "What does Cadence write back to Greenhouse?", "a": "Scheduling outcomes: as interviews are booked and candidates progress, updates flow to the linked Greenhouse candidate through a retrying outbox, so Greenhouse stays the source of truth without re-keying." }
+  ]
+}

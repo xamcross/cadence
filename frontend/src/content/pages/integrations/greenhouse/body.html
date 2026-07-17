@@ -1,0 +1,44 @@
+<h2>Greenhouse stays the system of record</h2>
+<p>
+  The Greenhouse integration is built on one principle: your ATS remains the source of truth, and
+  Cadence takes over the scheduling and candidate-communication work around it. Candidates sync from
+  Greenhouse into Cadence, interviews get scheduled through Cadence's self-scheduling and no-show
+  defense, and the outcomes write back to Greenhouse, so hiring managers living in the ATS see an
+  up-to-date pipeline without anyone re-keying data.
+</p>
+
+<h2>What syncs in</h2>
+<p>
+  Cadence pulls active candidates from Greenhouse on a recurring sync, matching existing records by
+  identity rather than creating duplicates, and records each candidate's linked Greenhouse
+  application, job, and stage. Sync runs are visible in the app with counts and timestamps, so you can
+  always answer "when did this last sync, and what happened?" without guessing. Failures are
+  categorised and retried; a sync problem surfaces as a status you can see, not silence.
+</p>
+
+<h2>What writes back</h2>
+<p>
+  As interviews are booked, completed, or fall through, Cadence writes the scheduling outcome back to
+  the linked Greenhouse candidate through a retrying outbox: if Greenhouse is briefly unavailable, the
+  update queues and delivers when it recovers, in order, exactly once. Nothing depends on a human
+  remembering to copy a result into the ATS after a busy interview day.
+</p>
+
+<h2>Connection and security</h2>
+<p>
+  A workspace admin connects Greenhouse with a Harvest API key created for Cadence with the minimum
+  permissions the sync needs. The key is encrypted at rest, never shown again after entry, rotatable
+  in place, and removable in one action, which stops the sync immediately. When a candidate is erased
+  under GDPR, the erasure also covers the ATS-linked fields Cadence holds, in line with
+  <a href="/resources/gdpr-safe-recruiting/">privacy-safe recruiting</a>.
+</p>
+
+<h2>Where this fits</h2>
+<p>
+  Greenhouse tells you who is in the pipeline; Cadence makes the interviews happen: live-calendar
+  <a href="/resources/interview-scheduling-and-calendar-coordination/">self-scheduling</a>, a
+  confirmation cascade against <a href="/resources/reducing-interview-no-shows/">no-shows</a>, status
+  pages, and interviewer scorecards. Also available for <a href="/integrations/lever/">Lever</a>, or
+  standalone with CSV import; see <a href="/integrations/">all integrations</a> or the
+  <a href="/features/">full feature overview</a>.
+</p>

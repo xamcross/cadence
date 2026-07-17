@@ -61,34 +61,31 @@ patch('robots.txt', (txt) =>
   isProd ? subOrigin(txt) : 'User-agent: *\nDisallow: /\n'
 );
 
-// F61 (028-seo-content-library): the generated /resources/ article pages + feed carry the SAME
-// __CADENCE_PUBLIC_ORIGIN__ / __CADENCE_ROBOTS__ placeholders. Substitute origin everywhere and the
-// per-page robots so a non-production article page is noindex on a direct fetch (FR-010/SC-008).
+// F61 (028-seo-content-library) + 031 (terms-privacy) + seo/audit-improvements (marketing pages):
+// EVERY generated static page (/resources/*, /terms, /privacy, /features, /pricing, /integrations/*,
+// /vs/*, ...) carries the SAME __CADENCE_PUBLIC_ORIGIN__ / __CADENCE_ROBOTS__ placeholders. Walk the
+// dist tree and substitute them in every <dir>/index.html (the root index.html was patched above), so
+// a page type added later cannot ship literal placeholders (broken canonical, non-functional robots),
+// and a non-production page is noindex on a direct fetch (FR-010/FR-017/SC-008). Idempotent: after
+// substitution no placeholder remains, so re-running is a no-op.
 const subRobots = (s) =>
   s.split('__CADENCE_ROBOTS__').join(isProd ? 'index,follow' : 'noindex,nofollow');
 function patchOptionalHtml(relPath) {
   const p = join(distDir, relPath);
   if (existsSync(p)) writeFileSync(p, subRobots(subOrigin(readFileSync(p, 'utf8'))), 'utf8');
 }
-const resourcesDir = join(distDir, 'resources');
-if (existsSync(resourcesDir)) {
-  patchOptionalHtml('resources/index.html');
-  const feed = join(distDir, 'resources', 'feed.xml');
-  if (existsSync(feed)) writeFileSync(feed, subOrigin(readFileSync(feed, 'utf8')), 'utf8');
-  for (const name of readdirSync(resourcesDir)) {
-    if (existsSync(join(resourcesDir, name, 'index.html'))) {
-      patchOptionalHtml(join('resources', name, 'index.html'));
-    }
+function walkPatch(relDir) {
+  const abs = join(distDir, relDir);
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const childRel = relDir ? join(relDir, entry.name) : entry.name;
+    patchOptionalHtml(join(childRel, 'index.html'));
+    walkPatch(childRel);
   }
 }
-
-// 031 (terms-privacy-notice): the generated /terms and /privacy static pages carry the SAME
-// __CADENCE_PUBLIC_ORIGIN__ / __CADENCE_ROBOTS__ placeholders. Without this, they would ship literal
-// placeholders (broken canonical, non-functional indexing). Substitute origin + per-page robots so a
-// non-production legal page is noindex on a direct fetch (FR-015/FR-017/SC-008).
-for (const slug of ['terms', 'privacy']) {
-  patchOptionalHtml(join(slug, 'index.html'));
-}
+walkPatch('');
+const feed = join(distDir, 'resources', 'feed.xml');
+if (existsSync(feed)) writeFileSync(feed, subOrigin(readFileSync(feed, 'utf8')), 'utf8');
 
 // Non-production: append a global noindex header (production _headers stays byte-identical).
 if (!isProd) {

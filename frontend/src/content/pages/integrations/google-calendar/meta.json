@@ -1,0 +1,11 @@
+{
+  "slug": "integrations/google-calendar",
+  "title": "Google Calendar integration",
+  "description": "Live free/busy availability and automatic interview event management on Google Calendar, with per-interviewer OAuth and revocable, scoped access.",
+  "lastUpdated": "2026-07-17",
+  "ogImage": "/assets/og/integrations-google-calendar.png",
+  "faq": [
+    { "q": "What Google Calendar access does Cadence use?", "a": "Each interviewer authorises their own connection via Google OAuth. Cadence reads free/busy availability and manages only the interview events it creates; tokens are encrypted at rest and revocable at any time." },
+    { "q": "What happens if a Google connection expires?", "a": "Cadence detects the failed refresh, marks the connection as needing attention, and asks the interviewer to reconnect before it affects a booking." }
+  ]
+}

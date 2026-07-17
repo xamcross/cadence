@@ -3,10 +3,12 @@
   Candidates hand you their name, contact details, and work history on the assumption that you will
   treat it responsibly. Honouring that assumption is both a legal obligation under regimes like the GDPR
   and a competitive advantage: people are more willing to engage with a company that is visibly careful
-  with their data.
+  with their data. Privacy failures in recruiting are also unusually public failures, because the people
+  affected are, by definition, people outside your walls with no reason to stay quiet. This guide walks
+  through the practices that keep candidate data safe without slowing recruiting down.
 </p>
 
-<h2>Record a lawful basis before you make contact</h2>
+<h2>Know your lawful basis before you make contact</h2>
 <p>
   Before sending a single message, record why you are allowed to process this candidate's data, whether
   that is their consent or a legitimate interest. Check that basis at send time, not just at capture
@@ -17,21 +19,127 @@
   <li>Re-check it before every message, so withdrawal takes effect immediately.</li>
   <li>Collect only the fields you genuinely need; data you never hold cannot leak.</li>
 </ul>
+<p>
+  The send-time check is the part most teams miss. A consent recorded in March does not authorise a
+  message in September if the candidate withdrew in June, and a system that only checks at capture time
+  will happily keep mailing them. Make the gate live where the message leaves, and withdrawal becomes
+  self-enforcing rather than a policy that depends on someone remembering.
+</p>
 
-<h2>Encrypt, minimise, and make erasure easy</h2>
+<h2>Collect less: minimisation in practice</h2>
+<p>
+  Every field you store is a liability you carry and a promise you must keep. For most hiring
+  processes, a name, a contact channel, the role, and the interview history are genuinely needed;
+  a date of birth, a full address, or a scan of an identity document usually are not, at least not
+  until an offer stage. Audit your intake forms and your CSV imports with one question per column:
+  what decision does this field change? If the answer is none, stop collecting it, and delete what
+  you already hold. Minimisation is the only privacy control that gets cheaper the better you do it.
+</p>
+
+<h2>Encrypt at rest, and limit access by role</h2>
 <p>
   Personal data should be encrypted at rest and travel only over secure connections. Limit who can see
-  it to the roles that need it. Above all, make the right to erasure a single, auditable action: when a
-  candidate asks to be forgotten, wiping their personal fields and logging the deletion should take one
-  click, not a support ticket.
+  it to the roles that need it: a hiring manager needs their own candidates, not the whole pipeline;
+  an interviewer needs the interview, not the salary conversation. Role-based access with a scoped
+  "not yours, not visible" default keeps curiosity from becoming an incident, and it keeps any single
+  compromised account from exposing everything. Encryption protects you from the disk; access scoping
+  protects you from yourselves.
+</p>
+
+<h2>Set a retention period, and let it actually run</h2>
+<p>
+  Candidate data does not age into harmlessness; it ages into risk without value. Decide how long a
+  closed candidate record stays, write it into your privacy notice, and automate the deletion, because
+  a retention policy that depends on someone remembering to purge a spreadsheet is a fiction. A
+  workspace-wide retention window with an automatic scan that erases or anonymises expired records
+  turns the policy into a property of the system. Keeping a candidate for a future role is a fine
+  reason to retain, but it is a new purpose: ask, record the consent, and restart the clock.
+</p>
+
+<h2>Make erasure one click, and auditable</h2>
+<p>
+  When a candidate asks to be forgotten, wiping their personal fields and logging the deletion should
+  take one click, not a support ticket. The request itself should be easy to make, from the candidate's
+  own status page, without an account or a phone call. Under the hood, erasure needs to reach
+  everywhere the data lives: the candidate record, scheduled emails that have not sent yet, calendar
+  events that carry a name, and any copy synced to an applicant tracking system. What should remain is
+  an audit entry that an erasure happened, keyed by an internal identifier, never by the data you just
+  erased. Practise the flow before you need it; the legal clock runs in days, not quarters.
+</p>
+
+<h2>Candidate rights beyond erasure</h2>
+<p>
+  Erasure gets the attention, but candidates also have the right to see the data you hold, to correct
+  it, and to object to how you use it. The operational answer is the same for all of them: know where
+  candidate data lives, keep it structured, and route requests to a person who can act. A candidate
+  whose data is scattered across inboxes, spreadsheets, and chat threads cannot be answered honestly.
+  A candidate whose record lives in one system with a clear owner can be answered in an afternoon.
+  Consolidation is not just tidiness; it is what makes the rights real.
+</p>
+
+<h2>Mind your vendors and where data travels</h2>
+<p>
+  Every tool in the hiring stack, the scheduler, the ATS, the email provider, is a processor of your
+  candidates' data. Choose vendors who state plainly where data is stored, how it is encrypted, and
+  how deletion propagates, and put a data-processing agreement in place before the first record flows.
+  If data crosses borders, know the mechanism that makes the transfer lawful. Your own
+  <a href="/privacy/">privacy notice</a> should name the categories of recipients, so a candidate can
+  see the whole journey of their data, not just the first stop.
+</p>
+
+<h2>Audit without hoarding</h2>
+<p>
+  You need to prove what happened, who saw what, when a consent was recorded, when an erasure ran,
+  without the audit trail becoming a second copy of the personal data. The discipline is to log
+  internal identifiers and events, never raw contact details, and to treat logs with the same access
+  scoping as the data they describe. An audit trail built this way survives an erasure intact: the
+  history of actions remains provable while the person inside it is gone. That combination, memory of
+  events without memory of people, is exactly what a regulator wants to see and exactly what a
+  candidate hopes you have.
+</p>
+
+<h2>Interview notes are personal data too</h2>
+<p>
+  The candidate record everyone remembers to protect is the profile: name, contact details, CV. The
+  one that causes surprises is the commentary around it. Interview notes, scorecards, and "gut feel"
+  remarks are personal data about the candidate, subject to the same access rights and the same
+  erasure duties, and a candidate is entitled to ask what they say. Two consequences follow. Keep
+  evaluative notes structured and professional, written as if the candidate might read them, because
+  legally they might. And keep them in the system of record, not in personal notebooks and chat
+  threads where no retention policy, access control, or erasure can ever reach them.
+</p>
+
+<h2>Common pitfalls to design away</h2>
+<ul>
+  <li><strong>The spreadsheet export</strong>: every CSV download of the pipeline is a copy of
+    candidate data outside every control you built. Export rarely, minimally, and delete after use.</li>
+  <li><strong>The personal inbox</strong>: recruiting from individual mailboxes scatters candidate
+    PII across accounts that offboarding does not clean. Keep candidate contact in the system.</li>
+  <li><strong>The over-shared CV</strong>: forwarding a CV to "the whole team for visibility" defeats
+    role-scoped access. Share the link with the panel, not the file with the org.</li>
+  <li><strong>The eternal talent pool</strong>: "we will keep your CV on file" is a retention promise
+    with no clock. If you keep it, consent it and expire it.</li>
+  <li><strong>The chatty log</strong>: application logs that print names or addresses turn debugging
+    into a data leak. Log internal identifiers only.</li>
+</ul>
+
+<h2>A recruiter's quick checklist</h2>
+<p>
+  A privacy programme fits on one card. Before contact: lawful basis recorded. At collection: only
+  fields a decision needs. At rest: encrypted, role-scoped, in one system. In flight: consent checked
+  at send time. On schedule: retention runs automatically. On request: access answered, corrections
+  made, erasure in one click. Afterwards: an audit trail of events, not of people. If any line makes
+  you wince, that line is the next project, and none of them takes a quarter.
 </p>
 
 <h2>Trust compounds across the journey</h2>
 <p>
   Careful data handling reinforces everything else you do; it underpins a strong
-  <a href="/resources/candidate-experience-best-practices">candidate experience</a> and shapes how you
+  <a href="/resources/candidate-experience-best-practices/">candidate experience</a> and shapes how you
   connect calendars when you
-  <a href="/resources/interview-scheduling-and-calendar-coordination">coordinate interview
-  scheduling</a>. Keep access least-privilege and auditable, and privacy becomes a feature candidates
-  feel rather than a box you tick.
+  <a href="/resources/interview-scheduling-and-calendar-coordination/">coordinate interview
+  scheduling</a>. Keep collection minimal, access least-privilege, retention automatic, and erasure
+  one click, and privacy becomes a feature candidates feel rather than a box you tick. If you would
+  rather inherit these defaults than build them, this is
+  <a href="/features/">how Cadence bakes them in</a> from the first record.
 </p>

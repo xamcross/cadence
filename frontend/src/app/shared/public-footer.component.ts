@@ -21,10 +21,14 @@ import { Component } from '@angular/core';
   standalone: true,
   template: `
     <footer class="public-footer" role="contentinfo">
-      <nav class="public-footer__nav" aria-label="Legal and home" i18n-aria-label="@@footer.nav.aria">
+      <nav class="public-footer__nav" aria-label="Site and legal" i18n-aria-label="@@footer.nav.aria">
         <a class="footer-link btn btn--link" href="/" i18n="@@footer.home">Home</a>
-        <a class="footer-link btn btn--link" href="/terms" i18n="@@footer.terms">Terms &amp; Conditions</a>
-        <a class="footer-link btn btn--link" href="/privacy" i18n="@@footer.privacy">Privacy Notice</a>
+        <a class="footer-link btn btn--link" href="/features/" i18n="@@footer.features">Features</a>
+        <a class="footer-link btn btn--link" href="/pricing/" i18n="@@footer.pricing">Pricing</a>
+        <a class="footer-link btn btn--link" href="/integrations/" i18n="@@footer.integrations">Integrations</a>
+        <a class="footer-link btn btn--link" href="/resources/" i18n="@@footer.resources">Resources</a>
+        <a class="footer-link btn btn--link" href="/terms/" i18n="@@footer.terms">Terms &amp; Conditions</a>
+        <a class="footer-link btn btn--link" href="/privacy/" i18n="@@footer.privacy">Privacy Notice</a>
       </nav>
     </footer>
   `,

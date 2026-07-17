@@ -1,12 +1,16 @@
 {
   "slug": "candidate-experience-best-practices",
   "title": "Candidate experience best practices for recruiters",
-  "summary": "A great candidate experience is fast, transparent, and respectful. Keep candidates informed at every stage, remove logins and friction, and communicate clear next steps and dates so people feel valued whatever the outcome.",
+  "summary": "Great candidate experience is fast, transparent, and respectful: clear next steps, real dates, visible status, and no logins or friction at any stage.",
   "datePublished": "2026-06-22",
+  "dateUpdated": "2026-07-17",
   "theme": "candidate-experience",
   "related": ["reducing-interview-no-shows", "gdpr-safe-recruiting"],
+  "ogImage": "/assets/og/candidate-experience-best-practices.png",
   "faq": [
     { "q": "What makes a good candidate experience?", "a": "Speed, transparency, and respect: quick replies, clear next steps with real dates, no unnecessary logins, and honest communication regardless of the decision." },
-    { "q": "How quickly should recruiters respond to candidates?", "a": "Aim to acknowledge applications within a day or two and keep candidates updated at each stage. Silence is the most common candidate-experience complaint." }
+    { "q": "How quickly should recruiters respond to candidates?", "a": "Aim to acknowledge applications within a day or two and keep candidates updated at each stage. Silence is the most common candidate-experience complaint." },
+    { "q": "How do you keep candidates informed between interview stages?", "a": "Give every candidate a private status link showing their current stage, the next step, and an expected date, and nudge the recruiter internally whenever a candidate has gone too long without contact." },
+    { "q": "Why does rejection communication matter?", "a": "Most candidates will be rejected, so rejection is the experience most people have with your company. A prompt, kind, definitive no preserves the relationship and your employer brand; ghosting destroys both." }
   ]
 }

@@ -1,0 +1,41 @@
+<h2>What the integration does</h2>
+<p>
+  The Google Calendar integration gives Cadence two abilities: reading true availability and managing
+  interview events. When a candidate opens their booking link, Cadence checks each required
+  interviewer's free/busy on Google Calendar at that moment, so the candidate only ever sees times
+  the panel can actually make. When the candidate books, panel events appear on every interviewer's
+  calendar automatically; when they reschedule or cancel, the events are rebuilt or removed cleanly.
+</p>
+<ul>
+  <li>Live free/busy reads at booking time, never from a stale cache.</li>
+  <li>Automatic event creation for the whole panel, including reschedule and cancellation handling.</li>
+  <li>Times stored as absolute instants, so bookings survive daylight-saving changes intact.</li>
+</ul>
+
+<h2>How connection works</h2>
+<p>
+  Each interviewer connects their own Google account through the standard Google OAuth consent flow,
+  from their Cadence settings. There is no shared service account and no admin-wide grant: access is
+  per-person, uses scoped permissions for availability and event management, and can be revoked by
+  the interviewer or a workspace admin at any time. OAuth tokens are encrypted at rest alongside the
+  rest of the workspace's credentials.
+</p>
+
+<h2>Failure handling you will notice at the right time</h2>
+<p>
+  Calendar connections fail in boring ways: a password change, a revoked grant, an expired token.
+  Cadence watches for failed refreshes and API errors, marks the affected connection as needing
+  attention, and asks the interviewer to reconnect, before the failure silently turns into a booking
+  page with missing availability. Connection health is visible in the app, so a recruiter never has
+  to guess why a panel member's slots look thin.
+</p>
+
+<h2>Works alongside Microsoft 365</h2>
+<p>
+  Panels can mix providers freely: one interviewer on Google Calendar, another on
+  <a href="/integrations/microsoft-365/">Microsoft 365</a>, and the availability intersection still
+  computes correctly. For the scheduling engine behind the integration, atomic reservations, panel
+  coordination, working-hours rules, see
+  <a href="/resources/interview-scheduling-and-calendar-coordination/">interview scheduling and
+  calendar coordination</a>, or browse <a href="/integrations/">all integrations</a>.
+</p>

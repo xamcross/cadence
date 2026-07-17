@@ -1,12 +1,16 @@
 {
   "slug": "gdpr-safe-recruiting",
   "title": "Privacy-safe and GDPR-conscious recruiting",
-  "summary": "Recruiting runs on personal data, so privacy cannot be an afterthought. Record a lawful basis before contact, minimise what you collect, encrypt it at rest, and make erasure a single action to keep candidate trust and compliance intact.",
+  "summary": "Record a lawful basis before contact, minimise and encrypt candidate data, automate retention, and make erasure one click: privacy-safe recruiting in practice.",
   "datePublished": "2026-06-22",
+  "dateUpdated": "2026-07-17",
   "theme": "privacy",
   "related": ["candidate-experience-best-practices", "interview-scheduling-and-calendar-coordination"],
+  "ogImage": "/assets/og/gdpr-safe-recruiting.png",
   "faq": [
     { "q": "What is a lawful basis for contacting a candidate?", "a": "A lawful basis is the legal ground (such as consent or legitimate interest) you record before processing a candidate's data. Capture it at first contact and check it before sending any message." },
-    { "q": "How long should candidate data be retained?", "a": "Keep candidate data only as long as you have a clear purpose, set a workspace-wide retention period, and delete or anonymise records once it passes." }
+    { "q": "How long should candidate data be retained?", "a": "Keep candidate data only as long as you have a clear purpose, set a workspace-wide retention period, and delete or anonymise records automatically once it passes." },
+    { "q": "What should a candidate erasure process cover?", "a": "Erasure should wipe personal fields from the candidate record, unsent emails, calendar events, and any synced ATS copy, while keeping an audit entry keyed by an internal identifier rather than the erased data." },
+    { "q": "Can recruiters keep candidate data for future roles?", "a": "Yes, but it is a new purpose: ask the candidate, record the consent, restart the retention clock, and stop the moment they withdraw." }
   ]
 }
