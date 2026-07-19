@@ -525,6 +525,12 @@ select.input { cursor: pointer; }
 /* Keyboard focus on a row under the sticky head must not hide behind it (WCAG 2.4.11). */
 .table tbody tr:focus-within { scroll-margin-top: 3rem; }
 
+/* Horizontal-scroll wrapper for .table on narrow viewports (Phase 1 kit / TableScrollComponent).
+   Keyboard-focusable so a pointerless user can scroll a wide table; the child keeps its content width. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.table-scroll > .table { min-width: max-content; }
+
 /* Status badge */
 .badge {
   display: inline-flex;
