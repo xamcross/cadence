@@ -4,9 +4,17 @@ import { GdprService, ErasureRequestView } from './gdpr.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
-/** Admin-only pending erasure-request queue (F04 US4). Confirm runs the shared wipe; reject records a
- *  chosen non-PII reason code. */
+/**
+ * Admin-only pending erasure-request queue (F04 US4). Confirm runs the shared wipe; reject records a
+ * chosen non-PII reason code.
+ *
+ * Phase 3b (workbench overhaul): `confirm(id)` (⚠ danger) and `reject(id)` are gated behind the shared
+ * `ConfirmDialogService` — injected as `dialog` since this component already has a method named
+ * `confirm`. Outcomes are surfaced via `ToastService` instead of a shared `message` signal.
+ */
 @Component({
   selector: 'app-erasure-queue',
   standalone: true,
@@ -41,25 +49,22 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
           </div>
         }
       }
-      @if (message()) {
-        <p role="alert" class="alert alert--accent msg">{{ message() }}</p>
-      }
     </section>
   `,
   styles: [`
     .gdpr { padding: var(--space-4); }
     .row { display: flex; gap: var(--space-4); align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--line); }
     .row select.input { width: auto; }
-    .msg { margin-top: var(--space-4); }
   `]
 })
 export class ErasureQueueComponent implements OnInit {
   private readonly gdpr = inject(GdprService);
+  private readonly dialog = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly requests = signal<ErasureRequestView[]>([]);
   readonly loaded = signal(false);
   readonly loading = signal(true);
-  readonly message = signal('');
   private readonly reasons: Record<string, string> = {};
 
   ngOnInit(): void {
@@ -82,29 +87,42 @@ export class ErasureQueueComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.message.set($localize`:@@gdpr.queue.loadError:Could not load erasure requests.`);
+        this.toast.error($localize`:@@toast.gdpr.queue.loadError:Could not load erasure requests.`);
         this.loading.set(false);
       }
     });
   }
 
-  confirm(id: string): void {
+  async confirm(id: string): Promise<void> {
+    const ok = await this.dialog.confirm({
+      title: $localize`:@@confirm.gdpr.queue.confirm.title:Confirm erasure?`,
+      body: $localize`:@@confirm.gdpr.queue.confirm.body:This permanently erases candidate ${id}:id:'s data. This cannot be undone.`,
+      confirmLabel: $localize`:@@confirm.gdpr.queue.confirm.cta:Erase permanently`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.gdpr.confirmRequest(id).subscribe({
       next: () => {
-        this.message.set($localize`:@@gdpr.queue.confirmed:Erasure confirmed.`);
+        this.toast.success($localize`:@@toast.gdpr.queue.confirmed:Erasure confirmed.`);
         this.refresh();
       },
-      error: () => this.message.set($localize`:@@gdpr.queue.confirmError:Could not confirm the request.`)
+      error: () => this.toast.error($localize`:@@toast.gdpr.queue.confirmError:Could not confirm the request.`)
     });
   }
 
-  reject(id: string): void {
+  async reject(id: string): Promise<void> {
+    const ok = await this.dialog.confirm({
+      title: $localize`:@@confirm.gdpr.queue.reject.title:Reject this erasure request?`,
+      body: $localize`:@@confirm.gdpr.queue.reject.body:Candidate ${id}:id:'s erasure request will be rejected with the selected reason.`,
+      confirmLabel: $localize`:@@confirm.gdpr.queue.reject.cta:Reject request`
+    });
+    if (!ok) { return; }
     this.gdpr.rejectRequest(id, this.reasonFor(id)).subscribe({
       next: () => {
-        this.message.set($localize`:@@gdpr.queue.rejected:Erasure request rejected.`);
+        this.toast.success($localize`:@@toast.gdpr.queue.rejected:Erasure request rejected.`);
         this.refresh();
       },
-      error: () => this.message.set($localize`:@@gdpr.queue.rejectError:Could not reject the request.`)
+      error: () => this.toast.error($localize`:@@toast.gdpr.queue.rejectError:Could not reject the request.`)
     });
   }
 }
