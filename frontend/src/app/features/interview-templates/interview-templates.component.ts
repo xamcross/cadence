@@ -6,6 +6,9 @@ import {
   TemplateRequest,
   TemplateResponse
 } from './interview-templates.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 
 /**
  * Recruiter/Admin "Interview templates" surface (F12, the §II demonstrable leg): list / create / edit /
@@ -15,9 +18,13 @@ import {
 @Component({
   selector: 'app-interview-templates',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
   template: `
-    <h1 i18n="@@tmpl.title">Interview templates</h1>
+    <app-page-header
+      eyebrow="Templates" i18n-eyebrow="@@tmpl.eyebrow"
+      heading="Interview templates" i18n-heading="@@tmpl.title"
+      subtitle="Panels, durations, and slot rules." i18n-subtitle="@@tmpl.subtitle">
+    </app-page-header>
 
     @if (error(); as e) {
       <p role="alert" class="error alert alert--danger">{{ e }}</p>
@@ -25,20 +32,26 @@ import {
 
     <section class="list">
       <h2 i18n="@@tmpl.list.title">Active templates</h2>
-      @if (templates().length === 0) {
-        <p i18n="@@tmpl.list.empty">No templates yet. Create one below.</p>
+      @if (loading()) {
+        <app-skeleton variant="lines" />
+      } @else if (templates().length === 0) {
+        <app-empty-state
+          heading="No templates yet" i18n-heading="@@tmpl.empty.heading"
+          body="Create your first interview template using the form below." i18n-body="@@tmpl.empty.body">
+        </app-empty-state>
+      } @else {
+        <ul>
+          @for (t of templates(); track t.id) {
+            <li class="row">
+              <span class="name">{{ t.name }}</span>
+              <span class="meta" i18n="@@tmpl.list.meta">{{ t.durationMinutes }} min, max {{ t.dailyCapPerInterviewer }}/day</span>
+              <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" i18n="@@tmpl.list.edit">Edit</button>
+              <button type="button" class="btn btn--danger-soft btn--sm" (click)="retire(t)" i18n="@@tmpl.list.retire">Retire</button>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@tmpl.list.preview">Preview slots</button>
+            </li>
+          }
+        </ul>
       }
-      <ul>
-        @for (t of templates(); track t.id) {
-          <li class="row">
-            <span class="name">{{ t.name }}</span>
-            <span class="meta" i18n="@@tmpl.list.meta">{{ t.durationMinutes }} min, max {{ t.dailyCapPerInterviewer }}/day</span>
-            <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" i18n="@@tmpl.list.edit">Edit</button>
-            <button type="button" class="btn btn--danger-soft btn--sm" (click)="retire(t)" i18n="@@tmpl.list.retire">Retire</button>
-            <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@tmpl.list.preview">Preview slots</button>
-          </li>
-        }
-      </ul>
     </section>
 
     <section class="form">
@@ -99,6 +112,7 @@ export class InterviewTemplatesComponent implements OnInit {
   readonly saveEdit = $localize`:@@tmpl.form.saveEdit:Save changes`;
 
   readonly templates = signal<TemplateResponse[]>([]);
+  readonly loading = signal(true);
   readonly editingId = signal<string | null>(null);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -184,6 +198,9 @@ export class InterviewTemplatesComponent implements OnInit {
   }
 
   private load(): void {
-    this.api.list('ACTIVE').subscribe((r) => this.templates.set(r.templates));
+    this.api.list('ACTIVE').subscribe({
+      next: (r) => { this.templates.set(r.templates); this.loading.set(false); },
+      error: () => this.loading.set(false)
+    });
   }
 }

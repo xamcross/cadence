@@ -7,6 +7,7 @@ import {
   TemplateList,
   TemplateResponse
 } from './interview-templates.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
  * F12: the interview-templates component lists templates, renders the create/edit form, and renders the
@@ -18,6 +19,7 @@ describe('InterviewTemplatesComponent', () => {
     id: 't1', name: 'Phone Screen', status: 'ACTIVE', durationMinutes: 45, slotCadenceMinutes: 15,
     bufferBeforeMinutes: 15, bufferAfterMinutes: 15, dailyCapPerInterviewer: 2, requiredMemberIds: ['m1'], pools: []
   };
+  let attachedEls: HTMLElement[] = [];
 
   function setup(list: TemplateList, overrides: Partial<InterviewTemplatesService> = {}) {
     const service: Partial<InterviewTemplatesService> = {
@@ -34,13 +36,33 @@ describe('InterviewTemplatesComponent', () => {
       providers: [{ provide: InterviewTemplatesService, useValue: service }]
     });
     const fixture = TestBed.createComponent(InterviewTemplatesComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return fixture;
   }
 
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
+
   it('renders the empty state when there are no templates', () => {
     const fixture = setup({ templates: [] });
     expect(fixture.nativeElement.textContent).toContain('No templates yet');
+    expect(fixture.nativeElement.querySelector('app-empty-state')).not.toBeNull();
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setup({ templates: [template] });
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setup({ templates: [template] });
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 
   it('lists templates with their meta', () => {
