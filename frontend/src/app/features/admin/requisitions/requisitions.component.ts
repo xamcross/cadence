@@ -39,7 +39,7 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
     } @else if (requisitions().length === 0) {
       <app-empty-state
         heading="No requisitions yet" i18n-heading="@@req.empty.heading"
-        body="Create your first requisition using the form below." i18n-body="@@req.empty.body">
+        body="Create your first requisition to start assigning candidates." i18n-body="@@req.empty.body">
       </app-empty-state>
     } @else {
       <app-table-scroll ariaLabel="Requisitions" i18n-ariaLabel="@@req.tableLabel">
