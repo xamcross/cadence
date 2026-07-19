@@ -2,6 +2,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { WorkspaceConfig, WorkspaceService } from './workspace.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
 
 /**
  * Admin workspace settings (F03 US2-US5). Operational settings, branding (colour + logo upload),
@@ -11,12 +13,20 @@ import { WorkspaceConfig, WorkspaceService } from './workspace.service';
 @Component({
   selector: 'app-workspace-settings',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, PageHeaderComponent, SkeletonComponent],
   template: `
     <main class="settings">
-      <h1 i18n="@@workspace.settings.title">Workspace settings</h1>
+      <app-page-header
+        eyebrow="Administration" i18n-eyebrow="@@workspace.settings.eyebrow"
+        heading="Workspace settings" i18n-heading="@@workspace.settings.title"
+        subtitle="Branding, time zone, retention, and SLAs." i18n-subtitle="@@workspace.settings.subtitle">
+      </app-page-header>
       @if (message()) { <p class="ok alert alert--ok" role="status">{{ message() }}</p> }
       @if (error()) { <p class="error alert alert--danger" role="alert">{{ error() }}</p> }
+
+      @if (config() === null) {
+        <app-skeleton variant="form" />
+      } @else {
 
       <section>
         <h2 i18n="@@workspace.settings.operational">Operational</h2>
@@ -106,6 +116,7 @@ import { WorkspaceConfig, WorkspaceService } from './workspace.service';
           <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.lock">Lock</button>
         </form>
       </section>
+      }
     </main>
   `,
   styles: [`
