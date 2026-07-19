@@ -3,8 +3,16 @@ import { GdprService, FlaggedView } from './gdpr.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
-/** Admin-only review of retention-flagged candidates with confirm-delete (F04 US5). */
+/**
+ * Admin-only review of retention-flagged candidates with confirm-delete (F04 US5).
+ *
+ * Phase 3b (workbench overhaul): `del(id)` is gated behind the shared `ConfirmDialogService` (⚠
+ * danger), replacing the old hand-rolled `confirmingId`-signal inline two-step prompt. Outcomes are
+ * surfaced via `ToastService` instead of a shared `message` signal.
+ */
 @Component({
   selector: 'app-retention-review',
   standalone: true,
@@ -30,37 +38,26 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
             <span>{{ f.candidateId }}</span>
             <span i18n="@@gdpr.retention.lastContact">Last activity: {{ f.lastContactAt }}</span>
             <span i18n="@@gdpr.retention.flaggedAt">Flagged: {{ f.retentionFlaggedAt }}</span>
-            @if (confirmingId() !== f.candidateId) {
-              <button type="button" class="danger btn btn--danger-soft btn--sm" (click)="confirmingId.set(f.candidateId)"
-                      i18n="@@gdpr.retention.delete">Delete record</button>
-            } @else {
-              <span i18n="@@gdpr.retention.confirmPrompt">Permanently delete?</span>
-              <button type="button" class="danger btn btn--danger btn--sm" (click)="del(f.candidateId)"
-                      i18n="@@gdpr.retention.confirm">Confirm</button>
-              <button type="button" class="btn btn--ghost btn--sm" (click)="confirmingId.set(null)" i18n="@@gdpr.retention.cancel">Cancel</button>
-            }
+            <button type="button" class="danger btn btn--danger-soft btn--sm" (click)="del(f.candidateId)"
+                    i18n="@@gdpr.retention.delete">Delete record</button>
           </div>
         }
-      }
-      @if (message()) {
-        <p role="alert" class="alert alert--accent msg">{{ message() }}</p>
       }
     </section>
   `,
   styles: [`
     .gdpr { padding: var(--space-4); }
     .row { display: flex; gap: var(--space-4); align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--line); }
-    .msg { margin-top: var(--space-4); }
   `]
 })
 export class RetentionReviewComponent implements OnInit {
   private readonly gdpr = inject(GdprService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly flagged = signal<FlaggedView[]>([]);
   readonly loaded = signal(false);
   readonly loading = signal(true);
-  readonly message = signal('');
-  readonly confirmingId = signal<string | null>(null);
 
   ngOnInit(): void {
     this.refresh();
@@ -74,20 +71,26 @@ export class RetentionReviewComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.message.set($localize`:@@gdpr.retention.loadError:Could not load flagged records.`);
+        this.toast.error($localize`:@@toast.gdpr.retention.loadError:Could not load flagged records.`);
         this.loading.set(false);
       }
     });
   }
 
-  del(candidateId: string): void {
-    this.confirmingId.set(null);
+  async del(candidateId: string): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.gdpr.retention.del.title:Delete this record?`,
+      body: $localize`:@@confirm.gdpr.retention.del.body:Candidate ${candidateId}:candidateId:'s record will be permanently deleted. This cannot be undone.`,
+      confirmLabel: $localize`:@@confirm.gdpr.retention.del.cta:Delete permanently`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.gdpr.deleteFlagged(candidateId).subscribe({
       next: () => {
-        this.message.set($localize`:@@gdpr.retention.deleted:Record deleted.`);
+        this.toast.success($localize`:@@toast.gdpr.retention.deleted:Record deleted.`);
         this.refresh();
       },
-      error: () => this.message.set($localize`:@@gdpr.retention.deleteError:Could not delete the record.`)
+      error: () => this.toast.error($localize`:@@toast.gdpr.retention.deleteError:Could not delete the record.`)
     });
   }
 }
