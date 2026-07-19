@@ -3,12 +3,18 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AtsService, AtsHealth } from './ats.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * F40/F41 ATS integration admin screen (US1/US2/US4). Lists EVERY ATS provider (Greenhouse + Lever) with its own
  * connect/disconnect (write-only API key), health, last-sync, degraded state, and dead-letter count — each
  * managed independently (coexistence). Internal Admin screen — no candidate PII surface, no WCAG/Lighthouse gate
  * (the F50/F51 internal-screen precedent). All strings $localize.
+ *
+ * Phase 3b (workbench overhaul): `disconnect(provider)` is gated behind the shared `ConfirmDialogService`
+ * (⚠ danger). `connect`/`disconnect` outcomes are surfaced via `ToastService`, replacing the old
+ * connect-only inline `error` signal (disconnect previously had no feedback at all).
  */
 @Component({
   selector: 'app-ats-integration',
@@ -45,14 +51,14 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
           {{ disconnectLabel }}
         </button>
       </article>
-
-      <p class="error alert alert--danger" role="alert" *ngIf="error()">{{ error() }}</p>
     </section>
   `,
   styleUrls: ['./ats-integration.component.scss']
 })
 export class AtsIntegrationComponent implements OnInit {
   private readonly ats = inject(AtsService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly verifiedLabel = $localize`:@@ats.verified:Last verified:`;
   readonly lastSyncLabel = $localize`:@@ats.lastSync:Last sync:`;
@@ -61,11 +67,9 @@ export class AtsIntegrationComponent implements OnInit {
   readonly apiKeyLabel = $localize`:@@ats.apiKey:API key`;
   readonly connectLabel = $localize`:@@ats.connect:Connect`;
   readonly disconnectLabel = $localize`:@@ats.disconnect:Disconnect`;
-  private readonly connectFailed = $localize`:@@ats.connectFailed:Could not connect — check the API key.`;
 
   readonly providers = signal<AtsHealth[]>([]);
   readonly busy = signal(false);
-  readonly error = signal<string | null>(null);
   /** Per-provider write-only key inputs (never retained after a successful connect). */
   keys: Record<string, string> = {};
 
@@ -83,28 +87,39 @@ export class AtsIntegrationComponent implements OnInit {
       return;
     }
     this.busy.set(true);
-    this.error.set(null);
     this.ats.connect(provider, key).subscribe({
       next: () => {
         this.keys[provider] = '';
         this.busy.set(false);
+        this.toast.success($localize`:@@toast.ats.connected:${provider}:provider: connected.`);
         this.refresh();
       },
       error: () => {
-        this.error.set(this.connectFailed);
         this.busy.set(false);
+        this.toast.error($localize`:@@toast.ats.connectFailed:Could not connect — check the API key.`);
       }
     });
   }
 
-  disconnect(provider: string): void {
+  async disconnect(provider: string): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.ats.disconnect.title:Disconnect ${provider}:provider:?`,
+      body: $localize`:@@confirm.ats.disconnect.body:Cadence will stop syncing with ${provider}:provider:. You'll need to re-enter the API key to reconnect.`,
+      confirmLabel: $localize`:@@confirm.ats.disconnect.cta:Disconnect`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.busy.set(true);
     this.ats.disconnect(provider).subscribe({
       next: () => {
         this.busy.set(false);
+        this.toast.success($localize`:@@toast.ats.disconnected:${provider}:provider: disconnected.`);
         this.refresh();
       },
-      error: () => this.busy.set(false)
+      error: () => {
+        this.busy.set(false);
+        this.toast.error($localize`:@@toast.ats.disconnectFailed:Could not disconnect ${provider}:provider:.`);
+      }
     });
   }
 }

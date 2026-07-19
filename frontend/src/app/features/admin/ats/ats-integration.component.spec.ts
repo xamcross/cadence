@@ -1,13 +1,19 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AtsIntegrationComponent } from './ats-integration.component';
 import { AtsService, AtsHealth } from './ats.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 /**
  * F40/F41 ATS integration admin screen. Verifies the both-providers list, the write-only per-provider connect
  * form, and disconnect. Internal Admin screen — RBAC is enforced server-side (the route roleGuard('ADMIN') is
  * covered by role.guard.spec).
+ *
+ * Phase 3b (workbench overhaul): `disconnect(provider)` is gated behind the shared `ConfirmDialogService`
+ * (⚠ danger). `connect`/`disconnect` outcomes are surfaced via `ToastService`, replacing the old
+ * connect-only inline `error` signal (disconnect previously had no feedback at all).
  */
 describe('AtsIntegrationComponent', () => {
   const greenhouse: AtsHealth = {
@@ -29,6 +35,7 @@ describe('AtsIntegrationComponent', () => {
       connect: connectSpy as AtsService['connect'],
       disconnect: disconnectSpy as AtsService['disconnect']
     };
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [AtsIntegrationComponent],
       providers: [{ provide: AtsService, useValue: stub }]
@@ -56,35 +63,61 @@ describe('AtsIntegrationComponent', () => {
     expect(fixture.componentInstance.providers().length).toBe(2);
   });
 
-  it('submits the write-only API key on connect to the right provider', () => {
-    const { fixture, connectSpy } = setup([greenhouse, lever]);
-    fixture.componentInstance.keys['LEVER'] = 'secret-key';
-    fixture.componentInstance.connect('LEVER');
-    expect(connectSpy).toHaveBeenCalledWith('LEVER', 'secret-key');
-    // After a successful connect the key field is cleared (never retained in the UI).
-    expect(fixture.componentInstance.keys['LEVER']).toBe('');
+  describe('connect (toast)', () => {
+    it('submits the write-only API key on connect to the right provider and toasts success', () => {
+      const { fixture, connectSpy } = setup([greenhouse, lever]);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      fixture.componentInstance.keys['LEVER'] = 'secret-key';
+      fixture.componentInstance.connect('LEVER');
+      expect(connectSpy).toHaveBeenCalledWith('LEVER', 'secret-key');
+      // After a successful connect the key field is cleared (never retained in the UI).
+      expect(fixture.componentInstance.keys['LEVER']).toBe('');
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('does not connect with a blank key', () => {
+      const { fixture, connectSpy } = setup([greenhouse, lever]);
+      fixture.componentInstance.keys['LEVER'] = '   ';
+      fixture.componentInstance.connect('LEVER');
+      expect(connectSpy).not.toHaveBeenCalled();
+    });
+
+    it('toasts an error when verification fails', () => {
+      const failing = jasmine.createSpy('connect').and.returnValue(throwError(() => ({ status: 400 })));
+      const { fixture } = setup([greenhouse, lever], failing);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.keys['LEVER'] = 'bad';
+      fixture.componentInstance.connect('LEVER');
+      expect(toastSpy).toHaveBeenCalled();
+    });
   });
 
-  it('does not connect with a blank key', () => {
-    const { fixture, connectSpy } = setup([greenhouse, lever]);
-    fixture.componentInstance.keys['LEVER'] = '   ';
-    fixture.componentInstance.connect('LEVER');
-    expect(connectSpy).not.toHaveBeenCalled();
-  });
+  describe('disconnect (confirm-gate ⚠ danger + toast)', () => {
+    it('does not disconnect when the confirm is declined', async () => {
+      const { fixture, disconnectSpy } = setup([greenhouse, lever]);
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await fixture.componentInstance.disconnect('GREENHOUSE');
+      expect(disconnectSpy).not.toHaveBeenCalled();
+    });
 
-  it('calls disconnect for the chosen provider', () => {
-    const { fixture, disconnectSpy } = setup([greenhouse, lever]);
-    fixture.componentInstance.disconnect('GREENHOUSE');
-    expect(disconnectSpy).toHaveBeenCalledWith('GREENHOUSE');
-  });
+    it('gates with a danger confirm, disconnects the chosen provider, and toasts success', async () => {
+      const { fixture, disconnectSpy } = setup([greenhouse, lever]);
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      await fixture.componentInstance.disconnect('GREENHOUSE');
+      expect(confirmSpy).toHaveBeenCalledWith(jasmine.objectContaining({ danger: true }));
+      expect(disconnectSpy).toHaveBeenCalledWith('GREENHOUSE');
+      expect(toastSpy).toHaveBeenCalled();
+    });
 
-  it('shows the connect error when verification fails', () => {
-    const failing = jasmine.createSpy('connect').and.returnValue(
-      { subscribe: (o: { error: () => void }) => o.error() } as never);
-    const { fixture } = setup([greenhouse, lever], failing);
-    fixture.componentInstance.keys['LEVER'] = 'bad';
-    fixture.componentInstance.connect('LEVER');
-    expect(fixture.componentInstance.error()).toBeTruthy();
+    it('toasts an error when the confirmed disconnect fails', async () => {
+      const failing = jasmine.createSpy('disconnect').and.returnValue(throwError(() => ({ status: 500 })));
+      const { fixture } = setup([greenhouse, lever], undefined, failing);
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      await fixture.componentInstance.disconnect('GREENHOUSE');
+      expect(toastSpy).toHaveBeenCalled();
+    });
   });
 
   it('renders the shared page-header masthead', () => {
