@@ -47,15 +47,15 @@ import { ToastService } from '../../../shared/ui/toast.service';
         <p *ngIf="j.rejectionReason" class="error alert alert--danger" role="alert">{{ rejectedFileLabel }} {{ j.rejectionReason }}</p>
 
         <app-table-scroll ariaLabel="Import results" i18n-ariaLabel="@@csv.tableLabel" *ngIf="j.rowResults.length">
-          <table class="rows table">
+          <table class="rows table table--stack">
             <thead>
               <tr><th>{{ rowLabel }}</th><th>{{ outcomeLabel }}</th><th>{{ detailLabel }}</th></tr>
             </thead>
             <tbody>
               <tr *ngFor="let r of j.rowResults">
-                <td class="num">{{ r.rowNumber }}</td>
-                <td>{{ r.status }}</td>
-                <td>
+                <td class="num" [attr.data-label]="rowLabel">{{ r.rowNumber }}</td>
+                <td [attr.data-label]="outcomeLabel">{{ r.status }}</td>
+                <td [attr.data-label]="detailLabel">
                   <span *ngIf="r.reason">{{ r.failingField }}: {{ r.reason }}</span>
                   <span *ngIf="r.status === 'DUPLICATE_PENDING'" class="dup-actions">
                     <button type="button" class="btn btn--outline btn--sm" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
