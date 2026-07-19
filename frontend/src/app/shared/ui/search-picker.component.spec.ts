@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { PickerOption, SearchPickerComponent } from './search-picker.component';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
@@ -76,6 +77,64 @@ describe('SearchPickerComponent', () => {
     expect(host.picked).toBe('c1');
     type('dan');
     expect(host.picked).toBeNull();
+  });
+
+  // Fix 2: editing the first character after a pick must NOT blank the input. onInput clears the
+  // committed selection and emits null; the parent echoes '' back into [value], and the setter used
+  // to unconditionally wipe _text -- clobbering the character the user just typed.
+  it('keeps the typed text (does not blank) when editing right after a selection', () => {
+    const picker = fixture.debugElement.query(By.directive(SearchPickerComponent)).componentInstance as SearchPickerComponent;
+    let nullEmits = 0;
+    picker.valueChange.subscribe((v) => { if (v === null) nullEmits++; });
+
+    input().dispatchEvent(new Event('focus'));
+    type('dana');
+    (el.querySelector('.picker__opt') as HTMLElement).click();
+    fixture.detectChanges();
+    expect(input().value).toBe('Dana Okafor');
+
+    type('Dana O'); // first edit after the pick
+    expect(input().value).toBe('Dana O'); // not blanked by the '' echo
+    expect(host.picked).toBeNull();
+    expect(nullEmits).toBe(1); // emitted null exactly once (on the edit)
+  });
+
+  // Fix 2 (partner): the after-success external reset ([value] set to '') still clears the picker,
+  // because a committed selection is present when the parent resets it.
+  it('still clears on an external reset after a selection', () => {
+    input().dispatchEvent(new Event('focus'));
+    type('dana');
+    (el.querySelector('.picker__opt') as HTMLElement).click();
+    fixture.detectChanges();
+    expect(input().value).toBe('Dana Okafor');
+
+    host.picked = ''; // parent resets after a successful action
+    fixture.detectChanges();
+    expect(input().value).toBe('');
+  });
+
+  // Fix 3: `options` is a signal input, so reassigning the host's options WITHOUT a query change
+  // invalidates the `filtered` memo and re-renders the list.
+  it('reflects reassigned options without a query change (options is a reactive signal input)', () => {
+    input().dispatchEvent(new Event('focus'));
+    fixture.detectChanges();
+    expect(el.querySelectorAll('.picker__opt').length).toBe(3);
+
+    host.opts = [{ id: 'z1', label: 'Solo Option' }];
+    fixture.detectChanges();
+    const opts = el.querySelectorAll('.picker__opt');
+    expect(opts.length).toBe(1);
+    expect(opts[0].textContent).toContain('Solo Option');
+  });
+
+  // Fix 5: aria-controls/aria-expanded must not claim a listbox when there is nothing to point at
+  // (filtered().length === 0 renders no <ul>).
+  it('does not claim a listbox when open with zero matches', () => {
+    input().dispatchEvent(new Event('focus'));
+    type('zzzzz'); // matches nothing
+    expect(el.querySelector('.picker__list')).toBeNull();
+    expect(input().getAttribute('aria-controls')).toBeNull();
+    expect(input().getAttribute('aria-expanded')).toBe('false');
   });
 
   it('has zero axe WCAG 2.2 AA violations while open', async () => {

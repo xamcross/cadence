@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, input, signal } from '@angular/core';
 
 export interface PickerOption { readonly id: string; readonly label: string; readonly hint?: string; }
 
@@ -13,8 +13,8 @@ let pickerSeq = 0;
   template: `
     <div class="picker">
       <input #input type="text" class="input picker__input" role="combobox"
-             [attr.aria-expanded]="open()" aria-autocomplete="list"
-             [attr.aria-controls]="open() ? listId : null"
+             [attr.aria-expanded]="open() && filtered().length > 0" aria-autocomplete="list"
+             [attr.aria-controls]="(open() && filtered().length) ? listId : null"
              [attr.aria-activedescendant]="activeDescendant()"
              [attr.aria-label]="label || null" [placeholder]="placeholder" [disabled]="disabled"
              [value]="text()"
@@ -54,12 +54,17 @@ let pickerSeq = 0;
   `]
 })
 export class SearchPickerComponent {
-  @Input({ required: true }) options!: readonly PickerOption[];
+  /** Signal input so `filtered` stays reactive to option-list reassignments (not just query changes). */
+  readonly options = input.required<readonly PickerOption[]>();
   @Input() placeholder = '';
   @Input() label = '';
   @Input() disabled = false;
-  /** Parent-driven reset: setting value to null/'' clears the display (used after a successful action). */
-  @Input() set value(v: string | null) { if (!v) { this._selectedId.set(null); this._text.set(''); } }
+  /**
+   * Parent-driven reset: clearing the value clears the display, but ONLY when a selection is
+   * committed. During a mid-edit, `onInput` has already nulled `_selectedId` and emitted null, so
+   * the parent's `''` echo must be ignored here or it would wipe the text the user just typed.
+   */
+  @Input() set value(v: string | null) { if (!v && this._selectedId()) { this._selectedId.set(null); this._text.set(''); } }
   @Output() valueChange = new EventEmitter<string | null>();
 
   readonly listId = `picker-${++pickerSeq}`;
@@ -74,7 +79,8 @@ export class SearchPickerComponent {
   readonly query = computed(() => this._text().trim());
   readonly filtered = computed<readonly PickerOption[]>(() => {
     const q = this.query().toLowerCase();
-    const list = q ? this.options.filter((o) => o.label.toLowerCase().includes(q)) : this.options;
+    const opts = this.options();
+    const list = q ? opts.filter((o) => o.label.toLowerCase().includes(q)) : opts;
     return list.slice(0, 50);
   });
   readonly activeDescendant = computed(() =>
