@@ -1,12 +1,19 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { GdprService } from './gdpr.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * Admin/Recruiter erasure trigger + lawful-basis record/withdraw, keyed by a pasted candidate internal
  * id (no candidate browser — F51). Erasure is destructive and irreversible, so it requires an explicit
  * confirmation step. The server enforces the role; this surface is UX + defense-in-depth.
+ *
+ * Phase 3b (workbench overhaul): `erase` is gated behind the shared `ConfirmDialogService` (⚠ danger),
+ * replacing the old hand-rolled `confirming`-signal inline two-step prompt. `withdrawBasis` gets a
+ * light (non-danger) confirm gate. Outcomes are surfaced via `ToastService` instead of a shared
+ * `message` signal.
  */
 @Component({
   selector: 'app-candidate-erasure-action',
@@ -37,56 +44,57 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
       <fieldset>
         <legend i18n="@@gdpr.erase.legend">Erase personal data</legend>
-        @if (!confirming()) {
-          <button type="button" class="danger btn btn--danger-soft" (click)="confirming.set(true)" i18n="@@gdpr.erase.start">
-            Erase candidate data
-          </button>
-        } @else {
-          <p i18n="@@gdpr.erase.confirmPrompt">This permanently erases the candidate's personal data. Continue?</p>
-          <button type="button" class="danger btn btn--danger" (click)="erase()" i18n="@@gdpr.erase.confirm">Confirm erasure</button>
-          <button type="button" class="btn btn--ghost" (click)="confirming.set(false)" i18n="@@gdpr.erase.cancel">Cancel</button>
-        }
+        <button type="button" class="danger btn btn--danger-soft" (click)="erase()" i18n="@@gdpr.erase.start">
+          Erase candidate data
+        </button>
       </fieldset>
-
-      @if (message()) {
-        <p role="alert" class="alert alert--accent msg">{{ message() }}</p>
-      }
     </section>
   `,
   styles: [`
     .gdpr { padding: var(--space-4); max-width: 32rem; }
     fieldset { margin-bottom: var(--space-4); }
     button { margin-right: var(--space-2); }
-    .msg { margin-top: var(--space-4); }
   `]
 })
 export class CandidateErasureActionComponent {
   private readonly gdpr = inject(GdprService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   candidateId = '';
   basis = 'LEGITIMATE_INTEREST';
-  readonly confirming = signal(false);
-  readonly message = signal('');
 
   recordBasis(): void {
     this.gdpr.recordBasis(this.candidateId, this.basis).subscribe({
-      next: () => this.message.set($localize`:@@gdpr.basis.recorded:Lawful basis recorded.`),
-      error: () => this.message.set($localize`:@@gdpr.basis.error:Could not record the lawful basis.`)
+      next: () => this.toast.success($localize`:@@toast.gdpr.basisRecorded:Lawful basis recorded.`),
+      error: () => this.toast.error($localize`:@@toast.gdpr.basisRecordFailed:Could not record the lawful basis.`)
     });
   }
 
-  withdrawBasis(): void {
+  async withdrawBasis(): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.gdpr.withdrawBasis.title:Withdraw lawful basis?`,
+      body: $localize`:@@confirm.gdpr.withdrawBasis.body:The recorded lawful basis for contacting candidate ${this.candidateId}:candidateId: will be withdrawn.`,
+      confirmLabel: $localize`:@@confirm.gdpr.withdrawBasis.cta:Withdraw`
+    });
+    if (!ok) { return; }
     this.gdpr.withdrawBasis(this.candidateId).subscribe({
-      next: () => this.message.set($localize`:@@gdpr.basis.withdrawn:Lawful basis withdrawn.`),
-      error: () => this.message.set($localize`:@@gdpr.basis.withdrawError:Could not withdraw the lawful basis.`)
+      next: () => this.toast.success($localize`:@@toast.gdpr.basisWithdrawn:Lawful basis withdrawn.`),
+      error: () => this.toast.error($localize`:@@toast.gdpr.basisWithdrawFailed:Could not withdraw the lawful basis.`)
     });
   }
 
-  erase(): void {
-    this.confirming.set(false);
+  async erase(): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.gdpr.erase.title:Erase candidate data?`,
+      body: $localize`:@@confirm.gdpr.erase.body:This permanently erases ${this.candidateId}:candidateId:'s personal data. This cannot be undone.`,
+      confirmLabel: $localize`:@@confirm.gdpr.erase.cta:Erase data`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.gdpr.erase(this.candidateId).subscribe({
-      next: () => this.message.set($localize`:@@gdpr.erase.done:Candidate data erased.`),
-      error: () => this.message.set($localize`:@@gdpr.erase.error:Could not erase the candidate.`)
+      next: () => this.toast.success($localize`:@@toast.gdpr.erased:Candidate data erased.`),
+      error: () => this.toast.error($localize`:@@toast.gdpr.eraseFailed:Could not erase the candidate.`)
     });
   }
 }
