@@ -180,6 +180,14 @@ describe('RequisitionsComponent', () => {
     expect(fixture.nativeElement.querySelector('app-table-scroll table.table')).not.toBeNull();
   });
 
+  it('renders a responsive card-fallback table (table--stack + per-cell data-label)', () => {
+    const fixture = setup();
+    const table = fixture.nativeElement.querySelector('table.table');
+    expect(table?.classList.contains('table--stack')).toBe(true);
+    const td = fixture.nativeElement.querySelector('tbody td') as HTMLElement | null;
+    expect(td?.getAttribute('data-label')).toBeTruthy();
+  });
+
   it('shows the guided empty-state when there are no requisitions', () => {
     const fixture = setup(of([]));
     expect(fixture.nativeElement.querySelector('app-empty-state')).not.toBeNull();

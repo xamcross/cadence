@@ -52,7 +52,7 @@ import { PipelineService } from '../../pipeline/pipeline.service';
       </app-empty-state>
     } @else {
       <app-table-scroll ariaLabel="Requisitions" i18n-ariaLabel="@@req.tableLabel">
-        <table class="table">
+        <table class="table table--stack">
           <thead><tr>
             <th i18n="@@req.col.title">Title</th>
             <th i18n="@@req.col.status">Status</th>
@@ -62,10 +62,10 @@ import { PipelineService } from '../../pipeline/pipeline.service';
           <tbody>
             @for (r of requisitions(); track r.id) {
               <tr>
-                <td>{{ r.title }}</td>
-                <td>{{ r.status }}</td>
-                <td>{{ r.externalLabel || '-' }}</td>
-                <td>
+                <td data-label="Title">{{ r.title }}</td>
+                <td data-label="Status">{{ r.status }}</td>
+                <td data-label="Label">{{ r.externalLabel || '-' }}</td>
+                <td data-label="Actions">
                   @if (r.status === 'OPEN') {
                     <button type="button" class="btn btn--danger-soft btn--sm" (click)="close(r)" i18n="@@req.close">Close</button>
                   } @else {
