@@ -33,7 +33,7 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
         </app-empty-state>
       } @else if (loaded()) {
         <app-table-scroll ariaLabel="Audit entries" i18n-ariaLabel="@@gdpr.audit.tableLabel">
-          <table class="table">
+          <table class="table table--stack">
             <thead>
               <tr>
                 <th i18n="@@gdpr.audit.when">When</th>
@@ -45,10 +45,10 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
             <tbody>
               @for (e of entries(); track $index) {
                 <tr>
-                  <td>{{ e.occurredAt }}</td>
-                  <td>{{ e.eventType }}</td>
-                  <td>{{ e.outcome }}</td>
-                  <td>{{ e.actorMemberId ?? 'system' }}</td>
+                  <td data-label="When">{{ e.occurredAt }}</td>
+                  <td data-label="Event">{{ e.eventType }}</td>
+                  <td data-label="Outcome">{{ e.outcome }}</td>
+                  <td data-label="Actor">{{ e.actorMemberId ?? 'system' }}</td>
                 </tr>
               }
             </tbody>

@@ -41,4 +41,18 @@ describe('CandidateAuditComponent (phase 2 adoption)', () => {
     fixture.detectChanges();
     expect(el.querySelector('app-empty-state')).not.toBeNull();
   });
+
+  it('renders a responsive card-fallback table (table--stack + per-cell data-label)', () => {
+    fixture.componentInstance.candidateId = 'c1';
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    const httpMock = TestBed.inject(HttpTestingController);
+    const req = httpMock.expectOne((r) => r.method === 'GET' && r.url.includes('/audit'));
+    req.flush({ entries: [{ occurredAt: '2026-06-01T00:00:00Z', eventType: 'VIEWED', outcome: 'SUCCESS', actorMemberId: 'm1' }] });
+    fixture.detectChanges();
+    const table = el.querySelector('table.table');
+    expect(table?.classList.contains('table--stack')).toBe(true);
+    const td = el.querySelector('tbody td') as HTMLElement | null;
+    expect(td?.getAttribute('data-label')).toBeTruthy();
+  });
 });
