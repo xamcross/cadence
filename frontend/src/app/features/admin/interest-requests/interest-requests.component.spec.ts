@@ -7,6 +7,7 @@ import {
   InterestRequestRow,
   InterestRequestsService
 } from './interest-requests.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 /**
  * F70 interest-request admin queue (US2). Verifies the list renders, the status filter defaults to `open` and
@@ -29,6 +30,7 @@ describe('InterestRequestsComponent (F70)', () => {
   let inviteSpy: jasmine.Spy;
   let eraseSpy: jasmine.Spy;
   let exportSpy: jasmine.Spy;
+  let attachedEls: HTMLElement[] = [];
 
   function setup(listValue: InterestListResponse = { requests: rows }): ComponentFixture<InterestRequestsComponent> {
     const ok: InterestActionResponse = { status: 'REVIEWED' };
@@ -51,9 +53,17 @@ describe('InterestRequestsComponent (F70)', () => {
       providers: [{ provide: InterestRequestsService, useValue: stub }]
     });
     const fixture = TestBed.createComponent(InterestRequestsComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return fixture;
   }
+
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
 
   it('lists requests and shows the unverified labels for email + organization', () => {
     const fixture = setup();
@@ -147,5 +157,38 @@ describe('InterestRequestsComponent (F70)', () => {
     // No injected handler ran.
     expect(win.__xss).toBeUndefined();
     expect(win.__xss2).toBeUndefined();
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setup();
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('wraps the table in the shared table-scroll region', () => {
+    const fixture = setup();
+    expect(fixture.nativeElement.querySelector('app-table-scroll table.rows.table')).not.toBeNull();
+  });
+
+  it('shows the guided empty-state with a Show all requests CTA when the filtered view is empty', () => {
+    const fixture = setup({ requests: [] });
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('app-empty-state')).not.toBeNull();
+    expect(el.querySelector('table.rows')).toBeNull();
+    expect(el.querySelector('.act-show-all')).not.toBeNull();
+  });
+
+  it('the empty-state CTA switches the filter to all and reloads', () => {
+    const fixture = setup({ requests: [] });
+    const el: HTMLElement = fixture.nativeElement;
+    const cta = el.querySelector('.act-show-all') as HTMLButtonElement;
+    cta.click();
+    expect(fixture.componentInstance.filter).toBe('all');
+    expect(listSpy).toHaveBeenCalledWith('all');
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setup();
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 });
