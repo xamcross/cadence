@@ -1,9 +1,13 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { RequisitionsComponent } from './requisitions.component';
 import { RequisitionsService, RequisitionDto } from './requisitions.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../../shared/ui/toast.service';
+import { SearchPickerComponent } from '../../../shared/ui/search-picker.component';
+import { MemberRow, MembersService } from '../members/members.service';
+import { PipelinePage, PipelineService } from '../../pipeline/pipeline.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 function req(id: string, status: 'OPEN' | 'CLOSED' = 'OPEN'): RequisitionDto {
@@ -21,7 +25,11 @@ describe('RequisitionsComponent', () => {
   let svc: { list: jasmine.Spy; create: jasmine.Spy; update: jasmine.Spy; assignHm: jasmine.Spy; linkCandidate: jasmine.Spy };
   let attachedEls: HTMLElement[] = [];
 
-  function setup(listResult = of([req('r1')])): ComponentFixture<RequisitionsComponent> {
+  // Workbench overhaul phase 5: ngOnInit unconditionally loads member + candidate picker options, so
+  // every render needs DI stubs for MembersService/PipelineService.
+  const emptyPipelinePage: PipelinePage = { rows: [], page: 0, size: 1000, totalInScope: 0, filteredCount: 0, truncated: false };
+
+  function setup(listResult = of([req('r1')]), membersResult: MemberRow[] = [], pipelineResult = emptyPipelinePage): ComponentFixture<RequisitionsComponent> {
     TestBed.resetTestingModule();
     svc = {
       list: jasmine.createSpy('list').and.returnValue(listResult),
@@ -30,9 +38,15 @@ describe('RequisitionsComponent', () => {
       assignHm: jasmine.createSpy('assignHm').and.returnValue(of(void 0)),
       linkCandidate: jasmine.createSpy('linkCandidate').and.returnValue(of(void 0))
     };
+    const membersStub: Partial<MembersService> = { getMembers: () => of(membersResult) };
+    const pipelineStub: Partial<PipelineService> = { list: () => of(pipelineResult) };
     TestBed.configureTestingModule({
       imports: [RequisitionsComponent],
-      providers: [{ provide: RequisitionsService, useValue: svc }]
+      providers: [
+        { provide: RequisitionsService, useValue: svc },
+        { provide: MembersService, useValue: membersStub },
+        { provide: PipelineService, useValue: pipelineStub }
+      ]
     });
     const fixture = TestBed.createComponent(RequisitionsComponent);
     const el = fixture.nativeElement as HTMLElement;
@@ -176,5 +190,49 @@ describe('RequisitionsComponent', () => {
     const fixture = setup();
     const violations = await axeViolations(fixture.nativeElement);
     expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+  });
+
+  // ---- Workbench overhaul phase 5: member/candidate/requisition pickers ----
+
+  describe('member/candidate/requisition pickers (workbench overhaul phase 5)', () => {
+    const member: MemberRow = { memberId: 'm1', displayName: 'Jordan Blake', role: 'HIRING_MANAGER', status: 'ACTIVE' };
+    const pipelinePage: PipelinePage = {
+      rows: [{
+        candidateId: 'c1', name: 'Dana Okafor', stage: 'Technical', slaState: 'GREEN',
+        schedulingStatus: 'NO_LINK_SENT', requisitionId: null, requisitionTitle: null, lastActivityAt: null
+      }],
+      page: 0, size: 1000, totalInScope: 1, filteredCount: 1, truncated: false
+    };
+
+    it('renders a per-row member picker, and candidate + requisition pickers in the link section', () => {
+      const fixture = setup(of([req('r1')]), [member], pipelinePage);
+      const pickers = fixture.nativeElement.querySelectorAll('app-search-picker');
+      // 1 per-row member picker + 1 candidate picker + 1 requisition picker.
+      expect(pickers.length).toBe(3);
+      expect(fixture.componentInstance.memberOpts()).toEqual([{ id: 'm1', label: 'Jordan Blake', hint: 'HIRING_MANAGER' }]);
+      expect(fixture.componentInstance.candidateOpts()).toEqual([{ id: 'c1', label: 'Dana Okafor', hint: 'Technical' }]);
+    });
+
+    it('the requisition picker options come from the already-loaded requisitions() signal, no new fetch', () => {
+      const fixture = setup(of([req('r1')]));
+      expect(fixture.componentInstance.requisitionOpts()).toEqual([{ id: 'r1', label: 'Backend r1', hint: 'OPEN' }]);
+    });
+
+    it('selecting a member option sets the per-row assignMemberId', () => {
+      const fixture = setup(of([req('r1')]), [member], pipelinePage);
+      const pickers = fixture.debugElement.queryAll(By.directive(SearchPickerComponent));
+      (pickers[0].componentInstance as SearchPickerComponent).valueChange.emit('m1');
+      expect(fixture.componentInstance.assignMemberId['r1']).toBe('m1');
+    });
+
+    it('selecting a candidate option sets linkCandidateId; selecting a requisition option sets linkRequisitionId', () => {
+      const fixture = setup(of([req('r1')]), [member], pipelinePage);
+      const pickers = fixture.debugElement.queryAll(By.directive(SearchPickerComponent));
+      // Order: [0] per-row member picker, [1] candidate picker, [2] requisition picker.
+      (pickers[1].componentInstance as SearchPickerComponent).valueChange.emit('c1');
+      (pickers[2].componentInstance as SearchPickerComponent).valueChange.emit('r1');
+      expect(fixture.componentInstance.linkCandidateId).toBe('c1');
+      expect(fixture.componentInstance.linkRequisitionId).toBe('r1');
+    });
   });
 });

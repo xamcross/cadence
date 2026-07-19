@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RequisitionDto, RequisitionsService } from './requisitions.service';
@@ -8,6 +8,9 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../../shared/ui/toast.service';
+import { PickerOption, SearchPickerComponent } from '../../../shared/ui/search-picker.component';
+import { MembersService } from '../members/members.service';
+import { PipelineService } from '../../pipeline/pipeline.service';
 
 /**
  * F51 requisition management (Admin internal screen): create/close requisitions, assign a Hiring Manager, and link
@@ -22,7 +25,7 @@ import { ToastService } from '../../../shared/ui/toast.service';
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    PageHeaderComponent, EmptyStateComponent, SkeletonComponent, TableScrollComponent
+    PageHeaderComponent, EmptyStateComponent, SkeletonComponent, TableScrollComponent, SearchPickerComponent
   ],
   template: `
     <app-page-header
@@ -68,7 +71,11 @@ import { ToastService } from '../../../shared/ui/toast.service';
                   } @else {
                     <button type="button" class="btn btn--outline btn--sm" (click)="reopen(r)" i18n="@@req.reopen">Reopen</button>
                   }
-                  <input class="input" [(ngModel)]="assignMemberId[r.id]" placeholder="HM member id" i18n-placeholder="@@req.hm.ph" />
+                  <app-search-picker class="member-picker" [options]="memberOpts()" [value]="assignMemberId[r.id]"
+                    (valueChange)="assignMemberId[r.id] = $event ?? ''"
+                    label="Hiring manager" i18n-label="@@req.hm.picker.label"
+                    placeholder="Search members…" i18n-placeholder="@@req.hm.picker.placeholder">
+                  </app-search-picker>
                   <button type="button" class="btn btn--outline btn--sm" (click)="assign(r)" i18n="@@req.assign">Assign HM</button>
                 </td>
               </tr>
@@ -80,8 +87,20 @@ import { ToastService } from '../../../shared/ui/toast.service';
 
     <section class="link">
       <h2 i18n="@@req.link.title">Link candidate to requisition</h2>
-      <input class="input" [(ngModel)]="linkCandidateId" placeholder="Candidate id" i18n-placeholder="@@req.cand.ph" />
-      <input class="input" [(ngModel)]="linkRequisitionId" placeholder="Requisition id" i18n-placeholder="@@req.req.ph" />
+      <div class="field">
+        <app-search-picker [options]="candidateOpts()" [value]="linkCandidateId"
+          (valueChange)="linkCandidateId = $event ?? ''"
+          label="Candidate" i18n-label="@@req.cand.picker.label"
+          placeholder="Search candidates…" i18n-placeholder="@@req.cand.picker.placeholder">
+        </app-search-picker>
+      </div>
+      <div class="field">
+        <app-search-picker [options]="requisitionOpts()" [value]="linkRequisitionId"
+          (valueChange)="linkRequisitionId = $event ?? ''"
+          label="Requisition" i18n-label="@@req.req.picker.label"
+          placeholder="Search requisitions…" i18n-placeholder="@@req.req.picker.placeholder">
+        </app-search-picker>
+      </div>
       <button type="button" class="btn btn--primary" (click)="link()" i18n="@@req.link.btn">Link</button>
     </section>
   `,
@@ -97,11 +116,20 @@ export class RequisitionsComponent implements OnInit {
   private readonly svc = inject(RequisitionsService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
+  private readonly membersApi = inject(MembersService);
+  private readonly pipelineApi = inject(PipelineService);
 
   readonly requisitions = signal<RequisitionDto[]>([]);
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly errorMsg = $localize`:@@req.error:Action failed. Try again.`;
+
+  // Workbench overhaul phase 5: picker options for the member/candidate/requisition combobox fields.
+  readonly memberOpts = signal<readonly PickerOption[]>([]);
+  readonly candidateOpts = signal<readonly PickerOption[]>([]);
+  /** No new fetch — reuses the already-loaded requisitions() list. */
+  readonly requisitionOpts = computed<readonly PickerOption[]>(() =>
+    this.requisitions().map((r) => ({ id: r.id, label: r.title, hint: r.status })));
 
   newTitle = '';
   newLabel = '';
@@ -111,6 +139,14 @@ export class RequisitionsComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+    this.membersApi.getMembers().subscribe({
+      next: (members) => this.memberOpts.set(members.map((m) => ({ id: m.memberId, label: m.displayName, hint: m.role }))),
+      error: () => this.memberOpts.set([])
+    });
+    this.pipelineApi.list({ status: 'ACTIVE', size: 1000 }).subscribe({
+      next: (p) => this.candidateOpts.set(p.rows.map((r) => ({ id: r.candidateId, label: r.name, hint: r.stage }))),
+      error: () => this.candidateOpts.set([])
+    });
   }
 
   create(): void {
