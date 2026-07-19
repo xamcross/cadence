@@ -7,6 +7,8 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
+import { PickerOption, SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { PipelineService } from '../pipeline/pipeline.service';
 
 /**
  * Admin/Recruiter "Email templates" surface (F21, the §II demonstrable leg): list the message types,
@@ -22,7 +24,7 @@ import { ToastService } from '../../shared/ui/toast.service';
 @Component({
   selector: 'app-email-templates',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
+  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent, SearchPickerComponent],
   template: `
     <app-page-header
       eyebrow="Templates" i18n-eyebrow="@@et.eyebrow"
@@ -95,9 +97,13 @@ import { ToastService } from '../../shared/ui/toast.service';
         @if (previewing(); as p) {
           <div class="send">
             <h3 i18n="@@et.sendTitle">Send to candidate</h3>
-            <label class="field" i18n="@@et.candidateId">
-              Candidate ID <input class="input" name="sendCandidateId" [(ngModel)]="sendCandidateId" />
-            </label>
+            <div class="field">
+              <app-search-picker [options]="candidateOpts()" [value]="sendCandidateId"
+                (valueChange)="sendCandidateId = $event ?? ''"
+                label="Candidate" i18n-label="@@et.candidate.picker.label"
+                placeholder="Search candidates…" i18n-placeholder="@@et.candidate.picker.placeholder">
+              </app-search-picker>
+            </div>
             <button type="button" class="btn btn--primary" (click)="send(p)" [disabled]="sending() || !sendCandidateId.trim()"
                     i18n="@@et.sendbtn">Send to candidate</button>
           </div>
@@ -116,6 +122,7 @@ export class EmailTemplatesComponent implements OnInit {
   private readonly service = inject(EmailTemplatesService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
+  private readonly pipelineApi = inject(PipelineService);
 
   /** Set by the host/shell; defaults true so an Admin sees lock controls. The server is the boundary. */
   isAdmin = true;
@@ -130,12 +137,19 @@ export class EmailTemplatesComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly sending = signal(false);
 
+  // Workbench overhaul phase 5: picker options for the "Send to candidate" candidate combobox field.
+  readonly candidateOpts = signal<readonly PickerOption[]>([]);
+
   subject = '';
   body = '';
   sendCandidateId = '';
 
   ngOnInit(): void {
     this.load();
+    this.pipelineApi.list({ status: 'ACTIVE', size: 1000 }).subscribe({
+      next: (p) => this.candidateOpts.set(p.rows.map((r) => ({ id: r.candidateId, label: r.name, hint: r.stage }))),
+      error: () => this.candidateOpts.set([])
+    });
   }
 
   private load(): void {

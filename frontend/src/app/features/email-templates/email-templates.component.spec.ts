@@ -1,10 +1,13 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { EmailTemplatesComponent } from './email-templates.component';
 import { EmailTemplate, EmailTemplatesService, RenderedMessage, SendResult, TemplateList } from './email-templates.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
+import { SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { PipelinePage, PipelineService } from '../pipeline/pipeline.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
@@ -25,7 +28,11 @@ describe('EmailTemplatesComponent', () => {
   };
   let attachedEls: HTMLElement[] = [];
 
-  function setup(list: TemplateList, overrides: Partial<EmailTemplatesService> = {}) {
+  // Workbench overhaul phase 5: ngOnInit unconditionally loads the candidate picker options from the
+  // pipeline list service, so the DI stub is required for every render.
+  const emptyPipelinePage: PipelinePage = { rows: [], page: 0, size: 1000, totalInScope: 0, filteredCount: 0, truncated: false };
+
+  function setup(list: TemplateList, overrides: Partial<EmailTemplatesService> = {}, pipelineOverrides: Partial<PipelineService> = {}) {
     const service: Partial<EmailTemplatesService> = {
       list: () => of(list),
       edit: () => of(base),
@@ -37,10 +44,14 @@ describe('EmailTemplatesComponent', () => {
       sendToCandidate: () => of({ dispatchId: 'd1', status: 'SENT', messageType: 'INVITATION' } as SendResult),
       ...overrides
     };
+    const pipelineStub: Partial<PipelineService> = { list: () => of(emptyPipelinePage), ...pipelineOverrides };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [EmailTemplatesComponent],
-      providers: [{ provide: EmailTemplatesService, useValue: service }]
+      providers: [
+        { provide: EmailTemplatesService, useValue: service },
+        { provide: PipelineService, useValue: pipelineStub }
+      ]
     });
     const fixture = TestBed.createComponent(EmailTemplatesComponent);
     const el = fixture.nativeElement as HTMLElement;
@@ -268,6 +279,36 @@ describe('EmailTemplatesComponent', () => {
       const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm');
       await fixture.componentInstance.send(base);
       expect(confirmSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---- Workbench overhaul phase 5: candidate picker replaces the raw "sendCandidateId" input ----
+
+  describe('candidate picker (workbench overhaul phase 5)', () => {
+    const pipelinePage: PipelinePage = {
+      rows: [{
+        candidateId: 'cand1', name: 'Dana Okafor', stage: 'Technical', slaState: 'GREEN',
+        schedulingStatus: 'NO_LINK_SENT', requisitionId: null, requisitionTitle: null, lastActivityAt: null
+      }],
+      page: 0, size: 1000, totalInScope: 1, filteredCount: 1, truncated: false
+    };
+
+    it('loads candidate options from the pipeline list service and renders a picker in the send panel', () => {
+      const fixture = setup({ templates: [base] }, {}, { list: () => of(pipelinePage) });
+      fixture.componentInstance.preview(base);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.candidateOpts()).toEqual([{ id: 'cand1', label: 'Dana Okafor', hint: 'Technical' }]);
+      expect(fixture.nativeElement.querySelector('app-search-picker')).not.toBeNull();
+    });
+
+    it('selecting a candidate option sets sendCandidateId', () => {
+      const fixture = setup({ templates: [base] }, {}, { list: () => of(pipelinePage) });
+      fixture.componentInstance.preview(base);
+      fixture.detectChanges();
+      const picker = fixture.debugElement.query(By.directive(SearchPickerComponent));
+      expect(picker).not.toBeNull();
+      (picker.componentInstance as SearchPickerComponent).valueChange.emit('cand1');
+      expect(fixture.componentInstance.sendCandidateId).toBe('cand1');
     });
   });
 });
