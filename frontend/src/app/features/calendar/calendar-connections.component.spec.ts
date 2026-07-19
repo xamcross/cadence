@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, Subject } from 'rxjs';
 import { CalendarConnectionsComponent } from './calendar-connections.component';
 import { AvailabilityPreview, CalendarService, ConnectionList, StartResponse } from './calendar.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
  * F01.1: the calendar-connections component renders the three statuses, surfaces the ?error= banner,
@@ -10,6 +11,8 @@ import { AvailabilityPreview, CalendarService, ConnectionList, StartResponse } f
  * (authGuard only — covered by app.routes); the server is the security boundary.
  */
 describe('CalendarConnectionsComponent', () => {
+  let attachedEls: HTMLElement[] = [];
+
   function setup(connections: ConnectionList, query: Record<string, string> = {}, startStub?: Partial<CalendarService>) {
     const noPreview: AvailabilityPreview = { provider: null, status: 'NOT_CONNECTED', windowStart: '', windowEnd: '', busy: [] };
     const service: Partial<CalendarService> = {
@@ -27,9 +30,28 @@ describe('CalendarConnectionsComponent', () => {
       ]
     });
     const fixture = TestBed.createComponent(CalendarConnectionsComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return fixture;
   }
+
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setup({ connections: [] });
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setup({ connections: [{ provider: 'GOOGLE', status: 'CONNECTED', connectedAccount: 'alex@example.com', connectedAt: null }] });
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+  });
 
   it('renders Not connected when there are no connections', () => {
     const fixture = setup({ connections: [] });

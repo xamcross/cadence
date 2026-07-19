@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AvailabilityPreview, CalendarService, ConnectionRow } from './calendar.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 
 interface ProviderDef {
   id: string; // path segment: google | microsoft
@@ -17,8 +18,13 @@ interface ProviderDef {
 @Component({
   selector: 'app-calendar-connections',
   standalone: true,
+  imports: [PageHeaderComponent],
   template: `
-    <h1 i18n="@@calendar.title">Calendar connections</h1>
+    <app-page-header
+      eyebrow="Personal" i18n-eyebrow="@@calendar.eyebrow"
+      heading="Calendar connections" i18n-heading="@@calendar.title"
+      subtitle="Connect Google or Microsoft for availability." i18n-subtitle="@@calendar.subtitle">
+    </app-page-header>
 
     @if (banner(); as b) {
       <p role="alert" class="alert" [class.error]="b.type === 'error'" [class.success]="b.type === 'success'"
