@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { WorkspaceService } from './workspace.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 /**
  * First-run setup wizard (F03 US1). Admin-only route. Captures name, time zone, working hours, SLA
@@ -13,11 +14,13 @@ import { WorkspaceService } from './workspace.service';
 @Component({
   selector: 'app-workspace-setup-wizard',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, PageHeaderComponent],
   template: `
     <main class="wizard">
-      <h1 i18n="@@workspace.setup.title">Set up your workspace</h1>
-      <p i18n="@@workspace.setup.intro">A few details to get your workspace ready.</p>
+      <app-page-header
+        heading="Set up your workspace" i18n-heading="@@workspace.setup.title"
+        subtitle="A few details to get your workspace ready." i18n-subtitle="@@workspace.setup.intro">
+      </app-page-header>
 
       @if (generalError()) {
         <p class="error alert alert--danger" role="alert">{{ generalError() }}</p>
