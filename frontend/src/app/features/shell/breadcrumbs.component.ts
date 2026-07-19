@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { NAV_GROUPS } from '../../core/nav/nav.config';
@@ -43,7 +44,11 @@ export class BreadcrumbsComponent {
   private readonly home: Crumb = { label: $localize`:@@breadcrumb.home:Home`, link: '/app' };
 
   constructor() {
-    this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => this.rebuild());
+    // The component is created/destroyed by `@if (showChrome())`, so the router subscription must be
+    // torn down with it — the constructor is a valid injection context for takeUntilDestroyed().
+    this.router.events
+      .pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed())
+      .subscribe(() => this.rebuild());
     this.rebuild();
   }
 
