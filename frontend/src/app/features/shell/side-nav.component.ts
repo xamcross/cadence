@@ -13,9 +13,13 @@ import { NAV_GROUPS, NavGroup } from '../../core/nav/nav.config';
   imports: [RouterLink, RouterLinkActive],
   template: `
     @if (member()) {
-      <button type="button" class="side-nav__toggle btn btn--ghost" (click)="toggle()"
-              [attr.aria-expanded]="open()" aria-controls="primary-nav"
-              i18n="@@nav.toggle">Menu</button>
+      <button type="button" class="side-nav__toggle btn btn--outline" (click)="toggle()"
+              [attr.aria-expanded]="open()" aria-controls="primary-nav">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <line x1="2.5" y1="4" x2="13.5" y2="4"/><line x1="2.5" y1="8" x2="13.5" y2="8"/><line x1="2.5" y1="12" x2="13.5" y2="12"/>
+        </svg>
+        <span i18n="@@nav.toggle">Menu</span>
+      </button>
       <nav id="primary-nav" class="side-nav__panel" [class.side-nav__panel--open]="open()"
            aria-label="Primary" i18n-aria-label="@@nav.primary">
         @for (group of groups(); track group.title) {
@@ -37,7 +41,7 @@ import { NAV_GROUPS, NavGroup } from '../../core/nav/nav.config';
   `,
   styles: [`
     :host { display: block; }
-    .side-nav__toggle { width: 100%; justify-content: center; margin-bottom: var(--space-3); }
+    .side-nav__toggle { width: 100%; justify-content: center; margin-bottom: var(--space-3); gap: var(--space-2); }
     .side-nav__panel { display: none; }
     .side-nav__panel--open { display: block; }
     .side-nav__group { margin-bottom: var(--space-5); }

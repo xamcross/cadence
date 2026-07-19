@@ -531,6 +531,26 @@ select.input { cursor: pointer; }
 .table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .table-scroll > .table { min-width: max-content; }
 
+/* Responsive card fallback (Phase 6): below 40rem a .table--stack renders each row as a label/value
+   card. Each <td> carries data-label="<column>"; the column name shows via ::before. Above 40rem the
+   table is unchanged (still inside app-table-scroll). */
+@media (max-width: 40rem) {
+  .table--stack thead { border: 0; clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; width: 1px; }
+  .table--stack, .table--stack tbody, .table--stack tr, .table--stack td { display: block; width: 100%; }
+  .table--stack tr {
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    margin-bottom: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--surface-raised);
+  }
+  .table--stack td {
+    display: flex; justify-content: space-between; gap: var(--space-4); text-align: end;
+    padding: var(--space-2) 0; border: 0; border-bottom: 1px solid var(--line);
+  }
+  .table--stack tr td:last-child { border-bottom: 0; }
+  .table--stack td::before {
+    content: attr(data-label); font-weight: 600; color: var(--ink-muted); text-align: start; padding-inline-end: var(--space-3);
+  }
+}
+
 /* Status badge */
 .badge {
   display: inline-flex;
