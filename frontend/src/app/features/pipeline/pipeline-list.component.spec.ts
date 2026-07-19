@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { PipelineListComponent } from './pipeline-list.component';
 import { PipelineService, PipelinePage } from './pipeline.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 function page(): PipelinePage {
   return {
@@ -17,14 +18,19 @@ function page(): PipelinePage {
   };
 }
 
+function emptyPage(): PipelinePage {
+  return { rows: [], page: 0, size: 50, totalInScope: 0, filteredCount: 0, truncated: false };
+}
+
 describe('PipelineListComponent', () => {
   let pipeline: { list: jasmine.Spy; bulk: jasmine.Spy; timeline: jasmine.Spy };
   let auth: { me: jasmine.Spy };
+  let attachedEls: HTMLElement[] = [];
 
-  function setup(role = 'RECRUITER'): ComponentFixture<PipelineListComponent> {
+  function setup(role = 'RECRUITER', listResult = of(page())): ComponentFixture<PipelineListComponent> {
     TestBed.resetTestingModule();
     pipeline = {
-      list: jasmine.createSpy('list').and.returnValue(of(page())),
+      list: jasmine.createSpy('list').and.returnValue(listResult),
       bulk: jasmine.createSpy('bulk').and.returnValue(of({ results: [] })),
       timeline: jasmine.createSpy('timeline')
     };
@@ -38,9 +44,17 @@ describe('PipelineListComponent', () => {
       ]
     });
     const fixture = TestBed.createComponent(PipelineListComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return fixture;
   }
+
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
 
   it('loads and renders the pipeline rows', () => {
     const fixture = setup();
@@ -73,5 +87,30 @@ describe('PipelineListComponent', () => {
     fixture.componentInstance.sla = 'RED';
     fixture.componentInstance.applyFilters();
     expect(pipeline.list).toHaveBeenCalledWith(jasmine.objectContaining({ sla: 'RED' }));
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setup();
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('wraps the table in the shared table-scroll region', () => {
+    const fixture = setup();
+    expect(fixture.nativeElement.querySelector('app-table-scroll table.table')).not.toBeNull();
+  });
+
+  it('shows the guided empty-state with an import CTA when there are no matching candidates', () => {
+    const fixture = setup('RECRUITER', of(emptyPage()));
+    const empty = fixture.nativeElement.querySelector('app-empty-state');
+    expect(empty).not.toBeNull();
+    const cta = empty!.querySelector('a[routerLink="/admin/csv-import"]') as HTMLAnchorElement | null;
+    expect(cta).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('table.table')).toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setup();
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 });

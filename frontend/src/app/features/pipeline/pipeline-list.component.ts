@@ -4,6 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
+import { TableScrollComponent } from '../../shared/ui/table-scroll.component';
 import {
   BulkResult, PipelineListQuery, PipelineRow, PipelineService, PipelineSort, PipelineStatusFilter,
   SchedulingStatus, SlaState
@@ -19,7 +23,10 @@ import {
 @Component({
   selector: 'app-pipeline-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule, FormsModule, RouterLink,
+    PageHeaderComponent, EmptyStateComponent, SkeletonComponent, TableScrollComponent
+  ],
   templateUrl: './pipeline-list.component.html',
   styleUrls: ['./pipeline-list.component.scss']
 })
@@ -44,7 +51,6 @@ export class PipelineListComponent implements OnInit, OnDestroy {
   sort: PipelineSort = 'RECENT';
 
   readonly title = $localize`:@@pipeline.title:Pipeline`;
-  readonly emptyMsg = $localize`:@@pipeline.empty:No candidates match the current filters`;
   readonly errorMsg = $localize`:@@pipeline.error:Could not load the pipeline. Try again.`;
   readonly truncatedMsg = $localize`:@@pipeline.truncated:Showing the first results only - narrow the filters to see more`;
   readonly sendUpdate = $localize`:@@pipeline.bulk.update:Send update email`;
