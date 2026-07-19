@@ -2,6 +2,10 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RequisitionDto, RequisitionsService } from './requisitions.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
+import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
 
 /**
  * F51 requisition management (Admin internal screen): create/close requisitions, assign a Hiring Manager, and link
@@ -10,9 +14,16 @@ import { RequisitionDto, RequisitionsService } from './requisitions.service';
 @Component({
   selector: 'app-requisitions',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule, FormsModule,
+    PageHeaderComponent, EmptyStateComponent, SkeletonComponent, TableScrollComponent
+  ],
   template: `
-    <h1 i18n="@@req.title">Requisitions</h1>
+    <app-page-header
+      eyebrow="Administration" i18n-eyebrow="@@req.eyebrow"
+      heading="Requisitions" i18n-heading="@@req.title"
+      subtitle="Open roles and hiring-manager assignment." i18n-subtitle="@@req.subtitle">
+    </app-page-header>
 
     <section class="create">
       <h2 i18n="@@req.create.title">Create requisition</h2>
@@ -23,32 +34,43 @@ import { RequisitionDto, RequisitionsService } from './requisitions.service';
 
     @if (error()) { <p class="error alert alert--danger" role="alert">{{ errorMsg }}</p> }
 
-    <table class="table">
-      <thead><tr>
-        <th i18n="@@req.col.title">Title</th>
-        <th i18n="@@req.col.status">Status</th>
-        <th i18n="@@req.col.label">Label</th>
-        <th i18n="@@req.col.actions">Actions</th>
-      </tr></thead>
-      <tbody>
-        @for (r of requisitions(); track r.id) {
-          <tr>
-            <td>{{ r.title }}</td>
-            <td>{{ r.status }}</td>
-            <td>{{ r.externalLabel || '-' }}</td>
-            <td>
-              @if (r.status === 'OPEN') {
-                <button type="button" class="btn btn--danger-soft btn--sm" (click)="close(r)" i18n="@@req.close">Close</button>
-              } @else {
-                <button type="button" class="btn btn--outline btn--sm" (click)="reopen(r)" i18n="@@req.reopen">Reopen</button>
-              }
-              <input class="input" [(ngModel)]="assignMemberId[r.id]" placeholder="HM member id" i18n-placeholder="@@req.hm.ph" />
-              <button type="button" class="btn btn--outline btn--sm" (click)="assign(r)" i18n="@@req.assign">Assign HM</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    @if (loading()) {
+      <app-skeleton variant="table" />
+    } @else if (requisitions().length === 0) {
+      <app-empty-state
+        heading="No requisitions yet" i18n-heading="@@req.empty.heading"
+        body="Create your first requisition using the form below." i18n-body="@@req.empty.body">
+      </app-empty-state>
+    } @else {
+      <app-table-scroll ariaLabel="Requisitions" i18n-ariaLabel="@@req.tableLabel">
+        <table class="table">
+          <thead><tr>
+            <th i18n="@@req.col.title">Title</th>
+            <th i18n="@@req.col.status">Status</th>
+            <th i18n="@@req.col.label">Label</th>
+            <th i18n="@@req.col.actions">Actions</th>
+          </tr></thead>
+          <tbody>
+            @for (r of requisitions(); track r.id) {
+              <tr>
+                <td>{{ r.title }}</td>
+                <td>{{ r.status }}</td>
+                <td>{{ r.externalLabel || '-' }}</td>
+                <td>
+                  @if (r.status === 'OPEN') {
+                    <button type="button" class="btn btn--danger-soft btn--sm" (click)="close(r)" i18n="@@req.close">Close</button>
+                  } @else {
+                    <button type="button" class="btn btn--outline btn--sm" (click)="reopen(r)" i18n="@@req.reopen">Reopen</button>
+                  }
+                  <input class="input" [(ngModel)]="assignMemberId[r.id]" placeholder="HM member id" i18n-placeholder="@@req.hm.ph" />
+                  <button type="button" class="btn btn--outline btn--sm" (click)="assign(r)" i18n="@@req.assign">Assign HM</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </app-table-scroll>
+    }
 
     <section class="link">
       <h2 i18n="@@req.link.title">Link candidate to requisition</h2>
@@ -69,6 +91,7 @@ export class RequisitionsComponent implements OnInit {
   private readonly svc = inject(RequisitionsService);
 
   readonly requisitions = signal<RequisitionDto[]>([]);
+  readonly loading = signal(true);
   readonly error = signal(false);
   readonly errorMsg = $localize`:@@req.error:Action failed. Try again.`;
 
@@ -113,6 +136,9 @@ export class RequisitionsComponent implements OnInit {
   }
 
   private reload(): void {
-    this.svc.list().subscribe({ next: (r) => this.requisitions.set(r), error: () => this.error.set(true) });
+    this.svc.list().subscribe({
+      next: (r) => { this.requisitions.set(r); this.loading.set(false); },
+      error: () => { this.error.set(true); this.loading.set(false); }
+    });
   }
 }
