@@ -264,9 +264,13 @@ export class EmailTemplatesComponent implements OnInit {
   async send(t: EmailTemplate): Promise<void> {
     const candidateId = this.sendCandidateId.trim();
     if (!candidateId) return;
+    // Show the candidate's display label (from the loaded picker options), never the raw internal id.
+    const label = this.candidateOpts().find((o) => o.id === candidateId)?.label;
     const ok = await this.confirm.confirm({
       title: $localize`:@@confirm.et.send.title:Send this email?`,
-      body: $localize`:@@confirm.et.send.body:This sends the previewed message to candidate ${candidateId}:candidateId: now.`,
+      body: label
+        ? $localize`:@@confirm.et.send.body.named:Send the previewed message to ${label}:candidate: now?`
+        : $localize`:@@confirm.et.send.body:Send the previewed message to the selected candidate now?`,
       confirmLabel: $localize`:@@confirm.et.send.cta:Send email`,
       danger: true
     });

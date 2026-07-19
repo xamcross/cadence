@@ -280,6 +280,39 @@ describe('EmailTemplatesComponent', () => {
       await fixture.componentInstance.send(base);
       expect(confirmSpy).not.toHaveBeenCalled();
     });
+
+    // Fix 6: the confirm body must never interpolate the raw candidate id; it shows the loaded
+    // display label when available, otherwise a generic phrase.
+    it('confirm body shows the candidate display label, never the raw id', async () => {
+      const page: PipelinePage = {
+        rows: [{
+          candidateId: '7f3e-uuid-9c1a', name: 'Dana Okafor', stage: 'Technical', slaState: 'GREEN',
+          schedulingStatus: 'NO_LINK_SENT', requisitionId: null, requisitionTitle: null, lastActivityAt: null
+        }],
+        page: 0, size: 1000, totalInScope: 1, filteredCount: 1, truncated: false
+      };
+      const fixture = setup({ templates: [base] }, {}, { list: () => of(page) });
+      fixture.componentInstance.preview(base);
+      fixture.detectChanges();
+      fixture.componentInstance.sendCandidateId = '7f3e-uuid-9c1a';
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await fixture.componentInstance.send(base);
+      const body = (confirmSpy.calls.mostRecent().args[0] as { body?: string }).body ?? '';
+      expect(body).toContain('Dana Okafor');
+      expect(body).not.toContain('7f3e-uuid-9c1a');
+    });
+
+    it('confirm body falls back to a generic phrase (no id) when the candidate is not in the options', async () => {
+      const fixture = setup({ templates: [base] });
+      fixture.componentInstance.preview(base);
+      fixture.detectChanges();
+      fixture.componentInstance.sendCandidateId = 'unknown-uuid-xyz';
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await fixture.componentInstance.send(base);
+      const body = (confirmSpy.calls.mostRecent().args[0] as { body?: string }).body ?? '';
+      expect(body).not.toContain('unknown-uuid-xyz');
+      expect(body.toLowerCase()).toContain('selected candidate');
+    });
   });
 
   // ---- Workbench overhaul phase 5: candidate picker replaces the raw "sendCandidateId" input ----
