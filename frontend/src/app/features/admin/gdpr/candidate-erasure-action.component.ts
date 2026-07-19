@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { GdprService } from './gdpr.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 /**
  * Admin/Recruiter erasure trigger + lawful-basis record/withdraw, keyed by a pasted candidate internal
@@ -10,10 +11,14 @@ import { GdprService } from './gdpr.service';
 @Component({
   selector: 'app-candidate-erasure-action',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent],
   template: `
     <section class="gdpr">
-      <h1 i18n="@@gdpr.action.title">Candidate data actions</h1>
+      <app-page-header
+        eyebrow="Data &amp; privacy" i18n-eyebrow="@@gdpr.action.eyebrow"
+        heading="Candidate data actions" i18n-heading="@@gdpr.action.title"
+        subtitle="Lawful basis, withdrawal, and erasure." i18n-subtitle="@@gdpr.action.subtitle">
+      </app-page-header>
       <div class="field">
         <label for="erase-cid" class="field__label" i18n="@@gdpr.action.candidateId">Candidate ID</label>
         <input id="erase-cid" name="cid" class="input" [(ngModel)]="candidateId" />
