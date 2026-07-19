@@ -2,6 +2,9 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PipelineService, TimelineEvent } from './pipeline.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 
 /**
  * F51 candidate timeline — a chronological, PII-free activity stream for one candidate (internal staff screen).
@@ -11,18 +14,27 @@ import { PipelineService, TimelineEvent } from './pipeline.service';
 @Component({
   selector: 'app-candidate-timeline',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
   template: `
-    <a routerLink="/pipeline" class="btn btn--link" i18n="@@timeline.back">Back to pipeline</a>
-    <h1 i18n="@@timeline.title">Candidate timeline</h1>
+    <app-page-header
+      eyebrow="Your work" i18n-eyebrow="@@timeline.eyebrow"
+      heading="Candidate timeline" i18n-heading="@@timeline.title"
+      subtitle="Chronological activity for this candidate." i18n-subtitle="@@timeline.subtitle"
+      backLink="/pipeline" backLabel="Back to pipeline" i18n-backLabel="@@timeline.back">
+    </app-page-header>
     @if (notFound()) {
       <p class="error alert alert--danger" role="alert" i18n="@@timeline.notFound">This candidate is not available.</p>
-    } @else if (loaded()) {
+    } @else if (!loaded()) {
+      <app-skeleton variant="lines" />
+    } @else {
       @if (feedbackPending()) {
         <p class="pending" i18n="@@timeline.feedbackPending">Interviewer feedback is still pending.</p>
       }
       @if (events().length === 0) {
-        <p class="empty" i18n="@@timeline.empty">No activity yet.</p>
+        <app-empty-state
+          heading="No activity yet" i18n-heading="@@timeline.empty.heading"
+          body="Nothing has happened for this candidate yet." i18n-body="@@timeline.empty.body">
+        </app-empty-state>
       } @else {
         <ol class="timeline">
           @for (e of events(); track e.occurredAt + e.type) {
