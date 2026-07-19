@@ -57,6 +57,14 @@ describe('MembersComponent', () => {
     expect(fixture.nativeElement.querySelector('app-empty-state')).not.toBeNull();
   });
 
+  it('renders a responsive card-fallback table (table--stack + per-cell data-label)', () => {
+    const fixture = setup();
+    const table = fixture.nativeElement.querySelector('table.table');
+    expect(table?.classList.contains('table--stack')).toBe(true);
+    const td = fixture.nativeElement.querySelector('tbody td') as HTMLElement | null;
+    expect(td?.getAttribute('data-label')).toBeTruthy();
+  });
+
   describe('onRoleChange (confirm-gate ⚠ danger + toast, select-revert)', () => {
     it('does not change the role when the confirm is declined, and reverts the bound model', async () => {
       const changeSpy = jasmine.createSpy('changeRole').and.returnValue(of({ memberId: 'm1', role: 'ADMIN' as const }));

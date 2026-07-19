@@ -41,7 +41,7 @@ import { ToastService } from '../../../shared/ui/toast.service';
         </app-empty-state>
       } @else {
         <app-table-scroll ariaLabel="Workspace members" i18n-ariaLabel="@@members.tableLabel">
-          <table class="table">
+          <table class="table table--stack">
             <thead>
               <tr>
                 <th i18n="@@members.name">Name</th>
@@ -52,15 +52,15 @@ import { ToastService } from '../../../shared/ui/toast.service';
             <tbody>
               @for (m of members; track m.memberId) {
                 <tr>
-                  <td>{{ m.displayName }}</td>
-                  <td>
+                  <td data-label="Name">{{ m.displayName }}</td>
+                  <td data-label="Role">
                     <select class="input" [ngModel]="m.role" (ngModelChange)="onRoleChange(m, $event)" [attr.aria-label]="m.displayName">
                       @for (r of roles; track r) {
                         <option [value]="r">{{ r }}</option>
                       }
                     </select>
                   </td>
-                  <td>{{ m.status }}</td>
+                  <td data-label="Status">{{ m.status }}</td>
                 </tr>
               }
             </tbody>
