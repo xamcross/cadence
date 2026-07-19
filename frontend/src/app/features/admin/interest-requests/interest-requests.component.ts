@@ -66,7 +66,7 @@ import { ToastService } from '../../../shared/ui/toast.service';
         </app-empty-state>
       } @else {
         <app-table-scroll ariaLabel="Access requests" i18n-ariaLabel="@@interestAdmin.tableLabel">
-          <table class="rows table">
+          <table class="rows table table--stack">
             <thead>
               <tr>
                 <th i18n="@@interestAdmin.col.name">Name</th>
@@ -80,21 +80,21 @@ import { ToastService } from '../../../shared/ui/toast.service';
             </thead>
             <tbody>
               <tr *ngFor="let r of requests()" class="request-row">
-                <td class="cell-name">{{ r.name }}</td>
-                <td class="cell-email">
+                <td class="cell-name" data-label="Name">{{ r.name }}</td>
+                <td class="cell-email" data-label="Email">
                   {{ r.email }}
                   <span class="unverified" *ngIf="r.emailUnverified" i18n="@@interestAdmin.unverified">(unverified)</span>
                 </td>
-                <td class="cell-org">
+                <td class="cell-org" data-label="Organization">
                   <ng-container *ngIf="r.organization">
                     {{ r.organization }}
                     <span class="unverified" *ngIf="r.organizationUnverified" i18n="@@interestAdmin.unverified2">(unverified)</span>
                   </ng-container>
                 </td>
-                <td class="cell-message">{{ r.message }}</td>
-                <td class="cell-status">{{ r.status }}</td>
-                <td class="cell-submitted">{{ r.submittedAt | date: 'short' }}</td>
-                <td class="cell-actions">
+                <td class="cell-message" data-label="Message">{{ r.message }}</td>
+                <td class="cell-status" data-label="Status">{{ r.status }}</td>
+                <td class="cell-submitted" data-label="Submitted">{{ r.submittedAt | date: 'short' }}</td>
+                <td class="cell-actions" data-label="Actions">
                   <button type="button" class="act-review btn btn--ghost btn--sm" (click)="review(r)"
                           [disabled]="busy() || r.status !== 'NEW'" i18n="@@interestAdmin.act.review">Mark reviewed</button>
                   <button type="button" class="act-dismiss btn btn--ghost btn--sm" (click)="dismiss(r)"

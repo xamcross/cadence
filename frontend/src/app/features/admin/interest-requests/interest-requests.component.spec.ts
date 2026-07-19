@@ -248,6 +248,14 @@ describe('InterestRequestsComponent (F70)', () => {
     expect(fixture.nativeElement.querySelector('app-table-scroll table.rows.table')).not.toBeNull();
   });
 
+  it('renders a responsive card-fallback table (table--stack + per-cell data-label)', () => {
+    const fixture = setup();
+    const table = fixture.nativeElement.querySelector('table.rows.table');
+    expect(table?.classList.contains('table--stack')).toBe(true);
+    const td = fixture.nativeElement.querySelector('tbody td') as HTMLElement | null;
+    expect(td?.getAttribute('data-label')).toBeTruthy();
+  });
+
   it('shows the guided empty-state with a Show all requests CTA when the filtered view is empty', () => {
     const fixture = setup({ requests: [] });
     const el: HTMLElement = fixture.nativeElement;
