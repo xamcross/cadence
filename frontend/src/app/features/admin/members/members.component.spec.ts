@@ -71,9 +71,10 @@ describe('MembersComponent', () => {
       const fixture = setup({ changeRole: changeSpy as unknown as MembersService['changeRole'] });
       spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
       const row = fixture.componentInstance.members[0];
-      await fixture.componentInstance.onRoleChange(row, 'ADMIN');
+      row.role = 'ADMIN'; // two-way [(ngModel)] wrote the new selection before the handler runs
+      await fixture.componentInstance.onRoleChange(row);
       expect(changeSpy).not.toHaveBeenCalled();
-      expect(row.role).toBe('RECRUITER'); // reverted to the previous value
+      expect(row.role).toBe('RECRUITER'); // reverted to the previous CONFIRMED value
     });
 
     it('gates with a danger confirm, changes the role, and toasts success when confirmed', async () => {
@@ -82,7 +83,8 @@ describe('MembersComponent', () => {
       const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
       const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
       const row = fixture.componentInstance.members[0];
-      await fixture.componentInstance.onRoleChange(row, 'ADMIN');
+      row.role = 'ADMIN';
+      await fixture.componentInstance.onRoleChange(row);
       expect(confirmSpy).toHaveBeenCalledWith(jasmine.objectContaining({ danger: true }));
       expect(changeSpy).toHaveBeenCalledWith('m1', 'ADMIN');
       expect(row.role).toBe('ADMIN');
@@ -95,7 +97,8 @@ describe('MembersComponent', () => {
       spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
       const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
       const row = fixture.componentInstance.members[0];
-      await fixture.componentInstance.onRoleChange(row, 'ADMIN');
+      row.role = 'ADMIN';
+      await fixture.componentInstance.onRoleChange(row);
       expect(toastSpy).toHaveBeenCalledWith(jasmine.stringContaining('last administrator'));
       expect(row.role).toBe('RECRUITER'); // reverted after the failed call
     });
@@ -106,9 +109,53 @@ describe('MembersComponent', () => {
       spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
       const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
       const row = fixture.componentInstance.members[0];
-      await fixture.componentInstance.onRoleChange(row, 'ADMIN');
+      row.role = 'ADMIN';
+      await fixture.componentInstance.onRoleChange(row);
       expect(toastSpy).toHaveBeenCalled();
       expect(row.role).toBe('RECRUITER');
+    });
+  });
+
+  // ---- DOM-level select-revert (the two-way [(ngModel)] fix — a value no-op cannot re-trigger a
+  //      one-way binding, so the native <select> must snap back via a real model change).
+  //      Angular encodes <option> values with internal ids, so the *visible* selection is read via
+  //      selectedIndex → option text, which is what the user actually sees. ----
+  describe('native <select> reverts to the previous role (DOM-level)', () => {
+    const roleSelect = (fixture: ReturnType<typeof setup>) =>
+      fixture.nativeElement.querySelector('tbody select') as HTMLSelectElement;
+    const selectedRoleText = (fixture: ReturnType<typeof setup>) => {
+      const s = roleSelect(fixture);
+      return s.options[s.selectedIndex]?.textContent?.trim();
+    };
+
+    async function stabilize(fixture: ReturnType<typeof setup>): Promise<void> {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    async function pickRole(fixture: ReturnType<typeof setup>, roleText: string): Promise<void> {
+      const select = roleSelect(fixture);
+      select.selectedIndex = Array.from(select.options).findIndex((o) => o.textContent?.trim() === roleText);
+      select.dispatchEvent(new Event('change'));
+      await stabilize(fixture);
+    }
+
+    it('reverts the visible <select> option when the confirm is declined', async () => {
+      const fixture = setup({ changeRole: jasmine.createSpy('changeRole') as unknown as MembersService['changeRole'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await stabilize(fixture);
+      expect(selectedRoleText(fixture)).toBe('RECRUITER');
+      await pickRole(fixture, 'ADMIN');
+      expect(selectedRoleText(fixture)).toBe('RECRUITER'); // DOM snapped back, not just the model
+    });
+
+    it('reverts the visible <select> option on a 409/server failure', async () => {
+      const fixture = setup({ changeRole: (() => throwError(() => ({ status: 409 }))) as unknown as MembersService['changeRole'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      spyOn(TestBed.inject(ToastService), 'error');
+      await pickRole(fixture, 'ADMIN');
+      expect(selectedRoleText(fixture)).toBe('RECRUITER'); // DOM snapped back after the failed call
     });
   });
 });

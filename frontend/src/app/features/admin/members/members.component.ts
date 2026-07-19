@@ -54,7 +54,7 @@ import { ToastService } from '../../../shared/ui/toast.service';
                 <tr>
                   <td data-label="Name">{{ m.displayName }}</td>
                   <td data-label="Role">
-                    <select class="input" [ngModel]="m.role" (ngModelChange)="onRoleChange(m, $event)" [attr.aria-label]="m.displayName">
+                    <select class="input" [(ngModel)]="m.role" (ngModelChange)="onRoleChange(m)" [attr.aria-label]="m.displayName">
                       @for (r of roles; track r) {
                         <option [value]="r">{{ r }}</option>
                       }
@@ -84,33 +84,49 @@ export class MembersComponent implements OnInit {
   members: MemberRow[] = [];
   error = '';
 
+  /**
+   * Last CONFIRMED role per member — the value the native `<select>` reverts to on a decline or a
+   * failed server call. The `<select>` is two-way bound (`[(ngModel)]="m.role"`), so a selection
+   * mutates `member.role` optimistically *before* `onRoleChange` runs; the confirmed baseline must
+   * therefore be tracked separately (reverting `member.role` to it is a real model change, which the
+   * one-way half of `[(ngModel)]` propagates back to the DOM).
+   */
+  private readonly confirmedRole = new Map<string, Role>();
+
   ngOnInit(): void {
     this.load();
   }
 
   private load(): void {
     this.api.getMembers().subscribe({
-      next: (rows) => { this.members = rows; this.loading.set(false); },
+      next: (rows) => {
+        this.members = rows;
+        this.confirmedRole.clear();
+        rows.forEach((m) => this.confirmedRole.set(m.memberId, m.role));
+        this.loading.set(false);
+      },
       error: () => { this.error = $localize`:@@members.loadError:Could not load members.`; this.loading.set(false); }
     });
   }
 
-  async onRoleChange(member: MemberRow, role: Role): Promise<void> {
-    const previous = member.role;
+  async onRoleChange(member: MemberRow): Promise<void> {
+    const previous = this.confirmedRole.get(member.memberId) ?? member.role;
+    const role = member.role; // two-way binding already wrote the new selection into member.role
+    if (role === previous) { return; }
     const ok = await this.confirm.confirm({
       title: $localize`:@@confirm.members.roleChange.title:Change role?`,
       body: $localize`:@@confirm.members.roleChange.body:Change this member's role? They will immediately gain or lose access.`,
       confirmLabel: $localize`:@@confirm.members.roleChange.cta:Change role`,
       danger: true
     });
-    if (!ok) { member.role = previous; return; } // revert the optimistic select
+    if (!ok) { member.role = previous; return; } // revert → two-way writes back, the <select> snaps back
     this.api.changeRole(member.memberId, role).subscribe({
       next: () => {
-        member.role = role;
+        this.confirmedRole.set(member.memberId, role);
         this.toast.success($localize`:@@toast.members.roleChanged:Role changed.`);
       },
       error: (err) => {
-        member.role = previous; // revert the optimistic select
+        member.role = previous; // revert → two-way writes back, the <select> snaps back
         this.toast.error(
           err?.status === 409
             ? $localize`:@@toast.members.lastAdmin:Cannot change the last administrator's role.`
