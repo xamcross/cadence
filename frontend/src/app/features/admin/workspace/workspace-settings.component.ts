@@ -4,6 +4,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { WorkspaceConfig, WorkspaceService } from './workspace.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * Admin workspace settings (F03 US2-US5). Operational settings, branding (colour + logo upload),
@@ -21,9 +23,6 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
         heading="Workspace settings" i18n-heading="@@workspace.settings.title"
         subtitle="Branding, time zone, retention, and SLAs." i18n-subtitle="@@workspace.settings.subtitle">
       </app-page-header>
-      @if (message()) { <p class="ok alert alert--ok" role="status">{{ message() }}</p> }
-      @if (error()) { <p class="error alert alert--danger" role="alert">{{ error() }}</p> }
-
       @if (config() === null) {
         <app-skeleton variant="form" />
       } @else {
@@ -123,17 +122,16 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
     .settings { max-width: 640px; margin: var(--space-6) auto; padding: 0 var(--space-4); }
     section { margin-top: var(--space-8); border-top: 1px solid var(--line); padding-top: var(--space-4); }
     .lock-row { display: flex; gap: var(--space-4); align-items: center; margin: var(--space-2) 0; }
-    .ok, .error { margin-bottom: var(--space-4); }
     .field-error { color: var(--danger); display: block; }
   `]
 })
 export class WorkspaceSettingsComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly workspace = inject(WorkspaceService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly config = signal<WorkspaceConfig | null>(null);
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
   readonly logoError = signal<string>('');
 
   readonly lockLabel = $localize`:@@workspace.settings.lockBtn:Lock`;
@@ -148,7 +146,10 @@ export class WorkspaceSettingsComponent implements OnInit {
   readonly lockForm = this.fb.nonNullable.group({ key: ['', Validators.required] });
 
   ngOnInit(): void {
-    this.workspace.getConfig().subscribe({ next: (c) => this.apply(c), error: () => this.fail() });
+    this.workspace.getConfig().subscribe({
+      next: (c) => this.apply(c),
+      error: () => this.toast.error($localize`:@@toast.workspace.loadFailed:Could not load workspace settings. Please try again.`)
+    });
   }
 
   templateKeys(): string[] {
@@ -161,12 +162,19 @@ export class WorkspaceSettingsComponent implements OnInit {
       name: v.name, timeZone: v.timeZone,
       workingHours: { start: v.start, end: v.end },
       slaSilenceWindowDays: v.slaSilenceWindowDays, retentionPeriodDays: v.retentionPeriodDays
-    }).subscribe({ next: (c) => this.ok(c), error: (e) => this.fail(e) });
+    }).subscribe({
+      next: (c) => { this.config.set(c); this.toast.success($localize`:@@toast.workspace.opsSaved:Operational settings saved.`); },
+      error: (e: HttpErrorResponse) => this.toast.error(this.errorMessage(e,
+        $localize`:@@toast.workspace.opsSaveFailed:Could not save the operational settings. Please try again.`))
+    });
   }
 
   saveBranding(): void {
-    this.workspace.putBranding(this.branding.getRawValue().brandColor)
-      .subscribe({ next: (c) => this.ok(c), error: (e) => this.fail(e) });
+    this.workspace.putBranding(this.branding.getRawValue().brandColor).subscribe({
+      next: (c) => { this.config.set(c); this.toast.success($localize`:@@toast.workspace.brandingSaved:Branding saved.`); },
+      error: (e: HttpErrorResponse) => this.toast.error(this.errorMessage(e,
+        $localize`:@@toast.workspace.brandingSaveFailed:Could not save the branding. Please try again.`))
+    });
   }
 
   onLogo(event: Event): void {
@@ -185,35 +193,84 @@ export class WorkspaceSettingsComponent implements OnInit {
       return;
     }
     this.workspace.uploadLogo(file).subscribe({
-      next: () => { this.message.set($localize`:@@workspace.settings.logoSaved:Logo updated.`); this.reload(); },
+      next: () => { this.toast.success($localize`:@@toast.workspace.logoSaved:Logo updated.`); this.reload(); },
       error: () => this.logoError.set($localize`:@@workspace.settings.logoRejected:The logo was rejected.`)
     });
   }
 
-  removeLogo(): void {
-    this.workspace.deleteLogo().subscribe({ next: () => { this.message.set($localize`:@@workspace.settings.logoRemoved:Logo removed.`); this.reload(); }, error: (e) => this.fail(e) });
+  async removeLogo(): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.workspace.removeLogo.title:Remove the logo?`,
+      body: $localize`:@@confirm.workspace.removeLogo.body:You can upload a new one anytime.`,
+      confirmLabel: $localize`:@@confirm.workspace.removeLogo.cta:Remove logo`
+    });
+    if (!ok) { return; }
+    this.workspace.deleteLogo().subscribe({
+      next: () => { this.toast.success($localize`:@@toast.workspace.logoRemoved:Logo removed.`); this.reload(); },
+      error: () => this.toast.error($localize`:@@toast.workspace.logoRemoveFailed:Could not remove the logo. Please try again.`)
+    });
   }
 
   saveEmail(): void {
     const v = this.email.getRawValue();
-    this.workspace.putEmail(v.sendingDomain, v.credential)
-      .subscribe({ next: (c) => { this.email.controls.credential.reset(''); this.ok(c); }, error: (e) => this.fail(e) });
+    this.workspace.putEmail(v.sendingDomain, v.credential).subscribe({
+      next: (c) => {
+        this.email.controls.credential.reset('');
+        this.config.set(c);
+        this.toast.success($localize`:@@toast.workspace.emailSaved:Email settings saved.`);
+      },
+      error: (e: HttpErrorResponse) => this.toast.error(this.errorMessage(e,
+        $localize`:@@toast.workspace.emailSaveFailed:Could not save the email settings. Please try again.`))
+    });
   }
 
-  removeCredential(): void {
-    this.workspace.deleteCredential().subscribe({ next: () => { this.message.set($localize`:@@workspace.settings.credRemoved:Credential removed.`); this.reload(); }, error: (e) => this.fail(e) });
+  async removeCredential(): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.workspace.removeCred.title:Remove the email credential?`,
+      body: $localize`:@@confirm.workspace.removeCred.body:Cadence will stop sending candidate emails until a new credential is added.`,
+      confirmLabel: $localize`:@@confirm.workspace.removeCred.cta:Remove credential`,
+      danger: true
+    });
+    if (!ok) { return; }
+    this.workspace.deleteCredential().subscribe({
+      next: () => { this.toast.success($localize`:@@toast.workspace.credRemoved:Credential removed.`); this.reload(); },
+      error: () => this.toast.error($localize`:@@toast.workspace.credRemoveFailed:Could not remove the credential. Please try again.`)
+    });
   }
 
-  toggleLock(key: string): void {
+  /** Confirm-gated only when LOCKING (the consequential direction); unlocking proceeds immediately. */
+  async toggleLock(key: string): Promise<void> {
     const locked = !this.config()?.templateLocks?.[key];
-    this.workspace.putTemplateLock(key, locked).subscribe({ next: (c) => this.ok(c), error: (e) => this.fail(e) });
+    if (locked) {
+      const ok = await this.confirm.confirm({
+        title: $localize`:@@confirm.workspace.lockTemplate.title:Lock this template?`,
+        body: $localize`:@@confirm.workspace.lockTemplate.body:Recruiters will no longer be able to edit it.`,
+        confirmLabel: $localize`:@@confirm.workspace.lockTemplate.cta:Lock`
+      });
+      if (!ok) { return; }
+    }
+    this.workspace.putTemplateLock(key, locked).subscribe({
+      next: (c) => {
+        this.config.set(c);
+        this.toast.success(locked
+          ? $localize`:@@toast.workspace.templateLocked:Template locked.`
+          : $localize`:@@toast.workspace.templateUnlocked:Template unlocked.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.workspace.lockFailed:Could not update the template lock. Please try again.`)
+    });
   }
 
   addLock(): void {
     const key = this.lockForm.getRawValue().key;
     if (!key) { return; }
-    this.workspace.putTemplateLock(key, true)
-      .subscribe({ next: (c) => { this.lockForm.reset({ key: '' }); this.ok(c); }, error: (e) => this.fail(e) });
+    this.workspace.putTemplateLock(key, true).subscribe({
+      next: (c) => {
+        this.lockForm.reset({ key: '' });
+        this.config.set(c);
+        this.toast.success($localize`:@@toast.workspace.lockAdded:Template lock added.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.workspace.lockAddFailed:Could not add the template lock. Please try again.`)
+    });
   }
 
   private reload(): void {
@@ -231,18 +288,10 @@ export class WorkspaceSettingsComponent implements OnInit {
     this.email.patchValue({ sendingDomain: c.emailSendingDomain ?? '' });
   }
 
-  private ok(c: WorkspaceConfig): void {
-    this.config.set(c);
-    this.error.set(null);
-    this.message.set($localize`:@@workspace.settings.saved:Settings saved.`);
-  }
-
-  private fail(e?: HttpErrorResponse): void {
-    this.message.set(null);
+  private errorMessage(e: HttpErrorResponse | undefined, generic: string): string {
     if (e?.status === 400) {
-      this.error.set($localize`:@@workspace.settings.invalid:One or more values are invalid.`);
-    } else {
-      this.error.set($localize`:@@workspace.settings.error:Could not save. Please try again.`);
+      return $localize`:@@toast.workspace.invalid:One or more values are invalid.`;
     }
+    return generic;
   }
 }
