@@ -77,7 +77,7 @@
   </app-empty-state>
 } @else {
   <app-table-scroll ariaLabel="Candidates" i18n-ariaLabel="@@pipeline.tableLabel">
-    <table class="table">
+    <table class="table table--stack">
       <thead>
         <tr>
           @if (canBulk()) { <th i18n="@@pipeline.col.select">Select</th> }
@@ -93,18 +93,18 @@
         @for (row of rows(); track row.candidateId) {
           <tr>
             @if (canBulk()) {
-              <td><input type="checkbox" [checked]="isSelected(row.candidateId)" (change)="toggle(row.candidateId)"
+              <td data-label="Select"><input type="checkbox" [checked]="isSelected(row.candidateId)" (change)="toggle(row.candidateId)"
                          [attr.aria-label]="row.name" /></td>
             }
-            <td>{{ row.name }}</td>
-            <td>{{ row.stage }}</td>
-            <td><span class="sla badge" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
+            <td data-label="Candidate">{{ row.name }}</td>
+            <td data-label="Stage">{{ row.stage }}</td>
+            <td data-label="SLA"><span class="sla badge" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
                       [class.green]="row.slaState === 'GREEN'"
                       [class.badge--danger]="row.slaState === 'RED'" [class.badge--warn]="row.slaState === 'AMBER'"
                       [class.badge--ok]="row.slaState === 'GREEN'">{{ row.slaState }}</span></td>
-            <td>{{ row.schedulingStatus }}</td>
-            <td>{{ row.requisitionTitle || '-' }}</td>
-            <td><a [routerLink]="['/pipeline/candidate', row.candidateId, 'timeline']" i18n="@@pipeline.viewTimeline">View</a></td>
+            <td data-label="Scheduling">{{ row.schedulingStatus }}</td>
+            <td data-label="Requisition">{{ row.requisitionTitle || '-' }}</td>
+            <td data-label="Timeline"><a [routerLink]="['/pipeline/candidate', row.candidateId, 'timeline']" i18n="@@pipeline.viewTimeline">View</a></td>
           </tr>
         }
       </tbody>
