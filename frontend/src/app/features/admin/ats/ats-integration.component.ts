@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AtsService, AtsHealth } from './ats.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 /**
  * F40/F41 ATS integration admin screen (US1/US2/US4). Lists EVERY ATS provider (Greenhouse + Lever) with its own
@@ -12,10 +13,14 @@ import { AtsService, AtsHealth } from './ats.service';
 @Component({
   selector: 'app-ats-integration',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <section class="ats">
-      <h1>{{ title }}</h1>
+      <app-page-header
+        eyebrow="Administration" i18n-eyebrow="@@ats.eyebrow"
+        heading="ATS Integrations" i18n-heading="@@ats.title"
+        subtitle="Connect Greenhouse or Lever and sync status." i18n-subtitle="@@ats.subtitle">
+      </app-page-header>
 
       <article class="provider" *ngFor="let p of providers()">
         <div class="status">
@@ -49,7 +54,6 @@ import { AtsService, AtsHealth } from './ats.service';
 export class AtsIntegrationComponent implements OnInit {
   private readonly ats = inject(AtsService);
 
-  readonly title = $localize`:@@ats.title:ATS Integrations`;
   readonly verifiedLabel = $localize`:@@ats.verified:Last verified:`;
   readonly lastSyncLabel = $localize`:@@ats.lastSync:Last sync:`;
   readonly degradedLabel = $localize`:@@ats.degraded:Integration is degraded — sync or write-back is failing.`;

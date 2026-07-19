@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AtsIntegrationComponent } from './ats-integration.component';
 import { AtsService, AtsHealth } from './ats.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 /**
  * F40/F41 ATS integration admin screen. Verifies the both-providers list, the write-only per-provider connect
@@ -18,6 +19,8 @@ describe('AtsIntegrationComponent', () => {
     lastVerifiedAt: null, lastSyncAt: null, degraded: false, deadLetterCount: 0
   };
 
+  let attachedEls: HTMLElement[] = [];
+
   function setup(list: AtsHealth[],
                  connectSpy = jasmine.createSpy('connect').and.returnValue(of(lever)),
                  disconnectSpy = jasmine.createSpy('disconnect').and.returnValue(of(void 0))) {
@@ -31,9 +34,17 @@ describe('AtsIntegrationComponent', () => {
       providers: [{ provide: AtsService, useValue: stub }]
     });
     const fixture = TestBed.createComponent(AtsIntegrationComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return { fixture, connectSpy, disconnectSpy };
   }
+
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
 
   it('lists both providers with their status', () => {
     const { fixture } = setup([greenhouse, lever]);
@@ -74,5 +85,16 @@ describe('AtsIntegrationComponent', () => {
     fixture.componentInstance.keys['LEVER'] = 'bad';
     fixture.componentInstance.connect('LEVER');
     expect(fixture.componentInstance.error()).toBeTruthy();
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const { fixture } = setup([greenhouse, lever]);
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const { fixture } = setup([greenhouse, lever]);
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 });
