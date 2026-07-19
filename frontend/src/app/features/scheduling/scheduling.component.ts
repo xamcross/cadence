@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -14,6 +14,9 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
+import { PickerOption, SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { PipelineService } from '../pipeline/pipeline.service';
+import { InterviewTemplatesService } from '../interview-templates/interview-templates.service';
 
 /**
  * F13 recruiter "Send scheduling link" surface (§II demonstrable leg). Minimal by design — the full
@@ -23,7 +26,7 @@ import { ToastService } from '../../shared/ui/toast.service';
 @Component({
   selector: 'app-scheduling',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, SearchPickerComponent],
   template: `
     <section class="scheduling">
       <app-page-header
@@ -33,12 +36,20 @@ import { ToastService } from '../../shared/ui/toast.service';
       </app-page-header>
 
       <form (ngSubmit)="send()" #f="ngForm">
-        <label class="field" i18n="@@scheduling.candidate">Candidate ID
-          <input class="input" name="candidateId" [(ngModel)]="candidateId" required />
-        </label>
-        <label class="field" i18n="@@scheduling.template">Interview template ID
-          <input class="input" name="templateId" [(ngModel)]="templateId" required />
-        </label>
+        <div class="field">
+          <app-search-picker [options]="candidateOpts()" [value]="candidateId"
+            (valueChange)="candidateId = $event ?? ''"
+            label="Candidate" i18n-label="@@scheduling.candidate.picker.label"
+            placeholder="Search candidates…" i18n-placeholder="@@scheduling.candidate.picker.placeholder">
+          </app-search-picker>
+        </div>
+        <div class="field">
+          <app-search-picker [options]="templateOpts()" [value]="templateId"
+            (valueChange)="templateId = $event ?? ''"
+            label="Interview template" i18n-label="@@scheduling.template.picker.label"
+            placeholder="Search interview templates…" i18n-placeholder="@@scheduling.template.picker.placeholder">
+          </app-search-picker>
+        </div>
         <label class="field" i18n="@@scheduling.location">Location / dial-in (optional)
           <input class="input" name="locationText" [(ngModel)]="locationText" />
         </label>
@@ -152,16 +163,22 @@ import { ToastService } from '../../shared/ui/toast.service';
     </section>
   `
 })
-export class SchedulingComponent {
+export class SchedulingComponent implements OnInit {
   private readonly api = inject(SchedulingService);
   private readonly slaApi = inject(SlaNudgeService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
+  private readonly pipelineApi = inject(PipelineService);
+  private readonly templatesApi = inject(InterviewTemplatesService);
 
   // F31 SLA nudge panel state.
   readonly sla = signal<CandidateSla | null>(null);
   readonly draftPreview = signal<DraftPreview | null>(null);
   readonly slaBusy = signal(false);
+
+  // Workbench overhaul phase 5: picker options for the candidate + interview-template combobox fields.
+  readonly candidateOpts = signal<readonly PickerOption[]>([]);
+  readonly templateOpts = signal<readonly PickerOption[]>([]);
 
   candidateId = '';
   templateId = '';
@@ -180,6 +197,17 @@ export class SchedulingComponent {
   statusExpectedDate = '';
   readonly statusLink = signal<string | null>(null);
   readonly statusTouched = signal(false);
+
+  ngOnInit(): void {
+    this.pipelineApi.list({ status: 'ACTIVE', size: 1000 }).subscribe({
+      next: (p) => this.candidateOpts.set(p.rows.map((r) => ({ id: r.candidateId, label: r.name, hint: r.stage }))),
+      error: () => this.candidateOpts.set([])
+    });
+    this.templatesApi.list().subscribe({
+      next: (l) => this.templateOpts.set(l.templates.map((t) => ({ id: t.id, label: t.name }))),
+      error: () => this.templateOpts.set([])
+    });
+  }
 
   send(): void {
     this.busy.set(true);

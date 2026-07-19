@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { SchedulingComponent } from './scheduling.component';
 import {
@@ -11,6 +12,9 @@ import {
 import { ActionResult, CandidateSla, DraftPreview, SlaNudgeService } from './sla-nudge.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
+import { SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { PipelinePage, PipelineService } from '../pipeline/pipeline.service';
+import { InterviewTemplatesService, TemplateList } from '../interview-templates/interview-templates.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
@@ -32,8 +36,14 @@ describe('SchedulingComponent', () => {
     status: 'PENDING_SELECTION', sentAt: '2026-06-16T10:00:00Z', expiresAt: '2026-06-19T10:00:00Z', chosenStart: null
   };
 
+  // Workbench overhaul phase 5: ngOnInit unconditionally loads picker options from the pipeline +
+  // interview-template list services, so every helper below must provide DI stubs for them.
+  const emptyPipelinePage: PipelinePage = { rows: [], page: 0, size: 1000, totalInScope: 0, filteredCount: 0, truncated: false };
+  const emptyTemplateList: TemplateList = { templates: [] };
+
   function setup(initiate: SchedulingService['initiate'], overrides: Partial<SchedulingService> = {},
-                 slaOverrides: Partial<SlaNudgeService> = {}) {
+                 slaOverrides: Partial<SlaNudgeService> = {},
+                 pipelineOverrides: Partial<PipelineService> = {}, templatesOverrides: Partial<InterviewTemplatesService> = {}) {
     const stub: Partial<SchedulingService> = { initiate, status: () => of(sentStatus), ...overrides };
     const slaStub: Partial<SlaNudgeService> = {
       getSla: () => of({ candidateId: 'cand1', slaState: 'GREEN', lastActivityAt: null, openDraftId: null }),
@@ -42,12 +52,16 @@ describe('SchedulingComponent', () => {
       dismiss: () => of({ draftId: 'd1', result: 'DISMISSED' }),
       ...slaOverrides
     };
+    const pipelineStub: Partial<PipelineService> = { list: () => of(emptyPipelinePage), ...pipelineOverrides };
+    const templatesStub: Partial<InterviewTemplatesService> = { list: () => of(emptyTemplateList), ...templatesOverrides };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [SchedulingComponent],
       providers: [
         { provide: SchedulingService, useValue: stub },
-        { provide: SlaNudgeService, useValue: slaStub }
+        { provide: SlaNudgeService, useValue: slaStub },
+        { provide: PipelineService, useValue: pipelineStub },
+        { provide: InterviewTemplatesService, useValue: templatesStub }
       ]
     });
     const fixture = TestBed.createComponent(SchedulingComponent);
@@ -55,7 +69,8 @@ describe('SchedulingComponent', () => {
   }
 
   /** Renders the component (setup() above only ever returns the bare instance) for masthead/axe assertions. */
-  function setupFixture(): ComponentFixture<SchedulingComponent> {
+  function setupFixture(pipelineOverrides: Partial<PipelineService> = {},
+                        templatesOverrides: Partial<InterviewTemplatesService> = {}): ComponentFixture<SchedulingComponent> {
     const stub: Partial<SchedulingService> = { initiate: () => of(initiated), status: () => of(sentStatus) };
     const slaStub: Partial<SlaNudgeService> = {
       getSla: () => of({ candidateId: 'cand1', slaState: 'GREEN', lastActivityAt: null, openDraftId: null }),
@@ -63,12 +78,16 @@ describe('SchedulingComponent', () => {
       approve: () => of({ draftId: 'd1', result: 'SENT_ENQUEUED' }),
       dismiss: () => of({ draftId: 'd1', result: 'DISMISSED' })
     };
+    const pipelineStub: Partial<PipelineService> = { list: () => of(emptyPipelinePage), ...pipelineOverrides };
+    const templatesStub: Partial<InterviewTemplatesService> = { list: () => of(emptyTemplateList), ...templatesOverrides };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [SchedulingComponent],
       providers: [
         { provide: SchedulingService, useValue: stub },
-        { provide: SlaNudgeService, useValue: slaStub }
+        { provide: SlaNudgeService, useValue: slaStub },
+        { provide: PipelineService, useValue: pipelineStub },
+        { provide: InterviewTemplatesService, useValue: templatesStub }
       ]
     });
     return TestBed.createComponent(SchedulingComponent);
@@ -372,6 +391,44 @@ describe('SchedulingComponent', () => {
       c.candidateId = 'cand1';
       c.previewDraft();
       expect(c.draftPreview()?.missingFields).toContain('expected_date');
+    });
+  });
+
+  // ---- Workbench overhaul phase 5: candidate + template pickers replace the raw-id inputs ----
+
+  describe('candidate + template pickers (workbench overhaul phase 5)', () => {
+    const pipelinePage: PipelinePage = {
+      rows: [{
+        candidateId: 'cand1', name: 'Dana Okafor', stage: 'Technical', slaState: 'GREEN',
+        schedulingStatus: 'NO_LINK_SENT', requisitionId: null, requisitionTitle: null, lastActivityAt: null
+      }],
+      page: 0, size: 1000, totalInScope: 1, filteredCount: 1, truncated: false
+    };
+    const templateList: TemplateList = {
+      templates: [{
+        id: 'tmpl1', name: 'Onsite loop', status: 'ACTIVE', durationMinutes: 60, slotCadenceMinutes: 30,
+        bufferBeforeMinutes: 0, bufferAfterMinutes: 0, dailyCapPerInterviewer: 3, requiredMemberIds: [], pools: []
+      }]
+    };
+
+    it('loads candidate + template options from the pipeline and template list services and renders two pickers', () => {
+      const fixture = setupFixture({ list: () => of(pipelinePage) }, { list: () => of(templateList) });
+      fixture.detectChanges();
+      expect(fixture.componentInstance.candidateOpts()).toEqual([{ id: 'cand1', label: 'Dana Okafor', hint: 'Technical' }]);
+      expect(fixture.componentInstance.templateOpts()).toEqual([{ id: 'tmpl1', label: 'Onsite loop' }]);
+      const pickers = fixture.nativeElement.querySelectorAll('app-search-picker');
+      expect(pickers.length).toBe(2);
+    });
+
+    it('selecting a candidate option sets candidateId; selecting a template option sets templateId', () => {
+      const fixture = setupFixture({ list: () => of(pipelinePage) }, { list: () => of(templateList) });
+      fixture.detectChanges();
+      const pickers = fixture.debugElement.queryAll(By.directive(SearchPickerComponent));
+      expect(pickers.length).toBe(2);
+      (pickers[0].componentInstance as SearchPickerComponent).valueChange.emit('cand1');
+      (pickers[1].componentInstance as SearchPickerComponent).valueChange.emit('tmpl1');
+      expect(fixture.componentInstance.candidateId).toBe('cand1');
+      expect(fixture.componentInstance.templateId).toBe('tmpl1');
     });
   });
 });
