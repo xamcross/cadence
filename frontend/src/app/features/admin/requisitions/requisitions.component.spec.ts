@@ -1,13 +1,22 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { RequisitionsComponent } from './requisitions.component';
 import { RequisitionsService, RequisitionDto } from './requisitions.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 function req(id: string, status: 'OPEN' | 'CLOSED' = 'OPEN'): RequisitionDto {
   return { id, title: 'Backend ' + id, status, externalLabel: null, createdAt: '2026-06-18T00:00:00Z' };
 }
 
+/**
+ * F51 requisition management (Admin internal screen).
+ *
+ * Phase 3b (workbench overhaul): `close(r)` is gated behind the shared `ConfirmDialogService`;
+ * `reopen` is intentionally left ungated. create/close/reopen/assign/link each surface a per-action
+ * toast; the boolean `error` signal now covers only the initial list-load failure.
+ */
 describe('RequisitionsComponent', () => {
   let svc: { list: jasmine.Spy; create: jasmine.Spy; update: jasmine.Spy; assignHm: jasmine.Spy; linkCandidate: jasmine.Spy };
   let attachedEls: HTMLElement[] = [];
@@ -44,25 +53,107 @@ describe('RequisitionsComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Backend r1');
   });
 
-  it('creates a requisition', () => {
+  it('creates a requisition and toasts success', () => {
     const fixture = setup();
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
     fixture.componentInstance.newTitle = 'Frontend Eng';
     fixture.componentInstance.create();
     expect(svc.create).toHaveBeenCalledWith('Frontend Eng', undefined);
+    expect(toastSpy).toHaveBeenCalled();
   });
 
-  it('links a candidate to a requisition', () => {
+  it('toasts an error when create fails', () => {
     const fixture = setup();
+    svc.create.and.returnValue(throwError(() => ({ status: 500 })));
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+    fixture.componentInstance.newTitle = 'Frontend Eng';
+    fixture.componentInstance.create();
+    expect(toastSpy).toHaveBeenCalled();
+  });
+
+  it('links a candidate to a requisition and toasts success', () => {
+    const fixture = setup();
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
     fixture.componentInstance.linkCandidateId = 'c1';
     fixture.componentInstance.linkRequisitionId = 'r1';
     fixture.componentInstance.link();
     expect(svc.linkCandidate).toHaveBeenCalledWith('c1', 'r1');
+    expect(toastSpy).toHaveBeenCalled();
   });
 
-  it('closes an open requisition', () => {
+  it('toasts an error when linking fails', () => {
     const fixture = setup();
-    fixture.componentInstance.close(req('r1'));
-    expect(svc.update).toHaveBeenCalledWith('r1', { status: 'CLOSED' });
+    svc.linkCandidate.and.returnValue(throwError(() => ({ status: 500 })));
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+    fixture.componentInstance.linkCandidateId = 'c1';
+    fixture.componentInstance.link();
+    expect(toastSpy).toHaveBeenCalled();
+  });
+
+  it('assigns a hiring manager and toasts success', () => {
+    const fixture = setup();
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+    fixture.componentInstance.assignMemberId['r1'] = 'm1';
+    fixture.componentInstance.assign(req('r1'));
+    expect(svc.assignHm).toHaveBeenCalledWith('r1', 'm1');
+    expect(toastSpy).toHaveBeenCalled();
+  });
+
+  it('toasts an error when assigning fails', () => {
+    const fixture = setup();
+    svc.assignHm.and.returnValue(throwError(() => ({ status: 500 })));
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+    fixture.componentInstance.assignMemberId['r1'] = 'm1';
+    fixture.componentInstance.assign(req('r1'));
+    expect(toastSpy).toHaveBeenCalled();
+  });
+
+  describe('close (confirm-gate + toast)', () => {
+    it('does not close when the confirm is declined', async () => {
+      const fixture = setup();
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await fixture.componentInstance.close(req('r1'));
+      expect(svc.update).not.toHaveBeenCalled();
+    });
+
+    it('gates, closes, and toasts success when confirmed', async () => {
+      const fixture = setup();
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      await fixture.componentInstance.close(req('r1'));
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(svc.update).toHaveBeenCalledWith('r1', { status: 'CLOSED' });
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error when the confirmed close fails', async () => {
+      const fixture = setup();
+      svc.update.and.returnValue(throwError(() => ({ status: 500 })));
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      await fixture.componentInstance.close(req('r1'));
+      expect(toastSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('reopen (ungated + toast)', () => {
+    it('reopens without a confirm dialog and toasts success', () => {
+      const fixture = setup();
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm');
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      fixture.componentInstance.reopen(req('r1', 'CLOSED'));
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(svc.update).toHaveBeenCalledWith('r1', { status: 'OPEN' });
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error when reopen fails', () => {
+      const fixture = setup();
+      svc.update.and.returnValue(throwError(() => ({ status: 500 })));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.reopen(req('r1', 'CLOSED'));
+      expect(toastSpy).toHaveBeenCalled();
+    });
   });
 
   it('renders the shared page-header masthead', () => {

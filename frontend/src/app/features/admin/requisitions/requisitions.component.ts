@@ -6,10 +6,16 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * F51 requisition management (Admin internal screen): create/close requisitions, assign a Hiring Manager, and link
  * a candidate to a requisition. Minimal-but-real surface (the backlog scope for F51). All strings $localize.
+ *
+ * Phase 3b (workbench overhaul): `close(r)` is gated behind the shared `ConfirmDialogService`; `reopen`
+ * is intentionally left ungated. create/close/reopen/assign/link each surface a per-action outcome via
+ * `ToastService`; the boolean `error` signal now covers only the initial list-load failure.
  */
 @Component({
   selector: 'app-requisitions',
@@ -89,6 +95,8 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
 })
 export class RequisitionsComponent implements OnInit {
   private readonly svc = inject(RequisitionsService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly requisitions = signal<RequisitionDto[]>([]);
   readonly loading = signal(true);
@@ -108,30 +116,63 @@ export class RequisitionsComponent implements OnInit {
   create(): void {
     if (!this.newTitle.trim()) { return; }
     this.svc.create(this.newTitle.trim(), this.newLabel.trim() || undefined).subscribe({
-      next: () => { this.newTitle = ''; this.newLabel = ''; this.reload(); },
-      error: () => this.error.set(true)
+      next: () => {
+        this.newTitle = '';
+        this.newLabel = '';
+        this.toast.success($localize`:@@toast.req.created:Requisition created.`);
+        this.reload();
+      },
+      error: () => this.toast.error($localize`:@@toast.req.createFailed:Couldn't create the requisition.`)
     });
   }
 
-  close(r: RequisitionDto): void {
-    this.svc.update(r.id, { status: 'CLOSED' }).subscribe({ next: () => this.reload(), error: () => this.error.set(true) });
+  async close(r: RequisitionDto): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.req.close.title:Close this requisition?`,
+      body: $localize`:@@confirm.req.close.body:"${r.title}:title:" will be closed. You can reopen it later.`,
+      confirmLabel: $localize`:@@confirm.req.close.cta:Close requisition`
+    });
+    if (!ok) { return; }
+    this.svc.update(r.id, { status: 'CLOSED' }).subscribe({
+      next: () => {
+        this.toast.success($localize`:@@toast.req.closed:Requisition closed.`);
+        this.reload();
+      },
+      error: () => this.toast.error($localize`:@@toast.req.closeFailed:Couldn't close requisition.`)
+    });
   }
 
   reopen(r: RequisitionDto): void {
-    this.svc.update(r.id, { status: 'OPEN' }).subscribe({ next: () => this.reload(), error: () => this.error.set(true) });
+    this.svc.update(r.id, { status: 'OPEN' }).subscribe({
+      next: () => {
+        this.toast.success($localize`:@@toast.req.reopened:Requisition reopened.`);
+        this.reload();
+      },
+      error: () => this.toast.error($localize`:@@toast.req.reopenFailed:Couldn't reopen the requisition.`)
+    });
   }
 
   assign(r: RequisitionDto): void {
     const m = (this.assignMemberId[r.id] || '').trim();
     if (!m) { return; }
-    this.svc.assignHm(r.id, m).subscribe({ next: () => { this.assignMemberId[r.id] = ''; }, error: () => this.error.set(true) });
+    this.svc.assignHm(r.id, m).subscribe({
+      next: () => {
+        this.assignMemberId[r.id] = '';
+        this.toast.success($localize`:@@toast.req.assigned:Hiring manager assigned.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.req.assignFailed:Couldn't assign the hiring manager.`)
+    });
   }
 
   link(): void {
     if (!this.linkCandidateId.trim()) { return; }
     this.svc.linkCandidate(this.linkCandidateId.trim(), this.linkRequisitionId.trim() || null).subscribe({
-      next: () => { this.linkCandidateId = ''; this.linkRequisitionId = ''; },
-      error: () => this.error.set(true)
+      next: () => {
+        this.linkCandidateId = '';
+        this.linkRequisitionId = '';
+        this.toast.success($localize`:@@toast.req.linked:Candidate linked.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.req.linkFailed:Couldn't link the candidate.`)
     });
   }
 
