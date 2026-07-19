@@ -2,6 +2,9 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-templates.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 
 /**
  * Admin/Recruiter "Email templates" surface (F21, the §II demonstrable leg): list the message types,
@@ -12,36 +15,46 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
 @Component({
   selector: 'app-email-templates',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
   template: `
-    <h1 i18n="@@et.title">Email templates</h1>
+    <app-page-header
+      eyebrow="Templates" i18n-eyebrow="@@et.eyebrow"
+      heading="Email templates" i18n-heading="@@et.title"
+      subtitle="Candidate message content and tone." i18n-subtitle="@@et.subtitle">
+    </app-page-header>
 
     @if (error(); as e) {
       <p role="alert" class="error alert alert--danger">{{ e }}</p>
     }
 
     <section class="list">
-      @if (templates().length === 0) {
-        <p i18n="@@et.empty">No templates.</p>
-      }
-      <ul>
-        @for (t of templates(); track t.messageType) {
-          <li class="row">
-            <span class="type">{{ t.messageType }}</span>
-            <span class="source">{{ t.source }}</span>
-            @if (t.locked) { <span class="locked badge badge--danger" i18n="@@et.locked">Locked</span> }
-            <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" [disabled]="!canEdit(t)" i18n="@@et.edit">Edit</button>
-            <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@et.preview">Preview</button>
-            @if (isAdmin) {
-              @if (t.locked) {
-                <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, false)" i18n="@@et.unlock">Unlock</button>
-              } @else {
-                <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, true)" i18n="@@et.lockbtn">Lock</button>
+      @if (loading()) {
+        <app-skeleton variant="lines" />
+      } @else if (templates().length === 0) {
+        <app-empty-state
+          heading="No templates yet" i18n-heading="@@et.empty.heading"
+          body="Templates initialize automatically with your workspace." i18n-body="@@et.empty.body">
+        </app-empty-state>
+      } @else {
+        <ul>
+          @for (t of templates(); track t.messageType) {
+            <li class="row">
+              <span class="type">{{ t.messageType }}</span>
+              <span class="source">{{ t.source }}</span>
+              @if (t.locked) { <span class="locked badge badge--danger" i18n="@@et.locked">Locked</span> }
+              <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" [disabled]="!canEdit(t)" i18n="@@et.edit">Edit</button>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@et.preview">Preview</button>
+              @if (isAdmin) {
+                @if (t.locked) {
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, false)" i18n="@@et.unlock">Unlock</button>
+                } @else {
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, true)" i18n="@@et.lockbtn">Lock</button>
+                }
               }
-            }
-          </li>
-        }
-      </ul>
+            </li>
+          }
+        </ul>
+      }
     </section>
 
     @if (editing(); as t) {
@@ -105,6 +118,7 @@ export class EmailTemplatesComponent implements OnInit {
   isAdmin = true;
 
   readonly templates = signal<EmailTemplate[]>([]);
+  readonly loading = signal(true);
   readonly editing = signal<EmailTemplate | null>(null);
   readonly rendered = signal<RenderedMessage | null>(null);
   /** The template the current preview belongs to — the "Send to candidate" action targets it. */
@@ -125,8 +139,8 @@ export class EmailTemplatesComponent implements OnInit {
 
   private load(): void {
     this.service.list('BASE').subscribe({
-      next: (l) => this.templates.set(l.templates),
-      error: () => this.error.set($localize`:@@et.loadErr:Could not load templates.`)
+      next: (l) => { this.templates.set(l.templates); this.loading.set(false); },
+      error: () => { this.error.set($localize`:@@et.loadErr:Could not load templates.`); this.loading.set(false); }
     });
   }
 

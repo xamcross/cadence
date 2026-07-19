@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { EmailTemplatesComponent } from './email-templates.component';
 import { EmailTemplate, EmailTemplatesService, RenderedMessage, SendResult, TemplateList } from './email-templates.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
  * F21 SC-011: the email-templates component renders the missing-field warning, disables editing of a
@@ -15,6 +16,7 @@ describe('EmailTemplatesComponent', () => {
     body: 'Hello {{candidate_name}}', locked: false, version: 0, source: 'OVERRIDE',
     permittedTokens: ['candidate_name', 'workspace_name']
   };
+  let attachedEls: HTMLElement[] = [];
 
   function setup(list: TemplateList, overrides: Partial<EmailTemplatesService> = {}) {
     const service: Partial<EmailTemplatesService> = {
@@ -34,13 +36,37 @@ describe('EmailTemplatesComponent', () => {
       providers: [{ provide: EmailTemplatesService, useValue: service }]
     });
     const fixture = TestBed.createComponent(EmailTemplatesComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return fixture;
   }
 
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
+
   it('lists the message types', () => {
     const fixture = setup({ templates: [base] });
     expect(fixture.nativeElement.textContent).toContain('INVITATION');
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setup({ templates: [base] });
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('shows the guided empty-state when there are no templates', () => {
+    const fixture = setup({ templates: [] });
+    expect(fixture.nativeElement.querySelector('app-empty-state')).not.toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setup({ templates: [base] });
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 
   it('renders a preview with sample data', () => {
