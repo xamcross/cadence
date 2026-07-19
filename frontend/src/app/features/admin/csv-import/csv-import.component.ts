@@ -3,11 +3,17 @@ import { CommonModule } from '@angular/common';
 import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * F42 standalone CSV import admin screen (US1/US2/US3). Upload a CSV, poll the async job status (counts +
  * per-row results), and resolve flagged duplicates with merge/skip. Internal Admin/Recruiter screen — no
  * candidate PII surface, no WCAG/Lighthouse gate (the F50/F51 internal-screen precedent). All strings $localize.
+ *
+ * Phase 3b (workbench overhaul): `resolveAll('SKIP')` is gated behind the shared `ConfirmDialogService` (light,
+ * non-danger — a skip is recoverable by re-importing). `resolveAll('MERGE')` and per-row actions stay ungated.
+ * Upload and resolve outcomes are surfaced via `ToastService`.
  */
 @Component({
   selector: 'app-csv-import',
@@ -72,6 +78,8 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
 })
 export class CsvImportComponent {
   private readonly api = inject(CsvImportService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly chooseLabel = $localize`:@@csv.choose:Choose a CSV file`;
   readonly uploadLabel = $localize`:@@csv.upload:Upload`;
@@ -90,6 +98,9 @@ export class CsvImportComponent {
   readonly mergeAllLabel = $localize`:@@csv.mergeAll:Merge all`;
   readonly skipAllLabel = $localize`:@@csv.skipAll:Skip all`;
   private readonly uploadFailed = $localize`:@@csv.uploadFailed:Upload failed — check the file and try again.`;
+  private readonly uploadedNote = $localize`:@@toast.csv.uploaded:File uploaded — processing started.`;
+  private readonly resolvedNote = $localize`:@@toast.csv.resolved:Duplicate resolved.`;
+  private readonly resolveFailedNote = $localize`:@@toast.csv.resolveFailed:Could not resolve the duplicate. Please try again.`;
 
   readonly file = signal<File | null>(null);
   readonly job = signal<ImportJobStatus | null>(null);
@@ -111,9 +122,13 @@ export class CsvImportComponent {
     this.busy.set(true);
     this.error.set(null);
     this.api.upload(f).subscribe({
-      next: (a) => this.poll(a.jobId),
+      next: (a) => {
+        this.toast.success(this.uploadedNote);
+        this.poll(a.jobId);
+      },
       error: () => {
         this.error.set(this.uploadFailed);
+        this.toast.error(this.uploadFailed);
         this.busy.set(false);
       }
     });
@@ -140,7 +155,18 @@ export class CsvImportComponent {
     this.sendResolve([{ rowNumber, action }], undefined);
   }
 
-  resolveAll(action: 'MERGE' | 'SKIP'): void {
+  async resolveAll(action: 'MERGE' | 'SKIP'): Promise<void> {
+    if (action === 'SKIP') {
+      const n = this.job()?.duplicatePendingCount ?? 0;
+      const ok = await this.confirm.confirm({
+        title: $localize`:@@confirm.csv.skipAll.title:Skip all duplicates?`,
+        body: $localize`:@@confirm.csv.skipAll.body:${n}:n: candidates will not be imported.`,
+        confirmLabel: $localize`:@@confirm.csv.skipAll.cta:Skip all`
+      });
+      if (!ok) {
+        return;
+      }
+    }
     this.sendResolve([], action);
   }
 
@@ -154,8 +180,12 @@ export class CsvImportComponent {
       next: (s) => {
         this.job.set(s);
         this.busy.set(false);
+        this.toast.success(this.resolvedNote);
       },
-      error: () => this.busy.set(false)
+      error: () => {
+        this.busy.set(false);
+        this.toast.error(this.resolveFailedNote);
+      }
     });
   }
 }
