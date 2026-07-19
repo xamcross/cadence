@@ -1,6 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
 
 /**
  * F42 standalone CSV import admin screen (US1/US2/US3). Upload a CSV, poll the async job status (counts +
@@ -10,10 +12,14 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
 @Component({
   selector: 'app-csv-import',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PageHeaderComponent, TableScrollComponent],
   template: `
     <section class="csv-import">
-      <h1>{{ title }}</h1>
+      <app-page-header
+        eyebrow="Your work" i18n-eyebrow="@@csv.eyebrow"
+        heading="Import candidates from CSV" i18n-heading="@@csv.title"
+        subtitle="Bulk-add candidates from a CSV file." i18n-subtitle="@@csv.subtitle">
+      </app-page-header>
 
       <form class="upload" (submit)="$event.preventDefault()">
         <label for="csvFile">{{ chooseLabel }}</label>
@@ -34,24 +40,26 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
         </ul>
         <p *ngIf="j.rejectionReason" class="error alert alert--danger" role="alert">{{ rejectedFileLabel }} {{ j.rejectionReason }}</p>
 
-        <table class="rows table" *ngIf="j.rowResults.length">
-          <thead>
-            <tr><th>{{ rowLabel }}</th><th>{{ outcomeLabel }}</th><th>{{ detailLabel }}</th></tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let r of j.rowResults">
-              <td class="num">{{ r.rowNumber }}</td>
-              <td>{{ r.status }}</td>
-              <td>
-                <span *ngIf="r.reason">{{ r.failingField }}: {{ r.reason }}</span>
-                <span *ngIf="r.status === 'DUPLICATE_PENDING'" class="dup-actions">
-                  <button type="button" class="btn btn--outline btn--sm" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
-                  <button type="button" class="btn btn--ghost btn--sm" (click)="resolveRow(r.rowNumber, 'SKIP')" [disabled]="busy()">{{ skipLabel }}</button>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <app-table-scroll ariaLabel="Import results" i18n-ariaLabel="@@csv.tableLabel" *ngIf="j.rowResults.length">
+          <table class="rows table">
+            <thead>
+              <tr><th>{{ rowLabel }}</th><th>{{ outcomeLabel }}</th><th>{{ detailLabel }}</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of j.rowResults">
+                <td class="num">{{ r.rowNumber }}</td>
+                <td>{{ r.status }}</td>
+                <td>
+                  <span *ngIf="r.reason">{{ r.failingField }}: {{ r.reason }}</span>
+                  <span *ngIf="r.status === 'DUPLICATE_PENDING'" class="dup-actions">
+                    <button type="button" class="btn btn--outline btn--sm" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="resolveRow(r.rowNumber, 'SKIP')" [disabled]="busy()">{{ skipLabel }}</button>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </app-table-scroll>
 
         <div class="bulk" *ngIf="j.duplicatePendingCount > 0">
           <button type="button" class="btn btn--outline" (click)="resolveAll('MERGE')" [disabled]="busy()">{{ mergeAllLabel }}</button>
@@ -65,7 +73,6 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
 export class CsvImportComponent {
   private readonly api = inject(CsvImportService);
 
-  readonly title = $localize`:@@csv.title:Import candidates from CSV`;
   readonly chooseLabel = $localize`:@@csv.choose:Choose a CSV file`;
   readonly uploadLabel = $localize`:@@csv.upload:Upload`;
   readonly statusLabel = $localize`:@@csv.status:Status:`;

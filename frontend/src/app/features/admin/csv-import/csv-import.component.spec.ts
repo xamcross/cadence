@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { CsvImportComponent } from './csv-import.component';
 import { CsvImportService, ImportJobStatus, UploadAccepted } from './csv-import.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 /**
  * F42 CSV import admin screen. Verifies upload posts the file, the status state-machine renders counts + per-row
@@ -26,6 +27,8 @@ describe('CsvImportComponent', () => {
     ]
   };
 
+  let attachedEls: HTMLElement[] = [];
+
   function setup(statusValue: ImportJobStatus, resolveSpy = jasmine.createSpy('resolve').and.returnValue(of(completed))) {
     const uploadSpy = jasmine.createSpy('upload').and.returnValue(of(accepted));
     const statusSpy = jasmine.createSpy('status').and.returnValue(of(statusValue));
@@ -39,9 +42,17 @@ describe('CsvImportComponent', () => {
       providers: [{ provide: CsvImportService, useValue: stub }]
     });
     const fixture = TestBed.createComponent(CsvImportComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return { fixture, uploadSpy, statusSpy, resolveSpy };
   }
+
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
 
   it('uploads the chosen file and renders the completed status', () => {
     const { fixture, uploadSpy } = setup(completed);
@@ -72,5 +83,32 @@ describe('CsvImportComponent', () => {
     fixture.componentInstance.upload();
     fixture.componentInstance.resolveAll('SKIP');
     expect(resolveSpy).toHaveBeenCalledWith('job1', [], 'SKIP');
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const { fixture } = setup(completed);
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('wraps the row-results table in the shared table-scroll region', () => {
+    const { fixture } = setup(awaiting);
+    const file = new File(['x'], 'c.csv');
+    fixture.componentInstance.file.set(file);
+    fixture.componentInstance.upload();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-table-scroll table.rows.table')).not.toBeNull();
+  });
+
+  it('does not render the table-scroll region before any results exist', () => {
+    const { fixture } = setup(completed);
+    fixture.componentInstance.job.set(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-table-scroll')).toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const { fixture } = setup(completed);
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 });
