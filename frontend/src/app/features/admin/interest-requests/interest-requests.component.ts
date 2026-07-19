@@ -11,6 +11,8 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * F70 interest-request review queue (US2) — internal Admin-only screen. Lists the workspace's interest requests
@@ -19,6 +21,10 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
  * Email and organization are submitter-claimed, so they are labelled "unverified". No candidate-facing §IX gate
  * (the F31/F50 internal-screen precedent). All field values are rendered via Angular interpolation (auto-escaped)
  * — never innerHTML — so a malicious `<script>`/`=cmd` value displays inert (SC-012). All strings $localize.
+ *
+ * Phase 3b (workbench overhaul): `erase(r)` (⚠ danger) and `dismiss(r)` (light) are gated behind the shared
+ * `ConfirmDialogService`. `review`/`invite`/`showAll` stay ungated. Action outcomes are surfaced via
+ * `ToastService`, replacing the old per-row `noteFor` map.
  */
 @Component({
   selector: 'app-interest-requests',
@@ -105,8 +111,6 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
 
                   <button type="button" class="act-erase btn btn--danger-soft btn--sm" (click)="erase(r)" [disabled]="busy()"
                           i18n="@@interestAdmin.act.erase">Erase</button>
-
-                  <span class="row-note" *ngIf="noteFor[r.id]">{{ noteFor[r.id] }}</span>
                 </td>
               </tr>
             </tbody>
@@ -121,28 +125,29 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
     .rows td { vertical-align: top; }
     .cell-actions button, .invite-controls { margin-inline-end: var(--space-1); margin-block-end: var(--space-1); }
     .unverified { color: var(--ink-faint); font-size: 0.85em; }
-    .row-note { display: inline-block; margin-inline-start: var(--space-2); color: var(--accent-ink); }
   `]
 })
 export class InterestRequestsComponent implements OnInit {
   private readonly api = inject(InterestRequestsService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly filterLabel = $localize`:@@interestAdmin.filterLabel:Show:`;
   readonly roleSelectLabel = $localize`:@@interestAdmin.roleLabel:Invite as role`;
   private readonly loadFailed = $localize`:@@interestAdmin.loadFailed:Could not load requests. Please try again.`;
-  private readonly actionFailed = $localize`:@@interestAdmin.actionFailed:That action could not be completed.`;
-  private readonly conflictNote = $localize`:@@interestAdmin.conflict:Already actioned by someone else.`;
-  private readonly invitedNote = $localize`:@@interestAdmin.invited:Invitation sent.`;
-  private readonly alreadyMemberNote = $localize`:@@interestAdmin.alreadyMember:Already a member — marked resolved.`;
-  private readonly erasedNote = $localize`:@@interestAdmin.erased:Erased.`;
+  private readonly actionFailed = $localize`:@@toast.interestAdmin.actionFailed:That action could not be completed.`;
+  private readonly conflictNote = $localize`:@@toast.interestAdmin.conflict:Already actioned by someone else.`;
+  private readonly reviewedNote = $localize`:@@toast.interestAdmin.reviewed:Marked reviewed.`;
+  private readonly dismissedNote = $localize`:@@toast.interestAdmin.dismissed:Request dismissed.`;
+  private readonly invitedNote = $localize`:@@toast.interestAdmin.invited:Invitation sent.`;
+  private readonly alreadyMemberNote = $localize`:@@toast.interestAdmin.alreadyMember:Already a member — marked resolved.`;
+  private readonly erasedNote = $localize`:@@toast.interestAdmin.erased:Request erased.`;
 
   /** Default triage view EXCLUDES REVIEWED (FR-013). */
   filter: InterestStatusFilter = 'open';
   readonly roles: Role[] = ['RECRUITER', 'HIRING_MANAGER', 'INTERVIEWER', 'READ_ONLY', 'ADMIN'];
   /** Per-row selected invite role; defaults to RECRUITER. */
   roleFor: Record<string, Role> = {};
-  /** Per-row transient outcome note. */
-  noteFor: Record<string, string> = {};
 
   readonly requests = signal<InterestRequestRow[]>([]);
   readonly loading = signal(false);
@@ -173,32 +178,43 @@ export class InterestRequestsComponent implements OnInit {
 
   review(r: InterestRequestRow): void {
     this.busy.set(true);
-    this.noteFor[r.id] = '';
     this.api.review(r.id).subscribe({
-      next: () => this.afterAction(),
-      error: (e) => this.onActionError(r, e)
+      next: () => {
+        this.toast.success(this.reviewedNote);
+        this.afterAction();
+      },
+      error: (e) => this.onActionError(e)
     });
   }
 
-  dismiss(r: InterestRequestRow): void {
+  async dismiss(r: InterestRequestRow): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.interestAdmin.dismiss.title:Dismiss this request?`,
+      body: $localize`:@@confirm.interestAdmin.dismiss.body:${r.name}:name:'s request will be marked dismissed and no invitation will be sent.`,
+      confirmLabel: $localize`:@@confirm.interestAdmin.dismiss.cta:Dismiss`
+    });
+    if (!ok) {
+      return;
+    }
     this.busy.set(true);
-    this.noteFor[r.id] = '';
     this.api.dismiss(r.id).subscribe({
-      next: () => this.afterAction(),
-      error: (e) => this.onActionError(r, e)
+      next: () => {
+        this.toast.success(this.dismissedNote);
+        this.afterAction();
+      },
+      error: (e) => this.onActionError(e)
     });
   }
 
   invite(r: InterestRequestRow): void {
     this.busy.set(true);
-    this.noteFor[r.id] = '';
     const role = this.roleFor[r.id] ?? 'RECRUITER';
     this.api.invite(r.id, role).subscribe({
       next: (res) => {
-        this.noteFor[r.id] = res.alreadyMember ? this.alreadyMemberNote : this.invitedNote;
+        this.toast.success(res.alreadyMember ? this.alreadyMemberNote : this.invitedNote);
         this.afterAction();
       },
-      error: (e) => this.onActionError(r, e)
+      error: (e) => this.onActionError(e)
     });
   }
 
@@ -213,15 +229,23 @@ export class InterestRequestsComponent implements OnInit {
     this.load();
   }
 
-  erase(r: InterestRequestRow): void {
+  async erase(r: InterestRequestRow): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.interestAdmin.erase.title:Erase this request?`,
+      body: $localize`:@@confirm.interestAdmin.erase.body:${r.name}:name:'s access request and personal data will be permanently erased.`,
+      confirmLabel: $localize`:@@confirm.interestAdmin.erase.cta:Erase`,
+      danger: true
+    });
+    if (!ok) {
+      return;
+    }
     this.busy.set(true);
-    this.noteFor[r.id] = '';
     this.api.erase(r.id).subscribe({
       next: () => {
-        this.noteFor[r.id] = this.erasedNote;
+        this.toast.success(this.erasedNote);
         this.afterAction();
       },
-      error: (e) => this.onActionError(r, e)
+      error: (e) => this.onActionError(e)
     });
   }
 
@@ -230,8 +254,8 @@ export class InterestRequestsComponent implements OnInit {
     this.load();
   }
 
-  private onActionError(r: InterestRequestRow, e: { status?: number }): void {
+  private onActionError(e: { status?: number }): void {
     this.busy.set(false);
-    this.noteFor[r.id] = e?.status === 409 ? this.conflictNote : this.actionFailed;
+    this.toast.error(e?.status === 409 ? this.conflictNote : this.actionFailed);
   }
 }

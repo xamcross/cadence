@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { InterestRequestsComponent } from './interest-requests.component';
 import {
   InterestActionResponse,
@@ -7,6 +7,8 @@ import {
   InterestRequestRow,
   InterestRequestsService
 } from './interest-requests.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
 
 /**
@@ -14,6 +16,10 @@ import { attachToBody, axeViolations, detachFromBody } from '../../../../testing
  * round-trips to the service, the per-row actions dispatch with the right id/role, email/org carry the
  * "unverified" label, and (SC-012) a `<script>`/`=cmd` field value renders inert via Angular interpolation
  * auto-escape (no innerHTML bypass). RBAC is enforced server-side (the route roleGuard is covered separately).
+ *
+ * Phase 3b (workbench overhaul): `erase(r)` (⚠ danger) and `dismiss(r)` (light) are gated behind the shared
+ * `ConfirmDialogService`. `review`/`invite`/`showAll` stay ungated. All action outcomes are surfaced via
+ * `ToastService`, replacing the old per-row `noteFor` map.
  */
 describe('InterestRequestsComponent (F70)', () => {
   const rows: InterestRequestRow[] = [
@@ -48,6 +54,7 @@ describe('InterestRequestsComponent (F70)', () => {
       erase: eraseSpy as InterestRequestsService['erase'],
       exportCsv: exportSpy as InterestRequestsService['exportCsv']
     };
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [InterestRequestsComponent],
       providers: [{ provide: InterestRequestsService, useValue: stub }]
@@ -91,21 +98,21 @@ describe('InterestRequestsComponent (F70)', () => {
     expect(listSpy).toHaveBeenCalledWith('all');
   });
 
-  it('dispatches review / dismiss / erase with the row id', () => {
+  it('review (ungated) dispatches with the row id and toasts success', () => {
     const fixture = setup();
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
     fixture.componentInstance.review(rows[0]);
     expect(reviewSpy).toHaveBeenCalledWith('r1');
-    fixture.componentInstance.dismiss(rows[0]);
-    expect(dismissSpy).toHaveBeenCalledWith('r1');
-    fixture.componentInstance.erase(rows[0]);
-    expect(eraseSpy).toHaveBeenCalledWith('r1');
+    expect(toastSpy).toHaveBeenCalled();
   });
 
-  it('invites with the selected role', () => {
+  it('invites with the selected role (ungated) and toasts success', () => {
     const fixture = setup();
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
     fixture.componentInstance.roleFor['r1'] = 'HIRING_MANAGER';
     fixture.componentInstance.invite(rows[0]);
     expect(inviteSpy).toHaveBeenCalledWith('r1', 'HIRING_MANAGER');
+    expect(toastSpy).toHaveBeenCalled();
   });
 
   it('exports CSV via the service with the current status filter', () => {
@@ -128,12 +135,84 @@ describe('InterestRequestsComponent (F70)', () => {
     expect(exportSpy).toHaveBeenCalledWith('open');
   });
 
-  it('surfaces the alreadyMember outcome distinctly', () => {
+  it('surfaces the alreadyMember outcome via a toast', () => {
     inviteSpy = jasmine.createSpy('invite').and.returnValue(of({ status: 'INVITED', alreadyMember: true } as InterestActionResponse));
     const fixture = setup();
     (fixture.componentInstance as unknown as { api: InterestRequestsService }).api.invite = inviteSpy as InterestRequestsService['invite'];
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
     fixture.componentInstance.invite(rows[0]);
-    expect(fixture.componentInstance.noteFor['r1']).toBeTruthy();
+    expect(toastSpy).toHaveBeenCalled();
+  });
+
+  describe('dismiss (light confirm-gate + toast)', () => {
+    it('does not dismiss when the confirm is declined', async () => {
+      const fixture = setup();
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await fixture.componentInstance.dismiss(rows[0]);
+      expect(dismissSpy).not.toHaveBeenCalled();
+    });
+
+    it('gates with a non-danger confirm, dismisses, and toasts success', async () => {
+      const fixture = setup();
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      await fixture.componentInstance.dismiss(rows[0]);
+      const options = confirmSpy.calls.mostRecent().args[0] as { danger?: boolean };
+      expect(options.danger).toBeFalsy();
+      expect(dismissSpy).toHaveBeenCalledWith('r1');
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error when the confirmed dismiss fails', async () => {
+      const fixture = setup();
+      const failingDismiss = jasmine.createSpy('dismiss').and.returnValue(throwError(() => ({ status: 500 })));
+      (fixture.componentInstance as unknown as { api: InterestRequestsService }).api.dismiss = failingDismiss as InterestRequestsService['dismiss'];
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      await fixture.componentInstance.dismiss(rows[0]);
+      expect(toastSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('erase (confirm-gate ⚠ danger + toast)', () => {
+    it('does not erase when the confirm is declined', async () => {
+      const fixture = setup();
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      await fixture.componentInstance.erase(rows[0]);
+      expect(eraseSpy).not.toHaveBeenCalled();
+    });
+
+    it('gates with a danger confirm naming the candidate, erases, and toasts success', async () => {
+      const fixture = setup();
+      const confirmSpy = spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      await fixture.componentInstance.erase(rows[0]);
+      expect(confirmSpy).toHaveBeenCalledWith(jasmine.objectContaining({ danger: true }));
+      const body = (confirmSpy.calls.mostRecent().args[0] as { body?: string }).body ?? '';
+      expect(body).toContain('Dana Lee');
+      expect(eraseSpy).toHaveBeenCalledWith('r1');
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error when the confirmed erase fails', async () => {
+      const fixture = setup();
+      const failingErase = jasmine.createSpy('erase').and.returnValue(throwError(() => ({ status: 500 })));
+      (fixture.componentInstance as unknown as { api: InterestRequestsService }).api.erase = failingErase as InterestRequestsService['erase'];
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      await fixture.componentInstance.erase(rows[0]);
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('surfaces a conflict distinctly (409 -> conflict toast)', async () => {
+      const fixture = setup();
+      const conflictErase = jasmine.createSpy('erase').and.returnValue(throwError(() => ({ status: 409 })));
+      (fixture.componentInstance as unknown as { api: InterestRequestsService }).api.erase = conflictErase as InterestRequestsService['erase'];
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      await fixture.componentInstance.erase(rows[0]);
+      expect(toastSpy).toHaveBeenCalled();
+    });
   });
 
   it('renders a malicious field value inert (SC-012 — no script execution, no markup injection)', () => {
