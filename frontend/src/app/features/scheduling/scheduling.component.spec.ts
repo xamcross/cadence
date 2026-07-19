@@ -9,12 +9,19 @@ import {
   StatusResponse
 } from './scheduling.service';
 import { ActionResult, CandidateSla, DraftPreview, SlaNudgeService } from './sla-nudge.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
  * F13 US1 (§II): the recruiter surface sends a link (happy path), surfaces a 409 not-contactable, and
  * a 422 no-slots, and maps the per-candidate status to a label. The role guard redirect is covered by
  * role.guard.spec; the server is the security boundary.
+ *
+ * Phase 3b (workbench overhaul): the destructive/consequential actions (`cancel`, `release`,
+ * `rotateStatusLink`, `dismissDraft`) are gated behind `ConfirmDialogService.confirm()`, and every
+ * action outcome is surfaced via `ToastService` instead of the old shared `manageMsg`/`statusMsg`/
+ * `slaMsg`/`error` signals (which mis-styled error text inside a success `.alert--ok` box).
  */
 describe('SchedulingComponent', () => {
   const initiated: InitiateResponse = {
@@ -86,37 +93,142 @@ describe('SchedulingComponent', () => {
     detachFromBody(el);
   });
 
-  it('sends a link and shows the offered-slot count', () => {
+  it('sends a link, shows the offered-slot count, and toasts success', () => {
     const c = setup(() => of(initiated));
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
     c.candidateId = 'cand1';
     c.templateId = 'tmpl1';
     c.send();
     expect(c.result()?.offeredSlotCount).toBe(5);
-    expect(c.error()).toBeNull();
     expect(c.statusView()?.status).toBe('PENDING_SELECTION');
+    expect(toastSpy).toHaveBeenCalled();
   });
 
-  it('surfaces a not-contactable refusal', () => {
+  it('surfaces a not-contactable refusal as an error toast', () => {
     const c = setup(() => throwError(() => ({ status: 409, error: { error: 'not_contactable' } })));
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
     c.candidateId = 'cand1';
     c.templateId = 'tmpl1';
     c.send();
     expect(c.result()).toBeNull();
-    expect(c.error()).toContain('contacted');
+    expect(toastSpy).toHaveBeenCalledWith(jasmine.stringContaining('contacted'));
   });
 
-  it('surfaces a no-slots refusal', () => {
+  it('surfaces a no-slots refusal as an error toast', () => {
     const c = setup(() => throwError(() => ({ status: 422, error: { error: 'no_slots' } })));
+    const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
     c.candidateId = 'cand1';
     c.templateId = 'tmpl1';
     c.send();
-    expect(c.error()).toContain('No available slots');
+    expect(toastSpy).toHaveBeenCalledWith(jasmine.stringContaining('No available slots'));
   });
 
   it('maps scheduling status to a label', () => {
     const c = setup(() => of(initiated));
     expect(c.statusLabel({ ...sentStatus, status: 'BOOKED' })).toBe('Scheduled');
     expect(c.statusLabel({ ...sentStatus, status: 'EXPIRED' })).toBe('Link expired');
+  });
+
+  // ---- Phase 3b: confirm-gate + toast on cancel/release/rotateStatusLink/dismissDraft ----
+
+  describe('confirm-gated actions (Phase 3b)', () => {
+    it('cancel: declined confirm does not cancel the interview', async () => {
+      const cancelSpy = jasmine.createSpy('cancel').and.returnValue(of({ status: 'CANCELLED', at: '2026-07-19T10:00:00Z' }));
+      const c = setup(() => of(initiated), { cancel: cancelSpy as unknown as SchedulingService['cancel'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      c.candidateId = 'cand1';
+      await c.cancel();
+      expect(cancelSpy).not.toHaveBeenCalled();
+    });
+
+    it('cancel: confirmed cancels the interview and toasts success', async () => {
+      const cancelSpy = jasmine.createSpy('cancel').and.returnValue(of({ status: 'CANCELLED', at: '2026-07-19T10:00:00Z' }));
+      const c = setup(() => of(initiated), { cancel: cancelSpy as unknown as SchedulingService['cancel'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      c.candidateId = 'cand1';
+      await c.cancel();
+      expect(cancelSpy).toHaveBeenCalledWith('cand1');
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('cancel: confirmed but the server refuses, toasts error', async () => {
+      const cancelSpy = jasmine.createSpy('cancel')
+        .and.returnValue(throwError(() => ({ status: 409, error: { error: 'no_active_booking' } })));
+      const c = setup(() => of(initiated), { cancel: cancelSpy as unknown as SchedulingService['cancel'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      c.candidateId = 'cand1';
+      await c.cancel();
+      expect(toastSpy).toHaveBeenCalledWith(jasmine.stringContaining('no booked interview'));
+    });
+
+    it('release: declined confirm does not release the slot', async () => {
+      const releaseSpy = jasmine.createSpy('release')
+        .and.returnValue(of({ status: 'RELEASED', at: '2026-07-19T10:00:00Z', cleanupIncomplete: false }));
+      const c = setup(() => of(initiated), { release: releaseSpy as unknown as SchedulingService['release'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      c.candidateId = 'cand1';
+      await c.release();
+      expect(releaseSpy).not.toHaveBeenCalled();
+    });
+
+    it('release: confirmed releases the slot and toasts success', async () => {
+      const releaseSpy = jasmine.createSpy('release')
+        .and.returnValue(of({ status: 'RELEASED', at: '2026-07-19T10:00:00Z', cleanupIncomplete: false }));
+      const c = setup(() => of(initiated), { release: releaseSpy as unknown as SchedulingService['release'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      c.candidateId = 'cand1';
+      await c.release();
+      expect(releaseSpy).toHaveBeenCalledWith('cand1');
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('rotateStatusLink: declined confirm does not rotate the link', async () => {
+      const rotateSpy = jasmine.createSpy('rotateStatusLink').and.returnValue(of({ statusLink: 'https://app.example/status?token=NEW' }));
+      const c = setup(() => of(initiated), { rotateStatusLink: rotateSpy as unknown as SchedulingService['rotateStatusLink'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      c.candidateId = 'cand1';
+      c.statusLink.set('https://app.example/status?token=OLD');
+      await c.rotateStatusLink();
+      expect(rotateSpy).not.toHaveBeenCalled();
+      expect(c.statusLink()).toBe('https://app.example/status?token=OLD');
+    });
+
+    it('rotateStatusLink: confirmed rotates the link and toasts success', async () => {
+      const rotated: RotateLinkResponse = { statusLink: 'https://app.example/status?token=NEW' };
+      const rotateSpy = jasmine.createSpy('rotateStatusLink').and.returnValue(of(rotated));
+      const c = setup(() => of(initiated), { rotateStatusLink: rotateSpy as unknown as SchedulingService['rotateStatusLink'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      c.candidateId = 'cand1';
+      c.statusLink.set('https://app.example/status?token=OLD');
+      await c.rotateStatusLink();
+      expect(rotateSpy).toHaveBeenCalledWith('cand1');
+      expect(c.statusLink()).toBe('https://app.example/status?token=NEW');
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('dismissDraft: declined confirm does not dismiss the draft', async () => {
+      const dismissSpy = jasmine.createSpy('dismiss').and.returnValue(of({ draftId: 'd1', result: 'DISMISSED' }));
+      const c = setup(() => of(initiated), {}, { dismiss: dismissSpy as unknown as SlaNudgeService['dismiss'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(false);
+      c.candidateId = 'cand1';
+      await c.dismissDraft('d1');
+      expect(dismissSpy).not.toHaveBeenCalled();
+    });
+
+    it('dismissDraft: confirmed dismisses the draft and toasts success', async () => {
+      const dismissSpy = jasmine.createSpy('dismiss').and.returnValue(of({ draftId: 'd1', result: 'DISMISSED' }));
+      const c = setup(() => of(initiated), {}, { dismiss: dismissSpy as unknown as SlaNudgeService['dismiss'] });
+      spyOn(TestBed.inject(ConfirmDialogService), 'confirm').and.resolveTo(true);
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      c.candidateId = 'cand1';
+      await c.dismissDraft('d1');
+      expect(dismissSpy).toHaveBeenCalledWith('d1');
+      expect(toastSpy).toHaveBeenCalled();
+    });
   });
 
   // ---- F30 candidate Status panel (T032) ----
@@ -166,11 +278,12 @@ describe('SchedulingComponent', () => {
       expect(c.statusTouched()).toBe(true);
     });
 
-    it('publishes a valid status and surfaces the returned link', () => {
+    it('publishes a valid status, surfaces the returned link, and toasts success', () => {
       const publishSpy = jasmine.createSpy('publishStatus').and.returnValue(of(recruiterStatus));
       const c = setup(() => of(initiated), {
         publishStatus: publishSpy as unknown as SchedulingService['publishStatus']
       });
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
       c.candidateId = 'cand1';
       c.statusOutcome = 'IN_PROGRESS';
       c.statusStage = 'Onsite';
@@ -179,45 +292,35 @@ describe('SchedulingComponent', () => {
       c.publishStatus();
       expect(publishSpy).toHaveBeenCalledTimes(1);
       expect(c.statusLink()).toBe('https://app.example/status?token=abc');
-      expect(c.statusMsg()).toContain('published');
+      expect(toastSpy).toHaveBeenCalled();
     });
 
-    it('surfaces a 400 invalid_status from the server', () => {
+    it('surfaces a 400 invalid_status from the server as an error toast', () => {
       const publishSpy = jasmine.createSpy('publishStatus')
         .and.returnValue(throwError(() => ({ status: 400, error: { error: 'invalid_status' } })));
       const c = setup(() => of(initiated), {
         publishStatus: publishSpy as unknown as SchedulingService['publishStatus']
       });
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
       c.candidateId = 'cand1';
       c.statusOutcome = 'COMPLETE_OFFER';
       c.statusNextStep = 'Congratulations';
       c.publishStatus();
-      expect(c.statusMsg()).toContain('incomplete');
+      expect(toastSpy).toHaveBeenCalledWith(jasmine.stringContaining('incomplete'));
     });
 
-    it('rotate-link replaces the displayed link and notes the old one no longer works', () => {
-      const rotated: RotateLinkResponse = { statusLink: 'https://app.example/status?token=NEW' };
-      const rotateSpy = jasmine.createSpy('rotateStatusLink').and.returnValue(of(rotated));
-      const c = setup(() => of(initiated), {
-        rotateStatusLink: rotateSpy as unknown as SchedulingService['rotateStatusLink']
-      });
-      c.candidateId = 'cand1';
-      c.statusLink.set('https://app.example/status?token=OLD');
-      c.rotateStatusLink();
-      expect(rotateSpy).toHaveBeenCalledWith('cand1');
-      expect(c.statusLink()).toBe('https://app.example/status?token=NEW');
-      expect(c.statusMsg()).toContain('rotated');
-    });
-
-    it('copy-link writes the current link to the clipboard', async () => {
+    it('copy-link writes the current link to the clipboard and toasts success', async () => {
       const writeText = jasmine.createSpy('writeText').and.returnValue(Promise.resolve());
       const original = navigator.clipboard;
       Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
       try {
         const c = setup(() => of(initiated));
+        const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
         c.statusLink.set('https://app.example/status?token=abc');
         c.copyStatusLink();
+        await Promise.resolve(); // flush the clipboard promise microtask
         expect(writeText).toHaveBeenCalledWith('https://app.example/status?token=abc');
+        expect(toastSpy).toHaveBeenCalled();
       } finally {
         Object.defineProperty(navigator, 'clipboard', { value: original, configurable: true });
       }
@@ -252,23 +355,15 @@ describe('SchedulingComponent', () => {
       expect(c.slaLabel('RED')).toContain('silence');
     });
 
-    it('approve sends the holding message and clears the preview', () => {
+    it('approve sends the holding message, clears the preview, and toasts success', () => {
       const approveSpy = jasmine.createSpy('approve').and.returnValue(of({ draftId: 'd1', result: 'SENT_ENQUEUED' }));
       const c = setup(() => of(initiated), {}, { getSla: () => of(redWithDraft), approve: approveSpy as unknown as SlaNudgeService['approve'] });
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
       c.candidateId = 'cand1';
       c.approveDraft('d1');
       expect(approveSpy).toHaveBeenCalledWith('d1');
-      expect(c.slaMsg()).toContain('sent');
+      expect(toastSpy).toHaveBeenCalled();
       expect(c.draftPreview()).toBeNull();
-    });
-
-    it('dismiss sends nothing and notes it', () => {
-      const dismissSpy = jasmine.createSpy('dismiss').and.returnValue(of({ draftId: 'd1', result: 'DISMISSED' }));
-      const c = setup(() => of(initiated), {}, { getSla: () => of(redWithDraft), dismiss: dismissSpy as unknown as SlaNudgeService['dismiss'] });
-      c.candidateId = 'cand1';
-      c.dismissDraft('d1');
-      expect(dismissSpy).toHaveBeenCalledWith('d1');
-      expect(c.slaMsg()).toContain('dismissed');
     });
 
     it('preview surfaces a missing-field warning', () => {
