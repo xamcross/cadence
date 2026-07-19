@@ -1,2 +1,13 @@
 /* The main wrapper is a programmatic focus target for the skip link; suppress its focus ring. */
 #main-content:focus { outline: none; }
+
+.app-shell--chrome {
+  display: flex; flex-direction: column;
+  gap: var(--space-4);
+  max-width: var(--content-max); margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+.app-shell--chrome .app-main { flex: 1; min-width: 0; }
+@media (min-width: 48rem) {
+  .app-shell--chrome { flex-direction: row; align-items: flex-start; }
+}

@@ -55,7 +55,7 @@ export const routes: Routes = [
     // (the shell shows a neutral "setup pending" panel instead — US6 AS-5).
     path: 'workspace/setup',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE, shell: true },
+    data: { seo: PRIVATE, shell: true, breadcrumb: 'Workspace setup' },
     loadComponent: () =>
       import('./features/admin/workspace/workspace-setup-wizard.component').then((m) => m.WorkspaceSetupWizardComponent)
   },
@@ -181,7 +181,7 @@ export const routes: Routes = [
     // internal screen (no candidate-facing §IX gate — the F31/F50 internal-screen precedent).
     path: 'admin/interest-requests',
     canActivate: [authGuard, roleGuard('ADMIN')],
-    data: { seo: PRIVATE, shell: true },
+    data: { seo: PRIVATE, shell: true, breadcrumb: 'Access requests' },
     loadComponent: () =>
       import('./features/admin/interest-requests/interest-requests.component').then((m) => m.InterestRequestsComponent)
   },
@@ -233,7 +233,7 @@ export const routes: Routes = [
     // F51 candidate timeline drill-down (opened from a pipeline row). Same role gate; server enforces scoping.
     path: 'pipeline/candidate/:candidateId/timeline',
     canActivate: [authGuard, roleGuard('ADMIN', 'RECRUITER', 'READ_ONLY', 'HIRING_MANAGER')],
-    data: { seo: PRIVATE, shell: true },
+    data: { seo: PRIVATE, shell: true, breadcrumb: 'Candidate timeline' },
     loadComponent: () =>
       import('./features/pipeline/candidate-timeline.component').then((m) => m.CandidateTimelineComponent)
   },
