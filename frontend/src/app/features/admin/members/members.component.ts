@@ -6,10 +6,17 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * Admin member directory + role change (F02 US1). ADMIN-guarded route. Surfaces server messages
  * (e.g. last-admin 409, forbidden 403). Strings externalized via i18n.
+ *
+ * Phase 3b (workbench overhaul): `onRoleChange` is gated behind the shared `ConfirmDialogService`
+ * (⚠ danger) using the select-revert pattern — declining (or a failed server call) reverts the
+ * bound `member.role` so the native `<select>` snaps back to its previous value. The outcome is
+ * surfaced via `ToastService` (the "last admin" 409 message is preserved verbatim).
  */
 @Component({
   selector: 'app-members',
@@ -69,6 +76,8 @@ import { TableScrollComponent } from '../../../shared/ui/table-scroll.component'
 })
 export class MembersComponent implements OnInit {
   private readonly api = inject(MembersService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly roles: Role[] = ['ADMIN', 'RECRUITER', 'HIRING_MANAGER', 'INTERVIEWER', 'READ_ONLY'];
   readonly loading = signal(true);
@@ -86,17 +95,27 @@ export class MembersComponent implements OnInit {
     });
   }
 
-  onRoleChange(member: MemberRow, role: Role): void {
-    this.error = '';
+  async onRoleChange(member: MemberRow, role: Role): Promise<void> {
     const previous = member.role;
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.members.roleChange.title:Change role?`,
+      body: $localize`:@@confirm.members.roleChange.body:Change this member's role? They will immediately gain or lose access.`,
+      confirmLabel: $localize`:@@confirm.members.roleChange.cta:Change role`,
+      danger: true
+    });
+    if (!ok) { member.role = previous; return; } // revert the optimistic select
     this.api.changeRole(member.memberId, role).subscribe({
-      next: () => (member.role = role),
+      next: () => {
+        member.role = role;
+        this.toast.success($localize`:@@toast.members.roleChanged:Role changed.`);
+      },
       error: (err) => {
         member.role = previous; // revert the optimistic select
-        this.error =
+        this.toast.error(
           err?.status === 409
-            ? $localize`:@@members.lastAdmin:Cannot change the last administrator's role.`
-            : $localize`:@@members.changeError:Could not change the role.`;
+            ? $localize`:@@toast.members.lastAdmin:Cannot change the last administrator's role.`
+            : $localize`:@@toast.members.changeError:Could not change the role.`
+        );
       }
     });
   }
