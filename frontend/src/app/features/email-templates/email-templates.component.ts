@@ -5,12 +5,19 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../shared/ui/toast.service';
 
 /**
  * Admin/Recruiter "Email templates" surface (F21, the §II demonstrable leg): list the message types,
  * edit subject/body, apply a tone preset, lock/unlock (Admin), reset to default, and preview a rendered
  * message with sample merge values. A LOCKED template disables the edit controls for a Recruiter (the
  * server is the real boundary — 403). All strings via $localize. Sending is F22 (not here).
+ *
+ * Phase 3b (workbench overhaul): `reset` and `send` are gated behind the shared `ConfirmDialogService`
+ * (⚠ danger); `setLock` is gated only when locking (unlocking proceeds immediately). Outcomes for
+ * save/applyTone/reset/setLock/send are surfaced via `ToastService`; the old dedicated `sendStatus`/
+ * `sendError` signals (and their markup) are removed in favour of toasts.
  */
 @Component({
   selector: 'app-email-templates',
@@ -93,12 +100,6 @@ import { SkeletonComponent } from '../../shared/ui/skeleton.component';
             </label>
             <button type="button" class="btn btn--primary" (click)="send(p)" [disabled]="sending() || !sendCandidateId.trim()"
                     i18n="@@et.sendbtn">Send to candidate</button>
-            @if (sendStatus(); as s) {
-              <p role="status" class="sent alert alert--ok" i18n="@@et.sendok">Email {{ s }} for candidate.</p>
-            }
-            @if (sendError(); as se) {
-              <p role="alert" class="error alert alert--danger">{{ se }}</p>
-            }
           </div>
         }
       </section>
@@ -113,6 +114,8 @@ import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 })
 export class EmailTemplatesComponent implements OnInit {
   private readonly service = inject(EmailTemplatesService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   /** Set by the host/shell; defaults true so an Admin sees lock controls. The server is the boundary. */
   isAdmin = true;
@@ -126,8 +129,6 @@ export class EmailTemplatesComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly sending = signal(false);
-  readonly sendStatus = signal<string | null>(null);
-  readonly sendError = signal<string | null>(null);
 
   subject = '';
   body = '';
@@ -166,35 +167,75 @@ export class EmailTemplatesComponent implements OnInit {
     this.error.set(null);
     this.service.edit(t.messageType, { stageKey: t.stageKey, subject: this.subject, body: this.body, expectedVersion: t.version })
       .subscribe({
-        next: () => { this.saving.set(false); this.editing.set(null); this.load(); },
-        error: () => { this.saving.set(false); this.error.set($localize`:@@et.saveErr:Could not save the template.`); }
+        next: () => {
+          this.saving.set(false);
+          this.editing.set(null);
+          this.load();
+          this.toast.success($localize`:@@toast.et.saved:Template saved.`);
+        },
+        error: () => {
+          this.saving.set(false);
+          this.toast.error($localize`:@@toast.et.saveErr:Could not save the template.`);
+        }
       });
   }
 
   applyTone(t: EmailTemplate, tone: string): void {
     this.service.applyTone(t.messageType, { stageKey: t.stageKey, tone, expectedVersion: t.version }).subscribe({
-      next: (u) => { this.subject = u.subject; this.body = u.body; this.editing.set(u); this.load(); },
-      error: () => this.error.set($localize`:@@et.toneErr:Could not apply the tone preset.`)
+      next: (u) => {
+        this.subject = u.subject;
+        this.body = u.body;
+        this.editing.set(u);
+        this.load();
+        this.toast.success($localize`:@@toast.et.toneApplied:Tone applied.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.et.toneErr:Could not apply the tone preset.`)
     });
   }
 
-  reset(t: EmailTemplate): void {
+  async reset(t: EmailTemplate): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.et.reset.title:Reset to default?`,
+      body: $localize`:@@confirm.et.reset.body:Your customized subject and body will be discarded.`,
+      confirmLabel: $localize`:@@confirm.et.reset.cta:Reset to default`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.service.reset(t.messageType, { stageKey: t.stageKey, expectedVersion: t.version }).subscribe({
-      next: () => { this.editing.set(null); this.load(); },
-      error: () => this.error.set($localize`:@@et.resetErr:Could not reset the template.`)
+      next: () => {
+        this.editing.set(null);
+        this.load();
+        this.toast.success($localize`:@@toast.et.reset:Template reset to default.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.et.resetErr:Could not reset the template.`)
     });
   }
 
-  setLock(t: EmailTemplate, lock: boolean): void {
+  /** Confirm-gated only when LOCKING (the consequential direction); unlocking proceeds immediately. */
+  async setLock(t: EmailTemplate, lock: boolean): Promise<void> {
+    if (lock) {
+      const ok = await this.confirm.confirm({
+        title: $localize`:@@confirm.et.lock.title:Lock this template?`,
+        body: $localize`:@@confirm.et.lock.body:Recruiters will no longer be able to edit it.`,
+        confirmLabel: $localize`:@@confirm.et.lock.cta:Lock`
+      });
+      if (!ok) { return; }
+    }
     const call = lock
       ? this.service.lock(t.messageType, { stageKey: t.stageKey, expectedVersion: t.version })
       : this.service.unlock(t.messageType, { stageKey: t.stageKey, expectedVersion: t.version });
-    call.subscribe({ next: () => this.load(), error: () => this.error.set($localize`:@@et.lockErr:Could not change the lock.`) });
+    call.subscribe({
+      next: () => {
+        this.load();
+        this.toast.success(lock
+          ? $localize`:@@toast.et.locked:Template locked.`
+          : $localize`:@@toast.et.unlocked:Template unlocked.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.et.lockErr:Could not change the lock.`)
+    });
   }
 
   preview(t: EmailTemplate): void {
-    this.sendStatus.set(null);
-    this.sendError.set(null);
     this.service.preview(t.messageType, { stageKey: t.stageKey, sampleValues: this.sampleValues() }).subscribe({
       next: (r) => { this.rendered.set(r); this.previewing.set(t); },
       error: () => this.error.set($localize`:@@et.previewErr:Could not render the preview.`)
@@ -206,16 +247,24 @@ export class EmailTemplatesComponent implements OnInit {
    * consent gate; a 409 not_contactable shows the value-free reason, a 404 a not-found message. The server
    * is the boundary — this is the recruiter trigger only.
    */
-  send(t: EmailTemplate): void {
+  async send(t: EmailTemplate): Promise<void> {
     const candidateId = this.sendCandidateId.trim();
     if (!candidateId) return;
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.et.send.title:Send this email?`,
+      body: $localize`:@@confirm.et.send.body:This sends the previewed message to candidate ${candidateId}:candidateId: now.`,
+      confirmLabel: $localize`:@@confirm.et.send.cta:Send email`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.sending.set(true);
-    this.sendStatus.set(null);
-    this.sendError.set(null);
     this.service.sendToCandidate(candidateId,
       { messageType: t.messageType, stageKey: t.stageKey, sampleValues: this.sampleValues() }).subscribe({
-        next: (r) => { this.sending.set(false); this.sendStatus.set(r.status); },
-        error: (e: HttpErrorResponse) => { this.sending.set(false); this.sendError.set(this.sendErrorMessage(e)); }
+        next: (r) => {
+          this.sending.set(false);
+          this.toast.success($localize`:@@toast.et.sent:Email ${r.status}:status: for candidate.`);
+        },
+        error: (e: HttpErrorResponse) => { this.sending.set(false); this.toast.error(this.sendErrorMessage(e)); }
       });
   }
 
