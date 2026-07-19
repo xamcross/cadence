@@ -1,9 +1,10 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { provideRouter } from '@angular/router';
 import { PipelineListComponent } from './pipeline-list.component';
 import { PipelineService, PipelinePage } from './pipeline.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 function page(): PipelinePage {
@@ -79,6 +80,75 @@ describe('PipelineListComponent', () => {
     cmp.toggle('c1');
     cmp.sendUpdateEmail();
     expect(pipeline.bulk).toHaveBeenCalledWith('SEND_UPDATE_EMAIL', ['c1']);
+  });
+
+  describe('bulk-action summary toast', () => {
+    it('toasts a success summary when every candidate sends', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [
+          { candidateId: 'c1', outcome: 'SENT', reason: null },
+          { candidateId: 'c2', outcome: 'ENQUEUED', reason: null }
+        ]
+      }));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      const errorToastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.toggle('c2');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+      expect(errorToastSpy).not.toHaveBeenCalled();
+    });
+
+    it('toasts a mixed summary (n sent, m failed) as an error when some are skipped', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [
+          { candidateId: 'c1', outcome: 'SENT', reason: null },
+          { candidateId: 'c2', outcome: 'SKIPPED', reason: 'no email on file' }
+        ]
+      }));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.toggle('c2');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+      const message = toastSpy.calls.mostRecent().args[0] as string;
+      expect(message).toContain('1');
+    });
+
+    it('toasts an error summary when every candidate is skipped', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [{ candidateId: 'c1', outcome: 'SKIPPED', reason: 'no email on file' }]
+      }));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error when the bulk request itself fails', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(throwError(() => ({ status: 500 })));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+      expect(fixture.componentInstance.error()).toBeTrue();
+    });
+
+    it('keeps rendering the existing per-candidate bulkResults detail list', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [{ candidateId: 'c1', outcome: 'SENT', reason: null }]
+      }));
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.sendUpdateEmail();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.bulkResults()).toEqual([{ candidateId: 'c1', outcome: 'SENT', reason: null }]);
+      expect(fixture.nativeElement.querySelector('.bulk-results')).not.toBeNull();
+    });
   });
 
   it('re-queries when a filter changes', () => {

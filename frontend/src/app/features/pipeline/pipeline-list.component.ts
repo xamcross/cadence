@@ -8,6 +8,7 @@ import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { TableScrollComponent } from '../../shared/ui/table-scroll.component';
+import { ToastService } from '../../shared/ui/toast.service';
 import {
   BulkResult, PipelineListQuery, PipelineRow, PipelineService, PipelineSort, PipelineStatusFilter,
   SchedulingStatus, SlaState
@@ -19,6 +20,10 @@ import {
  * (Admin/Recruiter only), and a per-row link to the candidate timeline. Refreshes on a 60s poll (FR-006). All
  * server-side scoping (HM -> assigned requisitions) is enforced by the backend; the UI never receives out-of-scope
  * rows. All strings $localize.
+ *
+ * Phase 3b (workbench overhaul): a bulk action's outcome is summarized as a single `ToastService` call (success
+ * when every candidate sent; error naming the failed count otherwise), on top of the existing per-candidate
+ * `bulkResults` detail list. No confirm-gate (the button IS the bulk send).
  */
 @Component({
   selector: 'app-pipeline-list',
@@ -33,6 +38,7 @@ import {
 export class PipelineListComponent implements OnInit, OnDestroy {
   private readonly pipeline = inject(PipelineService);
   private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
   private poll?: Subscription;
 
   readonly rows = signal<PipelineRow[]>([]);
@@ -54,6 +60,7 @@ export class PipelineListComponent implements OnInit, OnDestroy {
   readonly errorMsg = $localize`:@@pipeline.error:Could not load the pipeline. Try again.`;
   readonly truncatedMsg = $localize`:@@pipeline.truncated:Showing the first results only - narrow the filters to see more`;
   readonly sendUpdate = $localize`:@@pipeline.bulk.update:Send update email`;
+  private readonly bulkFailedMsg = $localize`:@@toast.pipeline.bulk.failed:Could not send the bulk update. Please try again.`;
 
   ngOnInit(): void {
     this.auth.me().subscribe({
@@ -88,9 +95,28 @@ export class PipelineListComponent implements OnInit, OnDestroy {
     if (ids.length === 0) { return; }
     this.bulkResults.set(null);
     this.pipeline.bulk('SEND_UPDATE_EMAIL', ids).subscribe({
-      next: (r) => { this.bulkResults.set(r.results); this.selected.set(new Set()); this.load(); },
-      error: () => this.error.set(true)
+      next: (r) => {
+        this.bulkResults.set(r.results);
+        this.selected.set(new Set());
+        this.load();
+        this.toastBulkSummary(r.results);
+      },
+      error: () => {
+        this.error.set(true);
+        this.toast.error(this.bulkFailedMsg);
+      }
     });
+  }
+
+  /** Summarize a bulk action's per-candidate outcomes as a single toast (SKIPPED counts as a failure). */
+  private toastBulkSummary(results: BulkResult[]): void {
+    const failed = results.filter((r) => r.outcome === 'SKIPPED').length;
+    const sent = results.length - failed;
+    if (failed === 0) {
+      this.toast.success($localize`:@@toast.pipeline.bulk.allSent:${sent}:n: sent.`);
+    } else {
+      this.toast.error($localize`:@@toast.pipeline.bulk.summary:${sent}:sent: sent, ${failed}:failed: failed.`);
+    }
   }
 
   private query(): PipelineListQuery {
