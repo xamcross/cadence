@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { SchedulingComponent } from './scheduling.component';
 import {
@@ -9,6 +9,7 @@ import {
   StatusResponse
 } from './scheduling.service';
 import { ActionResult, CandidateSla, DraftPreview, SlaNudgeService } from './sla-nudge.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 /**
  * F13 US1 (§II): the recruiter surface sends a link (happy path), surfaces a 409 not-contactable, and
@@ -45,6 +46,45 @@ describe('SchedulingComponent', () => {
     const fixture = TestBed.createComponent(SchedulingComponent);
     return fixture.componentInstance;
   }
+
+  /** Renders the component (setup() above only ever returns the bare instance) for masthead/axe assertions. */
+  function setupFixture(): ComponentFixture<SchedulingComponent> {
+    const stub: Partial<SchedulingService> = { initiate: () => of(initiated), status: () => of(sentStatus) };
+    const slaStub: Partial<SlaNudgeService> = {
+      getSla: () => of({ candidateId: 'cand1', slaState: 'GREEN', lastActivityAt: null, openDraftId: null }),
+      previewDraft: () => of({ messageType: 'SLA_HOLDING', subject: 's', body: 'b', missingFields: [] }),
+      approve: () => of({ draftId: 'd1', result: 'SENT_ENQUEUED' }),
+      dismiss: () => of({ draftId: 'd1', result: 'DISMISSED' })
+    };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [SchedulingComponent],
+      providers: [
+        { provide: SchedulingService, useValue: stub },
+        { provide: SlaNudgeService, useValue: slaStub }
+      ]
+    });
+    return TestBed.createComponent(SchedulingComponent);
+  }
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setupFixture();
+    const el = fixture.nativeElement as HTMLElement;
+    attachToBody(el);
+    fixture.detectChanges();
+    expect(el.querySelector('app-page-header .page__head h1')).not.toBeNull();
+    detachFromBody(el);
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setupFixture();
+    const el = fixture.nativeElement as HTMLElement;
+    attachToBody(el);
+    fixture.detectChanges();
+    const violations = await axeViolations(el);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+    detachFromBody(el);
+  });
 
   it('sends a link and shows the offered-slot count', () => {
     const c = setup(() => of(initiated));

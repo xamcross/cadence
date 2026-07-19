@@ -11,6 +11,7 @@ import {
   StatusResponse
 } from './scheduling.service';
 import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nudge.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 
 /**
  * F13 recruiter "Send scheduling link" surface (§II demonstrable leg). Minimal by design — the full
@@ -20,10 +21,14 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
 @Component({
   selector: 'app-scheduling',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   template: `
     <section class="scheduling">
-      <h1 i18n="@@scheduling.title">Send scheduling link</h1>
+      <app-page-header
+        eyebrow="Your work" i18n-eyebrow="@@scheduling.eyebrow"
+        heading="Send scheduling link" i18n-heading="@@scheduling.title"
+        subtitle="Invite a candidate to self-schedule an interview." i18n-subtitle="@@scheduling.subtitle">
+      </app-page-header>
 
       <form (ngSubmit)="send()" #f="ngForm">
         <label class="field" i18n="@@scheduling.candidate">Candidate ID
