@@ -1,19 +1,31 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import.service';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { TableScrollComponent } from '../../../shared/ui/table-scroll.component';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 
 /**
  * F42 standalone CSV import admin screen (US1/US2/US3). Upload a CSV, poll the async job status (counts +
  * per-row results), and resolve flagged duplicates with merge/skip. Internal Admin/Recruiter screen — no
  * candidate PII surface, no WCAG/Lighthouse gate (the F50/F51 internal-screen precedent). All strings $localize.
+ *
+ * Phase 3b (workbench overhaul): `resolveAll('SKIP')` is gated behind the shared `ConfirmDialogService` (light,
+ * non-danger — a skip is recoverable by re-importing). `resolveAll('MERGE')` and per-row actions stay ungated.
+ * Upload and resolve outcomes are surfaced via `ToastService`.
  */
 @Component({
   selector: 'app-csv-import',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PageHeaderComponent, TableScrollComponent],
   template: `
     <section class="csv-import">
-      <h1>{{ title }}</h1>
+      <app-page-header
+        eyebrow="Your work" i18n-eyebrow="@@csv.eyebrow"
+        heading="Import candidates from CSV" i18n-heading="@@csv.title"
+        subtitle="Bulk-add candidates from a CSV file." i18n-subtitle="@@csv.subtitle">
+      </app-page-header>
 
       <form class="upload" (submit)="$event.preventDefault()">
         <label for="csvFile">{{ chooseLabel }}</label>
@@ -34,24 +46,26 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
         </ul>
         <p *ngIf="j.rejectionReason" class="error alert alert--danger" role="alert">{{ rejectedFileLabel }} {{ j.rejectionReason }}</p>
 
-        <table class="rows table" *ngIf="j.rowResults.length">
-          <thead>
-            <tr><th>{{ rowLabel }}</th><th>{{ outcomeLabel }}</th><th>{{ detailLabel }}</th></tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let r of j.rowResults">
-              <td class="num">{{ r.rowNumber }}</td>
-              <td>{{ r.status }}</td>
-              <td>
-                <span *ngIf="r.reason">{{ r.failingField }}: {{ r.reason }}</span>
-                <span *ngIf="r.status === 'DUPLICATE_PENDING'" class="dup-actions">
-                  <button type="button" class="btn btn--outline btn--sm" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
-                  <button type="button" class="btn btn--ghost btn--sm" (click)="resolveRow(r.rowNumber, 'SKIP')" [disabled]="busy()">{{ skipLabel }}</button>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <app-table-scroll ariaLabel="Import results" i18n-ariaLabel="@@csv.tableLabel" *ngIf="j.rowResults.length">
+          <table class="rows table table--stack">
+            <thead>
+              <tr><th>{{ rowLabel }}</th><th>{{ outcomeLabel }}</th><th>{{ detailLabel }}</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of j.rowResults">
+                <td class="num" [attr.data-label]="rowLabel">{{ r.rowNumber }}</td>
+                <td [attr.data-label]="outcomeLabel">{{ r.status }}</td>
+                <td [attr.data-label]="detailLabel">
+                  <span *ngIf="r.reason">{{ r.failingField }}: {{ r.reason }}</span>
+                  <span *ngIf="r.status === 'DUPLICATE_PENDING'" class="dup-actions">
+                    <button type="button" class="btn btn--outline btn--sm" (click)="resolveRow(r.rowNumber, 'MERGE')" [disabled]="busy()">{{ mergeLabel }}</button>
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="resolveRow(r.rowNumber, 'SKIP')" [disabled]="busy()">{{ skipLabel }}</button>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </app-table-scroll>
 
         <div class="bulk" *ngIf="j.duplicatePendingCount > 0">
           <button type="button" class="btn btn--outline" (click)="resolveAll('MERGE')" [disabled]="busy()">{{ mergeAllLabel }}</button>
@@ -64,8 +78,9 @@ import { CsvImportService, ImportJobStatus, ResolveDecision } from './csv-import
 })
 export class CsvImportComponent {
   private readonly api = inject(CsvImportService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
-  readonly title = $localize`:@@csv.title:Import candidates from CSV`;
   readonly chooseLabel = $localize`:@@csv.choose:Choose a CSV file`;
   readonly uploadLabel = $localize`:@@csv.upload:Upload`;
   readonly statusLabel = $localize`:@@csv.status:Status:`;
@@ -83,6 +98,9 @@ export class CsvImportComponent {
   readonly mergeAllLabel = $localize`:@@csv.mergeAll:Merge all`;
   readonly skipAllLabel = $localize`:@@csv.skipAll:Skip all`;
   private readonly uploadFailed = $localize`:@@csv.uploadFailed:Upload failed — check the file and try again.`;
+  private readonly uploadedNote = $localize`:@@toast.csv.uploaded:File uploaded — processing started.`;
+  private readonly resolvedNote = $localize`:@@toast.csv.resolved:Duplicate resolved.`;
+  private readonly resolveFailedNote = $localize`:@@toast.csv.resolveFailed:Could not resolve the duplicate. Please try again.`;
 
   readonly file = signal<File | null>(null);
   readonly job = signal<ImportJobStatus | null>(null);
@@ -104,9 +122,13 @@ export class CsvImportComponent {
     this.busy.set(true);
     this.error.set(null);
     this.api.upload(f).subscribe({
-      next: (a) => this.poll(a.jobId),
+      next: (a) => {
+        this.toast.success(this.uploadedNote);
+        this.poll(a.jobId);
+      },
       error: () => {
         this.error.set(this.uploadFailed);
+        this.toast.error(this.uploadFailed);
         this.busy.set(false);
       }
     });
@@ -133,7 +155,18 @@ export class CsvImportComponent {
     this.sendResolve([{ rowNumber, action }], undefined);
   }
 
-  resolveAll(action: 'MERGE' | 'SKIP'): void {
+  async resolveAll(action: 'MERGE' | 'SKIP'): Promise<void> {
+    if (action === 'SKIP') {
+      const n = this.job()?.duplicatePendingCount ?? 0;
+      const ok = await this.confirm.confirm({
+        title: $localize`:@@confirm.csv.skipAll.title:Skip all duplicates?`,
+        body: $localize`:@@confirm.csv.skipAll.body:${n}:n: candidates will not be imported.`,
+        confirmLabel: $localize`:@@confirm.csv.skipAll.cta:Skip all`
+      });
+      if (!ok) {
+        return;
+      }
+    }
     this.sendResolve([], action);
   }
 
@@ -147,8 +180,12 @@ export class CsvImportComponent {
       next: (s) => {
         this.job.set(s);
         this.busy.set(false);
+        this.toast.success(this.resolvedNote);
       },
-      error: () => this.busy.set(false)
+      error: () => {
+        this.busy.set(false);
+        this.toast.error(this.resolveFailedNote);
+      }
     });
   }
 }

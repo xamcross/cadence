@@ -1,6 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AvailabilityPreview, CalendarService, ConnectionRow } from './calendar.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../shared/ui/toast.service';
 
 interface ProviderDef {
   id: string; // path segment: google | microsoft
@@ -12,18 +15,22 @@ interface ProviderDef {
  * Member-self "Calendar connections" surface (F01.1). Any authenticated role (authGuard only).
  * Connect performs a FULL-PAGE navigation to the provider authorize URL (so the callback is a
  * top-level GET carrying the SameSite=Lax session cookie) — NOT the Angular Router. On return the
- * provider redirects to ?connected=... or ?error=..., which is read here and shown as a banner.
+ * provider redirects to ?connected=... or ?error=..., which is read here and surfaced as a toast.
+ *
+ * Phase 3b (workbench overhaul): the old inline `confirmingDisconnect` 2-step confirm is replaced with the
+ * shared `ConfirmDialogService` (⚠ danger) on `disconnect(p)`. The typed `banner` signal is removed —
+ * every outcome is a `ToastService` call.
  */
 @Component({
   selector: 'app-calendar-connections',
   standalone: true,
+  imports: [PageHeaderComponent],
   template: `
-    <h1 i18n="@@calendar.title">Calendar connections</h1>
-
-    @if (banner(); as b) {
-      <p role="alert" class="alert" [class.error]="b.type === 'error'" [class.success]="b.type === 'success'"
-         [class.alert--danger]="b.type === 'error'" [class.alert--ok]="b.type === 'success'">{{ b.text }}</p>
-    }
+    <app-page-header
+      eyebrow="Personal" i18n-eyebrow="@@calendar.eyebrow"
+      heading="Calendar connections" i18n-heading="@@calendar.title"
+      subtitle="Connect Google or Microsoft for availability." i18n-subtitle="@@calendar.subtitle">
+    </app-page-header>
 
     <ul class="providers">
       @for (p of providers; track p.id) {
@@ -36,13 +43,7 @@ interface ProviderDef {
                       i18n="@@calendar.reconnect">Reconnect</button>
             } @else {
               <span class="status connected badge badge--ok" i18n="@@calendar.connectedAs">Connected as {{ row.connectedAccount }}</span>
-              @if (confirmingDisconnect() === p.id) {
-                <span i18n="@@calendar.confirmDisconnect">Disconnect this calendar?</span>
-                <button type="button" class="btn btn--danger btn--sm" (click)="disconnect(p)" i18n="@@calendar.confirmYes">Yes, disconnect</button>
-                <button type="button" class="btn btn--ghost btn--sm" (click)="confirmingDisconnect.set(null)" i18n="@@calendar.cancel">Cancel</button>
-              } @else {
-                <button type="button" class="btn btn--danger-soft btn--sm" (click)="confirmingDisconnect.set(p.id)" i18n="@@calendar.disconnect">Disconnect</button>
-              }
+              <button type="button" class="btn btn--danger-soft btn--sm" (click)="disconnect(p)" i18n="@@calendar.disconnect">Disconnect</button>
             }
           } @else {
             <span class="status notconnected badge" i18n="@@calendar.notConnected">Not connected</span>
@@ -89,6 +90,8 @@ interface ProviderDef {
 export class CalendarConnectionsComponent implements OnInit {
   private readonly calendar = inject(CalendarService);
   private readonly route = inject(ActivatedRoute);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly providers: ProviderDef[] = [
     { id: 'google', enumName: 'GOOGLE', label: 'Google Calendar' },
@@ -97,8 +100,6 @@ export class CalendarConnectionsComponent implements OnInit {
 
   readonly connections = signal<ConnectionRow[]>([]);
   readonly starting = signal<string | null>(null);
-  readonly confirmingDisconnect = signal<string | null>(null);
-  readonly banner = signal<{ type: 'success' | 'error'; text: string } | null>(null);
   readonly preview = signal<AvailabilityPreview | null>(null);
   readonly previewing = signal(false);
 
@@ -107,9 +108,9 @@ export class CalendarConnectionsComponent implements OnInit {
     const connected = q.get('connected');
     const error = q.get('error');
     if (connected) {
-      this.banner.set({ type: 'success', text: $localize`:@@calendar.banner.connected:Your calendar is now connected.` });
+      this.toast.success($localize`:@@toast.calendar.connected:Your calendar is now connected.`);
     } else if (error) {
-      this.banner.set({ type: 'error', text: this.errorMessage(error) });
+      this.toast.error(this.errorMessage(error));
     }
     this.load();
   }
@@ -125,18 +126,27 @@ export class CalendarConnectionsComponent implements OnInit {
       next: (r) => (window.location.href = r.authorizationUrl),
       error: () => {
         this.starting.set(null);
-        this.banner.set({ type: 'error', text: $localize`:@@calendar.banner.startFailed:Could not start the connection. Please try again.` });
+        this.toast.error($localize`:@@toast.calendar.startFailed:Could not start the connection. Please try again.`);
       }
     });
   }
 
-  disconnect(p: ProviderDef): void {
+  async disconnect(p: ProviderDef): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.calendar.disconnect.title:Disconnect ${p.label}:label:?`,
+      body: $localize`:@@confirm.calendar.disconnect.body:Cadence will stop reading your availability from ${p.label}:label: until you reconnect.`,
+      confirmLabel: $localize`:@@confirm.calendar.disconnect.cta:Disconnect`,
+      danger: true
+    });
+    if (!ok) {
+      return;
+    }
     this.calendar.disconnect(p.id).subscribe({
       next: () => {
-        this.confirmingDisconnect.set(null);
+        this.toast.success($localize`:@@toast.calendar.disconnected:${p.label}:label: disconnected.`);
         this.load();
       },
-      error: () => this.banner.set({ type: 'error', text: $localize`:@@calendar.banner.disconnectFailed:Could not disconnect. Please try again.` })
+      error: () => this.toast.error($localize`:@@toast.calendar.disconnectFailed:Could not disconnect ${p.label}:label:.`)
     });
   }
 
@@ -149,7 +159,7 @@ export class CalendarConnectionsComponent implements OnInit {
       },
       error: () => {
         this.previewing.set(false);
-        this.banner.set({ type: 'error', text: $localize`:@@calendar.banner.previewFailed:Could not load your availability. Please try again.` });
+        this.toast.error($localize`:@@toast.calendar.previewFailed:Could not load your availability. Please try again.`);
       }
     });
   }

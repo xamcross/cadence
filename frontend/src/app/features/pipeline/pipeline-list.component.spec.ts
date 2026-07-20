@@ -1,9 +1,11 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { provideRouter } from '@angular/router';
 import { PipelineListComponent } from './pipeline-list.component';
 import { PipelineService, PipelinePage } from './pipeline.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../shared/ui/toast.service';
+import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
 
 function page(): PipelinePage {
   return {
@@ -17,14 +19,19 @@ function page(): PipelinePage {
   };
 }
 
+function emptyPage(): PipelinePage {
+  return { rows: [], page: 0, size: 50, totalInScope: 0, filteredCount: 0, truncated: false };
+}
+
 describe('PipelineListComponent', () => {
   let pipeline: { list: jasmine.Spy; bulk: jasmine.Spy; timeline: jasmine.Spy };
   let auth: { me: jasmine.Spy };
+  let attachedEls: HTMLElement[] = [];
 
-  function setup(role = 'RECRUITER'): ComponentFixture<PipelineListComponent> {
+  function setup(role = 'RECRUITER', listResult = of(page())): ComponentFixture<PipelineListComponent> {
     TestBed.resetTestingModule();
     pipeline = {
-      list: jasmine.createSpy('list').and.returnValue(of(page())),
+      list: jasmine.createSpy('list').and.returnValue(listResult),
       bulk: jasmine.createSpy('bulk').and.returnValue(of({ results: [] })),
       timeline: jasmine.createSpy('timeline')
     };
@@ -38,9 +45,17 @@ describe('PipelineListComponent', () => {
       ]
     });
     const fixture = TestBed.createComponent(PipelineListComponent);
+    const el = fixture.nativeElement as HTMLElement;
+    attachedEls.push(el);
+    attachToBody(el);
     fixture.detectChanges();
     return fixture;
   }
+
+  afterEach(() => {
+    attachedEls.forEach(detachFromBody);
+    attachedEls = [];
+  });
 
   it('loads and renders the pipeline rows', () => {
     const fixture = setup();
@@ -67,11 +82,113 @@ describe('PipelineListComponent', () => {
     expect(pipeline.bulk).toHaveBeenCalledWith('SEND_UPDATE_EMAIL', ['c1']);
   });
 
+  describe('bulk-action summary toast', () => {
+    it('toasts a success summary when every candidate sends', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [
+          { candidateId: 'c1', outcome: 'SENT', reason: null },
+          { candidateId: 'c2', outcome: 'ENQUEUED', reason: null }
+        ]
+      }));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      const errorToastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.toggle('c2');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+      expect(errorToastSpy).not.toHaveBeenCalled();
+    });
+
+    it('toasts a mixed summary (n sent, m failed) as an error when some are skipped', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [
+          { candidateId: 'c1', outcome: 'SENT', reason: null },
+          { candidateId: 'c2', outcome: 'SKIPPED', reason: 'no email on file' }
+        ]
+      }));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.toggle('c2');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+      const message = toastSpy.calls.mostRecent().args[0] as string;
+      expect(message).toContain('1');
+    });
+
+    it('toasts an error summary when every candidate is skipped', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [{ candidateId: 'c1', outcome: 'SKIPPED', reason: 'no email on file' }]
+      }));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error when the bulk request itself fails', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(throwError(() => ({ status: 500 })));
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.sendUpdateEmail();
+      expect(toastSpy).toHaveBeenCalled();
+      expect(fixture.componentInstance.error()).toBeTrue();
+    });
+
+    it('keeps rendering the existing per-candidate bulkResults detail list', () => {
+      const fixture = setup('RECRUITER');
+      pipeline.bulk.and.returnValue(of({
+        results: [{ candidateId: 'c1', outcome: 'SENT', reason: null }]
+      }));
+      fixture.componentInstance.toggle('c1');
+      fixture.componentInstance.sendUpdateEmail();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.bulkResults()).toEqual([{ candidateId: 'c1', outcome: 'SENT', reason: null }]);
+      expect(fixture.nativeElement.querySelector('.bulk-results')).not.toBeNull();
+    });
+  });
+
   it('re-queries when a filter changes', () => {
     const fixture = setup('RECRUITER');
     pipeline.list.calls.reset();
     fixture.componentInstance.sla = 'RED';
     fixture.componentInstance.applyFilters();
     expect(pipeline.list).toHaveBeenCalledWith(jasmine.objectContaining({ sla: 'RED' }));
+  });
+
+  it('renders the shared page-header masthead', () => {
+    const fixture = setup();
+    expect(fixture.nativeElement.querySelector('app-page-header .page__head h1')).not.toBeNull();
+  });
+
+  it('wraps the table in the shared table-scroll region', () => {
+    const fixture = setup();
+    expect(fixture.nativeElement.querySelector('app-table-scroll table.table')).not.toBeNull();
+  });
+
+  it('renders a responsive card-fallback table (table--stack + per-cell data-label)', () => {
+    const fixture = setup();
+    const table = fixture.nativeElement.querySelector('table.table');
+    expect(table?.classList.contains('table--stack')).toBe(true);
+    const td = fixture.nativeElement.querySelector('tbody td') as HTMLElement | null;
+    expect(td?.getAttribute('data-label')).toBeTruthy();
+  });
+
+  it('shows the guided empty-state with an import CTA when there are no matching candidates', () => {
+    const fixture = setup('RECRUITER', of(emptyPage()));
+    const empty = fixture.nativeElement.querySelector('app-empty-state');
+    expect(empty).not.toBeNull();
+    const cta = empty!.querySelector('a[routerLink="/admin/csv-import"]') as HTMLAnchorElement | null;
+    expect(cta).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('table.table')).toBeNull();
+  });
+
+  it('has zero axe WCAG 2.2 AA violations', async () => {
+    const fixture = setup();
+    const violations = await axeViolations(fixture.nativeElement);
+    expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
   });
 });

@@ -1,4 +1,8 @@
-<h1>{{ title }}</h1>
+<app-page-header
+  eyebrow="Your work" i18n-eyebrow="@@pipeline.eyebrow"
+  [heading]="title"
+  subtitle="Your working candidate list across every stage." i18n-subtitle="@@pipeline.subtitle">
+</app-page-header>
 
 <section class="filters toolbar">
   <label class="field">
@@ -63,39 +67,47 @@
   <p class="truncated alert alert--warn">{{ truncatedMsg }}</p>
 }
 
-@if (rows().length === 0 && !loading()) {
-  <p class="empty">{{ emptyMsg }}</p>
+@if (loading()) {
+  <app-skeleton variant="table" />
+} @else if (rows().length === 0) {
+  <app-empty-state
+    heading="No matching candidates" i18n-heading="@@pipeline.empty.heading"
+    body="Try widening your filters, or import candidates to get started." i18n-body="@@pipeline.empty.body">
+    <a class="btn btn--primary" routerLink="/admin/csv-import" i18n="@@pipeline.empty.cta">Import candidates</a>
+  </app-empty-state>
 } @else {
-  <table class="table">
-    <thead>
-      <tr>
-        @if (canBulk()) { <th i18n="@@pipeline.col.select">Select</th> }
-        <th i18n="@@pipeline.col.name">Candidate</th>
-        <th i18n="@@pipeline.col.stage">Stage</th>
-        <th i18n="@@pipeline.col.sla">SLA</th>
-        <th i18n="@@pipeline.col.scheduling">Scheduling</th>
-        <th i18n="@@pipeline.col.requisition">Requisition</th>
-        <th i18n="@@pipeline.col.timeline">Timeline</th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (row of rows(); track row.candidateId) {
+  <app-table-scroll ariaLabel="Candidates" i18n-ariaLabel="@@pipeline.tableLabel">
+    <table class="table table--stack">
+      <thead>
         <tr>
-          @if (canBulk()) {
-            <td><input type="checkbox" [checked]="isSelected(row.candidateId)" (change)="toggle(row.candidateId)"
-                       [attr.aria-label]="row.name" /></td>
-          }
-          <td>{{ row.name }}</td>
-          <td>{{ row.stage }}</td>
-          <td><span class="sla badge" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
-                    [class.green]="row.slaState === 'GREEN'"
-                    [class.badge--danger]="row.slaState === 'RED'" [class.badge--warn]="row.slaState === 'AMBER'"
-                    [class.badge--ok]="row.slaState === 'GREEN'">{{ row.slaState }}</span></td>
-          <td>{{ row.schedulingStatus }}</td>
-          <td>{{ row.requisitionTitle || '-' }}</td>
-          <td><a [routerLink]="['/pipeline/candidate', row.candidateId, 'timeline']" i18n="@@pipeline.viewTimeline">View</a></td>
+          @if (canBulk()) { <th i18n="@@pipeline.col.select">Select</th> }
+          <th i18n="@@pipeline.col.name">Candidate</th>
+          <th i18n="@@pipeline.col.stage">Stage</th>
+          <th i18n="@@pipeline.col.sla">SLA</th>
+          <th i18n="@@pipeline.col.scheduling">Scheduling</th>
+          <th i18n="@@pipeline.col.requisition">Requisition</th>
+          <th i18n="@@pipeline.col.timeline">Timeline</th>
         </tr>
-      }
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.candidateId) {
+          <tr>
+            @if (canBulk()) {
+              <td data-label="Select"><input type="checkbox" [checked]="isSelected(row.candidateId)" (change)="toggle(row.candidateId)"
+                         [attr.aria-label]="row.name" /></td>
+            }
+            <td data-label="Candidate">{{ row.name }}</td>
+            <td data-label="Stage">{{ row.stage }}</td>
+            <td data-label="SLA"><span class="sla badge" [class.red]="row.slaState === 'RED'" [class.amber]="row.slaState === 'AMBER'"
+                      [class.green]="row.slaState === 'GREEN'"
+                      [class.badge--danger]="row.slaState === 'RED'" [class.badge--warn]="row.slaState === 'AMBER'"
+                      [class.badge--ok]="row.slaState === 'GREEN'">{{ row.slaState }}</span></td>
+            <td data-label="Scheduling">{{ row.schedulingStatus }}</td>
+            <td data-label="Requisition">{{ row.requisitionTitle || '-' }}</td>
+            <td data-label="Timeline"><a [routerLink]="['/pipeline/candidate', row.candidateId, 'timeline']" i18n="@@pipeline.viewTimeline">View</a></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </app-table-scroll>
 }

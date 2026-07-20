@@ -3,11 +3,15 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { SeoService } from './core/seo/seo.service';
 import { TopBarComponent } from './features/shell/top-bar.component';
+import { SideNavComponent } from './features/shell/side-nav.component';
+import { BreadcrumbsComponent } from './features/shell/breadcrumbs.component';
+import { ToastHostComponent } from './shared/ui/toast-host.component';
+import { ConfirmDialogComponent } from './shared/ui/confirm-dialog.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, TopBarComponent],
+  imports: [RouterOutlet, TopBarComponent, SideNavComponent, BreadcrumbsComponent, ToastHostComponent, ConfirmDialogComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

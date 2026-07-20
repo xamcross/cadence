@@ -2,6 +2,12 @@
   <a class="skip-link" href="#main-content" i18n="@@app.skip">Skip to content</a>
   <app-top-bar />
 }
-<div id="main-content" tabindex="-1">
-  <router-outlet></router-outlet>
+<div class="app-shell" [class.app-shell--chrome]="showChrome()">
+  @if (showChrome()) { <app-side-nav /> }
+  <div id="main-content" class="app-main" tabindex="-1">
+    @if (showChrome()) { <app-breadcrumbs /> }
+    <router-outlet></router-outlet>
+  </div>
 </div>
+<app-toast-host />
+<app-confirm-dialog />

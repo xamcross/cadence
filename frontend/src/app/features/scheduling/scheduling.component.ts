@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -11,6 +11,12 @@ import {
   StatusResponse
 } from './scheduling.service';
 import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nudge.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../shared/ui/toast.service';
+import { PickerOption, SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { PipelineService } from '../pipeline/pipeline.service';
+import { InterviewTemplatesService } from '../interview-templates/interview-templates.service';
 
 /**
  * F13 recruiter "Send scheduling link" surface (§II demonstrable leg). Minimal by design — the full
@@ -20,18 +26,30 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
 @Component({
   selector: 'app-scheduling',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, SearchPickerComponent],
   template: `
     <section class="scheduling">
-      <h1 i18n="@@scheduling.title">Send scheduling link</h1>
+      <app-page-header
+        eyebrow="Your work" i18n-eyebrow="@@scheduling.eyebrow"
+        heading="Send scheduling link" i18n-heading="@@scheduling.title"
+        subtitle="Invite a candidate to self-schedule an interview." i18n-subtitle="@@scheduling.subtitle">
+      </app-page-header>
 
       <form (ngSubmit)="send()" #f="ngForm">
-        <label class="field" i18n="@@scheduling.candidate">Candidate ID
-          <input class="input" name="candidateId" [(ngModel)]="candidateId" required />
-        </label>
-        <label class="field" i18n="@@scheduling.template">Interview template ID
-          <input class="input" name="templateId" [(ngModel)]="templateId" required />
-        </label>
+        <div class="field">
+          <app-search-picker [options]="candidateOpts()" [value]="candidateId"
+            (valueChange)="candidateId = $event ?? ''"
+            label="Candidate" i18n-label="@@scheduling.candidate.picker.label"
+            placeholder="Search candidates…" i18n-placeholder="@@scheduling.candidate.picker.placeholder">
+          </app-search-picker>
+        </div>
+        <div class="field">
+          <app-search-picker [options]="templateOpts()" [value]="templateId"
+            (valueChange)="templateId = $event ?? ''"
+            label="Interview template" i18n-label="@@scheduling.template.picker.label"
+            placeholder="Search interview templates…" i18n-placeholder="@@scheduling.template.picker.placeholder">
+          </app-search-picker>
+        </div>
         <label class="field" i18n="@@scheduling.location">Location / dial-in (optional)
           <input class="input" name="locationText" [(ngModel)]="locationText" />
         </label>
@@ -48,7 +66,6 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
       <p class="ok alert alert--ok" *ngIf="result() as r" i18n="@@scheduling.sent">
         Link sent — {{ r.offeredSlotCount }} slots offered, expires {{ r.expiresAt }}.
       </p>
-      <p class="err alert alert--danger" *ngIf="error()">{{ error() }}</p>
 
       <div class="status toolbar" *ngIf="candidateId">
         <button type="button" class="btn btn--ghost btn--sm" (click)="refreshStatus()" i18n="@@scheduling.refresh">Refresh status</button>
@@ -65,7 +82,6 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
                   i18n="@@scheduling.release">Release slot</button>
         </ng-container>
       </div>
-      <p class="ok alert alert--ok" *ngIf="manageMsg()" role="status">{{ manageMsg() }}</p>
 
       <!-- F30: candidate Status panel (US2). Recruiter/Admin publishes the honest status the candidate sees
            on /status, mirroring the server validation (in-progress requires stage + next step + date;
@@ -103,7 +119,6 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
         <p class="err alert alert--danger" *ngIf="!statusValid() && statusTouched()" role="status" i18n="@@status.panel.invalid">
           An in-progress status needs a stage, a next step, and an expected date. A concluded status needs a closing message.
         </p>
-        <p class="ok alert alert--ok" *ngIf="statusMsg()" role="status">{{ statusMsg() }}</p>
 
         <div class="status-link toolbar" *ngIf="statusLink()">
           <span class="link-value">{{ statusLink() }}</span>
@@ -144,20 +159,26 @@ import { CandidateSla, DraftPreview, SlaNudgeService, SlaState } from './sla-nud
                     i18n="@@sla.panel.dismiss">Dismiss</button>
           </div>
         </ng-container>
-        <p class="ok alert alert--ok" *ngIf="slaMsg()" role="status">{{ slaMsg() }}</p>
       </div>
     </section>
   `
 })
-export class SchedulingComponent {
+export class SchedulingComponent implements OnInit {
   private readonly api = inject(SchedulingService);
   private readonly slaApi = inject(SlaNudgeService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
+  private readonly pipelineApi = inject(PipelineService);
+  private readonly templatesApi = inject(InterviewTemplatesService);
 
   // F31 SLA nudge panel state.
   readonly sla = signal<CandidateSla | null>(null);
   readonly draftPreview = signal<DraftPreview | null>(null);
   readonly slaBusy = signal(false);
-  readonly slaMsg = signal<string | null>(null);
+
+  // Workbench overhaul phase 5: picker options for the candidate + interview-template combobox fields.
+  readonly candidateOpts = signal<readonly PickerOption[]>([]);
+  readonly templateOpts = signal<readonly PickerOption[]>([]);
 
   candidateId = '';
   templateId = '';
@@ -167,9 +188,7 @@ export class SchedulingComponent {
 
   readonly busy = signal(false);
   readonly result = signal<InitiateResponse | null>(null);
-  readonly error = signal<string | null>(null);
   readonly statusView = signal<StatusResponse | null>(null);
-  readonly manageMsg = signal<string | null>(null);
 
   // F30 candidate-status panel state.
   statusOutcome: StatusOutcome = 'IN_PROGRESS';
@@ -177,12 +196,21 @@ export class SchedulingComponent {
   statusNextStep = '';
   statusExpectedDate = '';
   readonly statusLink = signal<string | null>(null);
-  readonly statusMsg = signal<string | null>(null);
   readonly statusTouched = signal(false);
+
+  ngOnInit(): void {
+    this.pipelineApi.list({ status: 'ACTIVE', size: 1000 }).subscribe({
+      next: (p) => this.candidateOpts.set(p.rows.map((r) => ({ id: r.candidateId, label: r.name, hint: r.stage }))),
+      error: () => this.candidateOpts.set([])
+    });
+    this.templatesApi.list().subscribe({
+      next: (l) => this.templateOpts.set(l.templates.map((t) => ({ id: t.id, label: t.name }))),
+      error: () => this.templateOpts.set([])
+    });
+  }
 
   send(): void {
     this.busy.set(true);
-    this.error.set(null);
     this.result.set(null);
     this.api.initiate(this.candidateId, {
       templateId: this.templateId,
@@ -190,8 +218,13 @@ export class SchedulingComponent {
       rangeStart: this.rangeStart || null,
       rangeEnd: this.rangeEnd || null
     }).subscribe({
-      next: (r) => { this.result.set(r); this.busy.set(false); this.refreshStatus(); },
-      error: (e: HttpErrorResponse) => { this.error.set(this.messageFor(e)); this.busy.set(false); }
+      next: (r) => {
+        this.result.set(r);
+        this.toast.success($localize`:@@toast.scheduling.sent:Scheduling link sent.`);
+        this.busy.set(false);
+        this.refreshStatus();
+      },
+      error: (e: HttpErrorResponse) => { this.toast.error(this.messageFor(e)); this.busy.set(false); }
     });
   }
 
@@ -210,43 +243,54 @@ export class SchedulingComponent {
 
   reschedule(): void {
     this.busy.set(true);
-    this.manageMsg.set(null);
     this.api.reschedule(this.candidateId).subscribe({
       next: () => {
-        this.manageMsg.set($localize`:@@scheduling.rescheduled:Reschedule invitation sent — the booking stays until the candidate picks a new time.`);
+        this.toast.success($localize`:@@toast.scheduling.rescheduled:Reschedule invitation sent — the booking stays until the candidate picks a new time.`);
         this.busy.set(false);
         this.refreshStatus();
       },
-      error: (e: HttpErrorResponse) => { this.manageMsg.set(this.manageError(e)); this.busy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.manageError(e)); this.busy.set(false); }
     });
   }
 
-  cancel(): void {
+  async cancel(): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.scheduling.cancel.title:Cancel this interview?`,
+      body: $localize`:@@confirm.scheduling.cancel.body:The candidate will be notified that their interview is cancelled.`,
+      confirmLabel: $localize`:@@confirm.scheduling.cancel.cta:Cancel interview`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.busy.set(true);
-    this.manageMsg.set(null);
     this.api.cancel(this.candidateId).subscribe({
       next: () => {
-        this.manageMsg.set($localize`:@@scheduling.cancelled:Interview cancelled — the candidate has been notified.`);
+        this.toast.success($localize`:@@toast.scheduling.cancelled:Interview cancelled — the candidate has been notified.`);
         this.busy.set(false);
         this.refreshStatus();
       },
-      error: (e: HttpErrorResponse) => { this.manageMsg.set(this.manageError(e)); this.busy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.manageError(e)); this.busy.set(false); }
     });
   }
 
   /** F23 US2: one-tap release of an unconfirmed slot — frees the slot and notifies the candidate. */
-  release(): void {
+  async release(): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.scheduling.release.title:Release this slot?`,
+      body: $localize`:@@confirm.scheduling.release.body:The booked slot will be released, calendar events removed, and the candidate notified.`,
+      confirmLabel: $localize`:@@confirm.scheduling.release.cta:Release slot`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.busy.set(true);
-    this.manageMsg.set(null);
     this.api.release(this.candidateId).subscribe({
       next: (r) => {
-        this.manageMsg.set(r.cleanupIncomplete
-          ? $localize`:@@scheduling.released.cleanup:Slot released — one calendar event could not be removed and has been flagged for follow-up.`
-          : $localize`:@@scheduling.released:Slot released — the events were removed and the candidate has been notified.`);
+        this.toast.success(r.cleanupIncomplete
+          ? $localize`:@@toast.scheduling.released.cleanup:Slot released — one calendar event could not be removed and has been flagged for follow-up.`
+          : $localize`:@@toast.scheduling.released:Slot released — the events were removed and the candidate has been notified.`);
         this.busy.set(false);
         this.refreshStatus();
       },
-      error: (e: HttpErrorResponse) => { this.manageMsg.set(this.manageError(e)); this.busy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.manageError(e)); this.busy.set(false); }
     });
   }
 
@@ -295,7 +339,6 @@ export class SchedulingComponent {
     this.statusTouched.set(true);
     if (!this.candidateId || !this.statusValid()) { return; }
     this.busy.set(true);
-    this.statusMsg.set(null);
     const req: PublishStatusRequest = {
       outcome: this.statusOutcome,
       stage: this.statusOutcome === 'IN_PROGRESS' ? this.statusStage.trim() : null,
@@ -305,10 +348,10 @@ export class SchedulingComponent {
     this.api.publishStatus(this.candidateId, req).subscribe({
       next: (r: RecruiterStatusResponse) => {
         this.applyStatus(r);
-        this.statusMsg.set($localize`:@@status.panel.published:Status published — the candidate can now see it.`);
+        this.toast.success($localize`:@@toast.status.published:Status published — the candidate can now see it.`);
         this.busy.set(false);
       },
-      error: (e: HttpErrorResponse) => { this.statusMsg.set(this.statusError(e)); this.busy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.statusError(e)); this.busy.set(false); }
     });
   }
 
@@ -316,21 +359,26 @@ export class SchedulingComponent {
     if (!this.candidateId) { return; }
     this.api.readStatus(this.candidateId).subscribe({
       next: (r: RecruiterStatusResponse) => this.applyStatus(r),
-      error: (e: HttpErrorResponse) => this.statusMsg.set(this.statusError(e))
+      error: (e: HttpErrorResponse) => this.toast.error(this.statusError(e))
     });
   }
 
-  rotateStatusLink(): void {
+  async rotateStatusLink(): Promise<void> {
     if (!this.candidateId) { return; }
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.status.rotateLink.title:Rotate the status link?`,
+      body: $localize`:@@confirm.status.rotateLink.body:The current status link will stop working immediately.`,
+      confirmLabel: $localize`:@@confirm.status.rotateLink.cta:Rotate link`
+    });
+    if (!ok) { return; }
     this.busy.set(true);
-    this.statusMsg.set(null);
     this.api.rotateStatusLink(this.candidateId).subscribe({
       next: (r) => {
         this.statusLink.set(r.statusLink);
-        this.statusMsg.set($localize`:@@status.panel.rotated:Link rotated — the previous link no longer works.`);
+        this.toast.success($localize`:@@toast.status.rotated:Link rotated — the previous link no longer works.`);
         this.busy.set(false);
       },
-      error: (e: HttpErrorResponse) => { this.statusMsg.set(this.statusError(e)); this.busy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.statusError(e)); this.busy.set(false); }
     });
   }
 
@@ -339,8 +387,8 @@ export class SchedulingComponent {
     if (!link) { return; }
     // Best-effort clipboard copy; never throws into the UI.
     navigator.clipboard?.writeText(link).then(
-      () => this.statusMsg.set($localize`:@@status.panel.copied:Status link copied to the clipboard.`),
-      () => this.statusMsg.set($localize`:@@status.panel.copyFailed:Could not copy — please copy the link manually.`)
+      () => this.toast.success($localize`:@@toast.status.copied:Status link copied to the clipboard.`),
+      () => this.toast.error($localize`:@@toast.status.copyFailed:Could not copy — please copy the link manually.`)
     );
   }
 
@@ -387,11 +435,10 @@ export class SchedulingComponent {
 
   loadSla(): void {
     if (!this.candidateId) { return; }
-    this.slaMsg.set(null);
     this.draftPreview.set(null);
     this.slaApi.getSla(this.candidateId).subscribe({
       next: (s) => this.sla.set(s),
-      error: (e: HttpErrorResponse) => { this.sla.set(null); this.slaMsg.set(this.slaError(e)); }
+      error: (e: HttpErrorResponse) => { this.sla.set(null); this.toast.error(this.slaError(e)); }
     });
   }
 
@@ -400,35 +447,39 @@ export class SchedulingComponent {
     this.slaBusy.set(true);
     this.slaApi.previewDraft(this.candidateId).subscribe({
       next: (p) => { this.draftPreview.set(p); this.slaBusy.set(false); },
-      error: (e: HttpErrorResponse) => { this.slaMsg.set(this.slaError(e)); this.slaBusy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.slaError(e)); this.slaBusy.set(false); }
     });
   }
 
   approveDraft(draftId: string): void {
     this.slaBusy.set(true);
-    this.slaMsg.set(null);
     this.slaApi.approve(draftId).subscribe({
       next: () => {
         this.slaBusy.set(false);
         this.draftPreview.set(null);
-        this.loadSla(); // refresh the badge first (it clears slaMsg) ...
-        this.slaMsg.set($localize`:@@sla.panel.approved:Holding message sent — the candidate is no longer in silence.`); // ... then set the result
+        this.loadSla();
+        this.toast.success($localize`:@@toast.sla.approved:Holding message sent — the candidate is no longer in silence.`);
       },
-      error: (e: HttpErrorResponse) => { this.slaMsg.set(this.slaError(e)); this.slaBusy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.slaError(e)); this.slaBusy.set(false); }
     });
   }
 
-  dismissDraft(draftId: string): void {
+  async dismissDraft(draftId: string): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.sla.dismiss.title:Dismiss this draft?`,
+      body: $localize`:@@confirm.sla.dismiss.body:The queued holding message will not be sent.`,
+      confirmLabel: $localize`:@@confirm.sla.dismiss.cta:Dismiss`
+    });
+    if (!ok) { return; }
     this.slaBusy.set(true);
-    this.slaMsg.set(null);
     this.slaApi.dismiss(draftId).subscribe({
       next: () => {
         this.slaBusy.set(false);
         this.draftPreview.set(null);
-        this.loadSla(); // refresh the badge first (it clears slaMsg) ...
-        this.slaMsg.set($localize`:@@sla.panel.dismissed:Draft dismissed — nothing was sent.`); // ... then set the result
+        this.loadSla();
+        this.toast.success($localize`:@@toast.sla.dismissed:Draft dismissed — nothing was sent.`);
       },
-      error: (e: HttpErrorResponse) => { this.slaMsg.set(this.slaError(e)); this.slaBusy.set(false); }
+      error: (e: HttpErrorResponse) => { this.toast.error(this.slaError(e)); this.slaBusy.set(false); }
     });
   }
 

@@ -6,39 +6,54 @@ import {
   TemplateRequest,
   TemplateResponse
 } from './interview-templates.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../shared/ui/toast.service';
 
 /**
  * Recruiter/Admin "Interview templates" surface (F12, the §II demonstrable leg): list / create / edit /
  * retire a template, and preview the rule engine's computed slots for a date range. The route is guarded
  * to ADMIN/RECRUITER (defense-in-depth); the server is the real boundary. All strings via $localize.
+ *
+ * Phase 3b (workbench overhaul): `retire` is gated behind the shared `ConfirmDialogService`. Outcomes
+ * for `submit` (create/edit), `retire`, and slot `preview` are surfaced via `ToastService`; the old
+ * shared `error` signal (action-outcome usage only) is removed.
  */
 @Component({
   selector: 'app-interview-templates',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
   template: `
-    <h1 i18n="@@tmpl.title">Interview templates</h1>
-
-    @if (error(); as e) {
-      <p role="alert" class="error alert alert--danger">{{ e }}</p>
-    }
+    <app-page-header
+      eyebrow="Templates" i18n-eyebrow="@@tmpl.eyebrow"
+      heading="Interview templates" i18n-heading="@@tmpl.title"
+      subtitle="Panels, durations, and slot rules." i18n-subtitle="@@tmpl.subtitle">
+    </app-page-header>
 
     <section class="list">
       <h2 i18n="@@tmpl.list.title">Active templates</h2>
-      @if (templates().length === 0) {
-        <p i18n="@@tmpl.list.empty">No templates yet. Create one below.</p>
+      @if (loading()) {
+        <app-skeleton variant="lines" />
+      } @else if (templates().length === 0) {
+        <app-empty-state
+          heading="No templates yet" i18n-heading="@@tmpl.empty.heading"
+          body="Create your first interview template using the form below." i18n-body="@@tmpl.empty.body">
+        </app-empty-state>
+      } @else {
+        <ul>
+          @for (t of templates(); track t.id) {
+            <li class="row">
+              <span class="name">{{ t.name }}</span>
+              <span class="meta" i18n="@@tmpl.list.meta">{{ t.durationMinutes }} min, max {{ t.dailyCapPerInterviewer }}/day</span>
+              <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" i18n="@@tmpl.list.edit">Edit</button>
+              <button type="button" class="btn btn--danger-soft btn--sm" (click)="retire(t)" i18n="@@tmpl.list.retire">Retire</button>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@tmpl.list.preview">Preview slots</button>
+            </li>
+          }
+        </ul>
       }
-      <ul>
-        @for (t of templates(); track t.id) {
-          <li class="row">
-            <span class="name">{{ t.name }}</span>
-            <span class="meta" i18n="@@tmpl.list.meta">{{ t.durationMinutes }} min, max {{ t.dailyCapPerInterviewer }}/day</span>
-            <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" i18n="@@tmpl.list.edit">Edit</button>
-            <button type="button" class="btn btn--danger-soft btn--sm" (click)="retire(t)" i18n="@@tmpl.list.retire">Retire</button>
-            <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@tmpl.list.preview">Preview slots</button>
-          </li>
-        }
-      </ul>
     </section>
 
     <section class="form">
@@ -92,6 +107,8 @@ import {
 })
 export class InterviewTemplatesComponent implements OnInit {
   private readonly api = inject(InterviewTemplatesService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly newTitle = $localize`:@@tmpl.form.newTitle:New template`;
   readonly editTitle = $localize`:@@tmpl.form.editTitle:Edit template`;
@@ -99,9 +116,9 @@ export class InterviewTemplatesComponent implements OnInit {
   readonly saveEdit = $localize`:@@tmpl.form.saveEdit:Save changes`;
 
   readonly templates = signal<TemplateResponse[]>([]);
+  readonly loading = signal(true);
   readonly editingId = signal<string | null>(null);
   readonly saving = signal(false);
-  readonly error = signal<string | null>(null);
   readonly slotResult = signal<SlotComputationResponse | null>(null);
 
   // form model
@@ -118,7 +135,6 @@ export class InterviewTemplatesComponent implements OnInit {
   }
 
   submit(): void {
-    this.error.set(null);
     this.saving.set(true);
     const body: TemplateRequest = {
       name: this.name,
@@ -130,16 +146,20 @@ export class InterviewTemplatesComponent implements OnInit {
       requiredMemberIds: this.requiredCsv.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
     };
     const id = this.editingId();
+    const isEdit = id !== null;
     const call = id ? this.api.update(id, body) : this.api.create(body);
     call.subscribe({
       next: () => {
         this.saving.set(false);
         this.resetForm();
         this.load();
+        this.toast.success(isEdit
+          ? $localize`:@@toast.tmpl.updated:Template saved.`
+          : $localize`:@@toast.tmpl.created:Template created.`);
       },
       error: () => {
         this.saving.set(false);
-        this.error.set($localize`:@@tmpl.error.save:The template could not be saved. Please check the fields and try again.`);
+        this.toast.error($localize`:@@toast.tmpl.saveErr:The template could not be saved. Please check the fields and try again.`);
       }
     });
   }
@@ -155,10 +175,19 @@ export class InterviewTemplatesComponent implements OnInit {
     this.requiredCsv = t.requiredMemberIds.join(', ');
   }
 
-  retire(t: TemplateResponse): void {
+  async retire(t: TemplateResponse): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.tmpl.retire.title:Retire this template?`,
+      body: $localize`:@@confirm.tmpl.retire.body:"${t.name}:name:" will no longer be available for scheduling new interviews.`,
+      confirmLabel: $localize`:@@confirm.tmpl.retire.cta:Retire template`
+    });
+    if (!ok) { return; }
     this.api.retire(t.id).subscribe({
-      next: () => this.load(),
-      error: () => this.error.set($localize`:@@tmpl.error.retire:The template could not be retired. Please try again.`)
+      next: () => {
+        this.load();
+        this.toast.success($localize`:@@toast.tmpl.retired:Template retired.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.tmpl.retireErr:The template could not be retired. Please try again.`)
     });
   }
 
@@ -168,7 +197,7 @@ export class InterviewTemplatesComponent implements OnInit {
     const end = new Date(today.getTime() + 13 * 86400000).toISOString().slice(0, 10);
     this.api.computeSlots(t.id, start, end).subscribe({
       next: (r) => this.slotResult.set(r),
-      error: () => this.error.set($localize`:@@tmpl.error.preview:The slots could not be computed. Please try again.`)
+      error: () => this.toast.error($localize`:@@toast.tmpl.previewErr:The slots could not be computed. Please try again.`)
     });
   }
 
@@ -184,6 +213,9 @@ export class InterviewTemplatesComponent implements OnInit {
   }
 
   private load(): void {
-    this.api.list('ACTIVE').subscribe((r) => this.templates.set(r.templates));
+    this.api.list('ACTIVE').subscribe({
+      next: (r) => { this.templates.set(r.templates); this.loading.set(false); },
+      error: () => this.loading.set(false)
+    });
   }
 }

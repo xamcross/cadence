@@ -2,46 +2,68 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-templates.service';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
+import { ToastService } from '../../shared/ui/toast.service';
+import { PickerOption, SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { PipelineService } from '../pipeline/pipeline.service';
 
 /**
  * Admin/Recruiter "Email templates" surface (F21, the §II demonstrable leg): list the message types,
  * edit subject/body, apply a tone preset, lock/unlock (Admin), reset to default, and preview a rendered
  * message with sample merge values. A LOCKED template disables the edit controls for a Recruiter (the
  * server is the real boundary — 403). All strings via $localize. Sending is F22 (not here).
+ *
+ * Phase 3b (workbench overhaul): `reset` and `send` are gated behind the shared `ConfirmDialogService`
+ * (⚠ danger); `setLock` is gated only when locking (unlocking proceeds immediately). Outcomes for
+ * save/applyTone/reset/setLock/send are surfaced via `ToastService`; the old dedicated `sendStatus`/
+ * `sendError` signals (and their markup) are removed in favour of toasts.
  */
 @Component({
   selector: 'app-email-templates',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent, SearchPickerComponent],
   template: `
-    <h1 i18n="@@et.title">Email templates</h1>
+    <app-page-header
+      eyebrow="Templates" i18n-eyebrow="@@et.eyebrow"
+      heading="Email templates" i18n-heading="@@et.title"
+      subtitle="Candidate message content and tone." i18n-subtitle="@@et.subtitle">
+    </app-page-header>
 
     @if (error(); as e) {
       <p role="alert" class="error alert alert--danger">{{ e }}</p>
     }
 
     <section class="list">
-      @if (templates().length === 0) {
-        <p i18n="@@et.empty">No templates.</p>
-      }
-      <ul>
-        @for (t of templates(); track t.messageType) {
-          <li class="row">
-            <span class="type">{{ t.messageType }}</span>
-            <span class="source">{{ t.source }}</span>
-            @if (t.locked) { <span class="locked badge badge--danger" i18n="@@et.locked">Locked</span> }
-            <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" [disabled]="!canEdit(t)" i18n="@@et.edit">Edit</button>
-            <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@et.preview">Preview</button>
-            @if (isAdmin) {
-              @if (t.locked) {
-                <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, false)" i18n="@@et.unlock">Unlock</button>
-              } @else {
-                <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, true)" i18n="@@et.lockbtn">Lock</button>
+      @if (loading()) {
+        <app-skeleton variant="lines" />
+      } @else if (templates().length === 0) {
+        <app-empty-state
+          heading="No templates yet" i18n-heading="@@et.empty.heading"
+          body="Templates initialize automatically with your workspace." i18n-body="@@et.empty.body">
+        </app-empty-state>
+      } @else {
+        <ul>
+          @for (t of templates(); track t.messageType) {
+            <li class="row">
+              <span class="type">{{ t.messageType }}</span>
+              <span class="source">{{ t.source }}</span>
+              @if (t.locked) { <span class="locked badge badge--danger" i18n="@@et.locked">Locked</span> }
+              <button type="button" class="btn btn--outline btn--sm" (click)="edit(t)" [disabled]="!canEdit(t)" i18n="@@et.edit">Edit</button>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="preview(t)" i18n="@@et.preview">Preview</button>
+              @if (isAdmin) {
+                @if (t.locked) {
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, false)" i18n="@@et.unlock">Unlock</button>
+                } @else {
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="setLock(t, true)" i18n="@@et.lockbtn">Lock</button>
+                }
               }
-            }
-          </li>
-        }
-      </ul>
+            </li>
+          }
+        </ul>
+      }
     </section>
 
     @if (editing(); as t) {
@@ -75,17 +97,15 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
         @if (previewing(); as p) {
           <div class="send">
             <h3 i18n="@@et.sendTitle">Send to candidate</h3>
-            <label class="field" i18n="@@et.candidateId">
-              Candidate ID <input class="input" name="sendCandidateId" [(ngModel)]="sendCandidateId" />
-            </label>
+            <div class="field">
+              <app-search-picker [options]="candidateOpts()" [value]="sendCandidateId"
+                (valueChange)="sendCandidateId = $event ?? ''"
+                label="Candidate" i18n-label="@@et.candidate.picker.label"
+                placeholder="Search candidates…" i18n-placeholder="@@et.candidate.picker.placeholder">
+              </app-search-picker>
+            </div>
             <button type="button" class="btn btn--primary" (click)="send(p)" [disabled]="sending() || !sendCandidateId.trim()"
                     i18n="@@et.sendbtn">Send to candidate</button>
-            @if (sendStatus(); as s) {
-              <p role="status" class="sent alert alert--ok" i18n="@@et.sendok">Email {{ s }} for candidate.</p>
-            }
-            @if (sendError(); as se) {
-              <p role="alert" class="error alert alert--danger">{{ se }}</p>
-            }
           </div>
         }
       </section>
@@ -100,11 +120,15 @@ import { EmailTemplate, EmailTemplatesService, RenderedMessage } from './email-t
 })
 export class EmailTemplatesComponent implements OnInit {
   private readonly service = inject(EmailTemplatesService);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
+  private readonly pipelineApi = inject(PipelineService);
 
   /** Set by the host/shell; defaults true so an Admin sees lock controls. The server is the boundary. */
   isAdmin = true;
 
   readonly templates = signal<EmailTemplate[]>([]);
+  readonly loading = signal(true);
   readonly editing = signal<EmailTemplate | null>(null);
   readonly rendered = signal<RenderedMessage | null>(null);
   /** The template the current preview belongs to — the "Send to candidate" action targets it. */
@@ -112,8 +136,9 @@ export class EmailTemplatesComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly sending = signal(false);
-  readonly sendStatus = signal<string | null>(null);
-  readonly sendError = signal<string | null>(null);
+
+  // Workbench overhaul phase 5: picker options for the "Send to candidate" candidate combobox field.
+  readonly candidateOpts = signal<readonly PickerOption[]>([]);
 
   subject = '';
   body = '';
@@ -121,12 +146,16 @@ export class EmailTemplatesComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.pipelineApi.list({ status: 'ACTIVE', size: 1000 }).subscribe({
+      next: (p) => this.candidateOpts.set(p.rows.map((r) => ({ id: r.candidateId, label: r.name, hint: r.stage }))),
+      error: () => this.candidateOpts.set([])
+    });
   }
 
   private load(): void {
     this.service.list('BASE').subscribe({
-      next: (l) => this.templates.set(l.templates),
-      error: () => this.error.set($localize`:@@et.loadErr:Could not load templates.`)
+      next: (l) => { this.templates.set(l.templates); this.loading.set(false); },
+      error: () => { this.error.set($localize`:@@et.loadErr:Could not load templates.`); this.loading.set(false); }
     });
   }
 
@@ -152,35 +181,75 @@ export class EmailTemplatesComponent implements OnInit {
     this.error.set(null);
     this.service.edit(t.messageType, { stageKey: t.stageKey, subject: this.subject, body: this.body, expectedVersion: t.version })
       .subscribe({
-        next: () => { this.saving.set(false); this.editing.set(null); this.load(); },
-        error: () => { this.saving.set(false); this.error.set($localize`:@@et.saveErr:Could not save the template.`); }
+        next: () => {
+          this.saving.set(false);
+          this.editing.set(null);
+          this.load();
+          this.toast.success($localize`:@@toast.et.saved:Template saved.`);
+        },
+        error: () => {
+          this.saving.set(false);
+          this.toast.error($localize`:@@toast.et.saveErr:Could not save the template.`);
+        }
       });
   }
 
   applyTone(t: EmailTemplate, tone: string): void {
     this.service.applyTone(t.messageType, { stageKey: t.stageKey, tone, expectedVersion: t.version }).subscribe({
-      next: (u) => { this.subject = u.subject; this.body = u.body; this.editing.set(u); this.load(); },
-      error: () => this.error.set($localize`:@@et.toneErr:Could not apply the tone preset.`)
+      next: (u) => {
+        this.subject = u.subject;
+        this.body = u.body;
+        this.editing.set(u);
+        this.load();
+        this.toast.success($localize`:@@toast.et.toneApplied:Tone applied.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.et.toneErr:Could not apply the tone preset.`)
     });
   }
 
-  reset(t: EmailTemplate): void {
+  async reset(t: EmailTemplate): Promise<void> {
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.et.reset.title:Reset to default?`,
+      body: $localize`:@@confirm.et.reset.body:Your customized subject and body will be discarded.`,
+      confirmLabel: $localize`:@@confirm.et.reset.cta:Reset to default`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.service.reset(t.messageType, { stageKey: t.stageKey, expectedVersion: t.version }).subscribe({
-      next: () => { this.editing.set(null); this.load(); },
-      error: () => this.error.set($localize`:@@et.resetErr:Could not reset the template.`)
+      next: () => {
+        this.editing.set(null);
+        this.load();
+        this.toast.success($localize`:@@toast.et.reset:Template reset to default.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.et.resetErr:Could not reset the template.`)
     });
   }
 
-  setLock(t: EmailTemplate, lock: boolean): void {
+  /** Confirm-gated only when LOCKING (the consequential direction); unlocking proceeds immediately. */
+  async setLock(t: EmailTemplate, lock: boolean): Promise<void> {
+    if (lock) {
+      const ok = await this.confirm.confirm({
+        title: $localize`:@@confirm.et.lock.title:Lock this template?`,
+        body: $localize`:@@confirm.et.lock.body:Recruiters will no longer be able to edit it.`,
+        confirmLabel: $localize`:@@confirm.et.lock.cta:Lock`
+      });
+      if (!ok) { return; }
+    }
     const call = lock
       ? this.service.lock(t.messageType, { stageKey: t.stageKey, expectedVersion: t.version })
       : this.service.unlock(t.messageType, { stageKey: t.stageKey, expectedVersion: t.version });
-    call.subscribe({ next: () => this.load(), error: () => this.error.set($localize`:@@et.lockErr:Could not change the lock.`) });
+    call.subscribe({
+      next: () => {
+        this.load();
+        this.toast.success(lock
+          ? $localize`:@@toast.et.locked:Template locked.`
+          : $localize`:@@toast.et.unlocked:Template unlocked.`);
+      },
+      error: () => this.toast.error($localize`:@@toast.et.lockErr:Could not change the lock.`)
+    });
   }
 
   preview(t: EmailTemplate): void {
-    this.sendStatus.set(null);
-    this.sendError.set(null);
     this.service.preview(t.messageType, { stageKey: t.stageKey, sampleValues: this.sampleValues() }).subscribe({
       next: (r) => { this.rendered.set(r); this.previewing.set(t); },
       error: () => this.error.set($localize`:@@et.previewErr:Could not render the preview.`)
@@ -192,16 +261,28 @@ export class EmailTemplatesComponent implements OnInit {
    * consent gate; a 409 not_contactable shows the value-free reason, a 404 a not-found message. The server
    * is the boundary — this is the recruiter trigger only.
    */
-  send(t: EmailTemplate): void {
+  async send(t: EmailTemplate): Promise<void> {
     const candidateId = this.sendCandidateId.trim();
     if (!candidateId) return;
+    // Show the candidate's display label (from the loaded picker options), never the raw internal id.
+    const label = this.candidateOpts().find((o) => o.id === candidateId)?.label;
+    const ok = await this.confirm.confirm({
+      title: $localize`:@@confirm.et.send.title:Send this email?`,
+      body: label
+        ? $localize`:@@confirm.et.send.body.named:Send the previewed message to ${label}:candidate: now?`
+        : $localize`:@@confirm.et.send.body:Send the previewed message to the selected candidate now?`,
+      confirmLabel: $localize`:@@confirm.et.send.cta:Send email`,
+      danger: true
+    });
+    if (!ok) { return; }
     this.sending.set(true);
-    this.sendStatus.set(null);
-    this.sendError.set(null);
     this.service.sendToCandidate(candidateId,
       { messageType: t.messageType, stageKey: t.stageKey, sampleValues: this.sampleValues() }).subscribe({
-        next: (r) => { this.sending.set(false); this.sendStatus.set(r.status); },
-        error: (e: HttpErrorResponse) => { this.sending.set(false); this.sendError.set(this.sendErrorMessage(e)); }
+        next: (r) => {
+          this.sending.set(false);
+          this.toast.success($localize`:@@toast.et.sent:Email ${r.status}:status: for candidate.`);
+        },
+        error: (e: HttpErrorResponse) => { this.sending.set(false); this.toast.error(this.sendErrorMessage(e)); }
       });
   }
 
