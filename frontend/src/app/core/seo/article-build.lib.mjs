@@ -225,8 +225,11 @@ const PAGE_STYLE = [
 ].join('\n  ');
 
 /** Shared branded site header for every static page (#1/#2). Self-contained: text wordmark + inline
- *  SVG mark (no image request), primary nav, and the prospect CTA. Links here are NOT body-linted
- *  (that gate only guards page.bodyHtml), so the /request-access SPA route is allowed. */
+ *  SVG mark (no image request), primary nav, and the prospect CTA.
+ *  The CTA points to the home page ("/"), NOT the /request-access SPA route: the CI /resources (F61,
+ *  FR-011/SC-005) and legal (F71, FR-011/SC-010) artifact scans deny app-entry routes — including
+ *  /request-access — inside static content pages. Home is the correct static->SPA bridge; its hero
+ *  leads with the Request access CTA. */
 function siteHeader() {
   return '<header class="site-header">\n' +
     '<a class="site-header__brand" href="/" aria-label="Cadence home">' +
@@ -240,7 +243,7 @@ function siteHeader() {
     '<a href="/integrations/">Integrations</a>' +
     '<a href="/resources/">Resources</a>' +
     '</nav>\n' +
-    '<a class="site-header__cta" href="/request-access">Request access</a>\n' +
+    '<a class="site-header__cta" href="/">Request access</a>\n' +
     '</header>\n';
 }
 

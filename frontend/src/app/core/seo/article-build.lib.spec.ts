@@ -93,6 +93,20 @@ describe('article-build.lib (F61)', () => {
       expect(out.pages[0].html).toContain('class="site-header"');
       expect(out.indexHtml).toContain('class="site-header"');
     });
+
+    it('no generated static artifact links to an app/auth route (CI FR-011 deny-list parity)', () => {
+      // Mirrors the CI /resources (F61) + legal (F71) href deny-lists so a reserved/app-entry route
+      // reintroduced into the shared header/footer is caught in `ng test`, not only in CI (ci.yml).
+      const legalDoc = { slug: 'terms', title: 'Terms', description: 'T.', version: '1.0',
+        lastUpdated: '2026-06-10', draft: false, bodyHtml: '<h2>Use</h2><p>ok.</p>' };
+      const mktgPage = { slug: 'features', title: 'Features', description: 'What it does.',
+        lastUpdated: '2026-07-17', bodyHtml: '<h2>Overview</h2><p>ok.</p>' };
+      const out = buildArtifacts(FIXTURE, '#', ctx(), [legalDoc], [mktgPage]);
+      const DENY = /href="\/(schedule|booking|confirm|status|feedback|admin|pipeline|scheduling|calendar|workspace|interview-templates|email-templates|login|accept-invite|request-access|reset|app)(\/|"|#)/;
+      const artifacts = [...out.pages.map((p) => p.html), out.indexHtml,
+        ...out.legalPages.map((p) => p.html), ...out.marketingPages.map((p) => p.html)];
+      for (const html of artifacts) expect(html).not.toMatch(DENY);
+    });
   });
 
   // --- US1: sitemap allow-list + SC-001 count + empty library ---
@@ -483,7 +497,7 @@ describe('article-build.lib (F61)', () => {
       expect(html).toContain('class="site-header"');
       expect(html).toContain('<a class="site-header__brand" href="/"');
       expect(html).toContain('>Cadence</span>');
-      expect(html).toContain('class="site-header__cta" href="/request-access"');
+      expect(html).toContain('class="site-header__cta" href="/"');
       const el = mrender(html);
       const cta = el.querySelector('.site-header__cta') as HTMLElement;
       expect(cta.textContent).toContain('Request access');
