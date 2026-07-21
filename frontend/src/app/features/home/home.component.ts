@@ -25,13 +25,12 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
         <p class="hero__eyebrow eyebrow eyebrow--rule reveal reveal-1" i18n="@@home.eyebrow">Interview scheduling &amp; candidate experience</p>
         <h1 class="reveal reveal-2" i18n="@@home.h1">Cadence — interview scheduling that respects candidates</h1>
         <p class="lede reveal reveal-2" i18n="@@home.lede">
-          Schedule interviews, prevent no-shows, and keep every candidate informed — with no candidate
-          account required. Cadence syncs with Google and Microsoft calendars and is GDPR-safe by design.
+          Schedule interviews, cut no-shows, and keep every candidate informed — with no candidate
+          account required. Cadence syncs with Google and Microsoft calendars and is built for GDPR.
         </p>
         <div class="hero__actions reveal reveal-3">
-          <a class="cta btn btn--primary" routerLink="/login" i18n="@@home.cta">Sign in</a>
-          <!-- F70: public join / express-interest on-ramp for prospects without an account. -->
-          <a class="btn btn--outline" routerLink="/request-access" i18n="@@home.requestAccess">Request access</a>
+          <a class="cta btn btn--primary" routerLink="/request-access" i18n="@@home.requestAccess">Request access</a>
+          <a class="btn btn--outline" routerLink="/login" i18n="@@home.cta">Sign in</a>
           <a class="btn btn--ghost" href="#features" i18n="@@home.learn">See what it does</a>
         </div>
       </section>
@@ -77,7 +76,7 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
                 <rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5M12 14.5v2.5"/>
               </svg>
             </span>
-            <h3 class="feature__title" i18n="@@home.features.gdpr.title">GDPR-safe by design</h3>
+            <h3 class="feature__title" i18n="@@home.features.gdpr.title">Built for GDPR</h3>
             <p class="muted" i18n="@@home.features.gdpr">Consent-recorded email and one-click right-to-erasure.</p>
           </li>
         </ul>
@@ -90,11 +89,12 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
           any contact — so your candidate experience is fast and your compliance posture is calm.
         </p>
         <div class="hero__actions">
-          <a class="btn btn--primary" routerLink="/login" i18n="@@home.cta2">Sign in to your workspace</a>
+          <a class="btn btn--primary" routerLink="/request-access" i18n="@@home.requestAccess2">Request access</a>
+          <a class="btn btn--outline" routerLink="/login" i18n="@@home.cta2">Sign in to your workspace</a>
           <!-- F61 / seo: plain hrefs (NOT routerLink) so these leave the SPA and load the static pages. -->
           <a class="btn btn--ghost" href="/features/" i18n="@@home.featuresPage">Explore features</a>
           <a class="btn btn--ghost" href="/pricing/" i18n="@@home.pricingPage">Pricing</a>
-          <a class="btn btn--ghost resources-link" href="/resources/" i18n="@@home.resources">Recruiting resources</a>
+          <a class="btn btn--ghost resources-link" href="/resources/" i18n="@@home.resources">Resources</a>
         </div>
       </section>
     </main>
