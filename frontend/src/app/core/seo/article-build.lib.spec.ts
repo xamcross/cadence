@@ -363,6 +363,10 @@ describe('article-build.lib (F61)', () => {
       };
     }
 
+    it('carries the shared branded site header (#1/#2)', () => {
+      expect(assembleLegalPage(legal({}), ctx())).toContain('class="site-header"');
+    });
+
     it('emits a single h1, trailing-slash canonical, WebPage+BreadcrumbList and NO article schema (T005/FR-022f)', () => {
       const html = assembleLegalPage(legal({}), ctx());
       expect((html.match(/<h1>/g) || []).length).toBe(1);
