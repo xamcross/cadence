@@ -196,22 +196,56 @@ function lastmodOf(a) {
 // --- page assembly --------------------------------------------------------------------------------
 
 const PAGE_STYLE = [
-  ':root { color-scheme: light; }',
-  'body { margin: 0; font: 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1a1a1a; background: #fff; }',
+  ':root { color-scheme: light; --clay: #b5512e; --clay-ink: #8f3a1f; --ink: #1b1a16; --ink-muted: #54514a; --paper: #f6f4ef; --line: #e8e3da; --link: #0b5cad; }',
+  '*, *::before, *::after { box-sizing: border-box; }',
+  'body { margin: 0; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--paper); }',
   'main { max-width: 44rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }',
-  'a { color: #0b5cad; }',
-  'h1 { font-size: 1.9rem; line-height: 1.2; }',
-  'h2 { font-size: 1.35rem; margin-top: 2rem; }',
+  'a { color: var(--link); }',
+  'h1, h2, h3, .site-header__word { font-family: ui-serif, Georgia, "Times New Roman", serif; }',
+  'h1 { font-size: 1.95rem; line-height: 1.2; }',
+  'h2 { font-size: 1.4rem; margin-top: 2rem; }',
   'h3 { font-size: 1.1rem; }',
-  '.lead { font-size: 1.15rem; color: #333; }',
-  '.meta { color: #555; font-size: 0.9rem; }',
+  '.lead { font-size: 1.15rem; color: var(--ink-muted); }',
+  '.meta { color: var(--ink-muted); font-size: 0.9rem; }',
   'nav.crumbs { font-size: 0.9rem; margin-bottom: 1rem; }',
   'ul.cards { list-style: none; padding: 0; }',
-  'ul.cards li { border: 1px solid #d6d6d6; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }',
+  'ul.cards li { border: 1px solid var(--line); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; background: #fff; }',
   '.related a, .home-link { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 0.75rem; }',
-  '.draft-banner { border: 2px solid #b35900; background: #fff4e5; color: #1a1a1a; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 600; }',
-  'body, main, h1, h2, p, li { overflow-wrap: anywhere; word-break: break-word; }'
+  '.draft-banner { border: 2px solid #b35900; background: #fff4e5; color: var(--ink); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 600; }',
+  'body, main, h1, h2, p, li { overflow-wrap: anywhere; word-break: break-word; }',
+  '.site-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; max-width: 60rem; margin: 0 auto; padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); }',
+  '.site-header__brand { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; text-decoration: none; color: var(--ink); }',
+  '.site-header__mark { color: var(--clay); flex: none; }',
+  '.site-header__word { font-size: 1.25rem; font-weight: 700; }',
+  '.site-header__nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-inline-start: auto; }',
+  '.site-header__nav a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink-muted); text-decoration: none; }',
+  '.site-header__nav a:hover { color: var(--ink); text-decoration: underline; }',
+  '.site-header__cta { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1rem; border-radius: 10px; background: var(--clay-ink); color: #fff; text-decoration: none; font-weight: 600; }',
+  '.site-header__cta:hover { background: var(--clay); }'
 ].join('\n  ');
+
+/** Shared branded site header for every static page (#1/#2). Self-contained: text wordmark + inline
+ *  SVG mark (no image request), primary nav, and the prospect CTA.
+ *  The CTA points to the home page ("/"), NOT the /request-access SPA route: the CI /resources (F61,
+ *  FR-011/SC-005) and legal (F71, FR-011/SC-010) artifact scans deny app-entry routes — including
+ *  /request-access — inside static content pages. Home is the correct static->SPA bridge; its hero
+ *  leads with the Request access CTA. */
+function siteHeader() {
+  return '<header class="site-header">\n' +
+    '<a class="site-header__brand" href="/" aria-label="Cadence home">' +
+    '<svg class="site-header__mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" ' +
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
+    '<path d="M5 19V11M12 19V5M19 19v-6"/></svg>' +
+    '<span class="site-header__word">Cadence</span></a>\n' +
+    '<nav class="site-header__nav" aria-label="Primary">' +
+    '<a href="/features/">Features</a>' +
+    '<a href="/pricing/">Pricing</a>' +
+    '<a href="/integrations/">Integrations</a>' +
+    '<a href="/resources/">Resources</a>' +
+    '</nav>\n' +
+    '<a class="site-header__cta" href="/">Request access</a>\n' +
+    '</header>\n';
+}
 
 function headCommon(title, description, canonical, ogImage, robots, ogType) {
   const t = escapeHtml(title);
@@ -321,7 +355,7 @@ export function assembleArticlePage(article, related, ctx) {
     headCommon(article.title + ' | Cadence', article.summary, canonical, ogImage, ROBOTS_PLACEHOLDER) + '\n' +
     ldBlocks + '\n' +
     '<style>' + PAGE_STYLE + '</style>\n' +
-    '</head>\n<body>\n<main>\n' +
+    '</head>\n<body>\n' + siteHeader() + '<main>\n' +
     '<nav class="crumbs" aria-label="Breadcrumb">\n' +
     '<a href="/">Home</a> &rsaquo; <a href="' + RESOURCES_PATH + '/">Resources</a> &rsaquo; ' +
     '<span aria-current="page">' + escapeHtml(article.title) + '</span>\n</nav>\n' +
@@ -378,7 +412,7 @@ export function assembleIndexPage(articles, ctx) {
     '<link rel="alternate" type="application/atom+xml" title="Cadence resources" href="' + RESOURCES_PATH + '/feed.xml">\n' +
     '<script type="application/ld+json">\n' + jsonLd(itemListLd) + '\n</script>\n' +
     '<style>' + PAGE_STYLE + '</style>\n' +
-    '</head>\n<body>\n<main>\n' +
+    '</head>\n<body>\n' + siteHeader() + '<main>\n' +
     '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; <span aria-current="page">Resources</span></nav>\n' +
     '<h1>Cadence resources</h1>\n' +
     '<p class="lead">' + escapeHtml(description) + '</p>\n' +
@@ -484,7 +518,7 @@ export function assembleLegalPage(doc, ctx) {
     headCommon(doc.title + ' | Cadence', doc.description, canonical, ogImage, ROBOTS_PLACEHOLDER, 'website') + '\n' +
     ldBlocks + '\n' +
     '<style>' + PAGE_STYLE + '</style>\n' +
-    '</head>\n<body>\n<main>\n' +
+    '</head>\n<body>\n' + siteHeader() + '<main>\n' +
     draftBanner +
     '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> &rsaquo; ' +
     '<span aria-current="page">' + escapeHtml(doc.title) + '</span></nav>\n' +
@@ -624,7 +658,7 @@ export function assembleMarketingPage(page, ctx) {
     headCommon(page.title + ' | Cadence', page.description, canonical, ogImage, ROBOTS_PLACEHOLDER, 'website') + '\n' +
     ldBlocks + '\n' +
     '<style>' + PAGE_STYLE + '</style>\n' +
-    '</head>\n<body>\n<main>\n' +
+    '</head>\n<body>\n' + siteHeader() + '<main>\n' +
     '<nav class="crumbs" aria-label="Breadcrumb">' + crumbHtml + '</nav>\n' +
     '<article>\n<h1>' + escapeHtml(page.title) + '</h1>\n' +
     '<p class="lead">' + escapeHtml(page.description) + '</p>\n' +

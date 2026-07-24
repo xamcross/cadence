@@ -37,8 +37,27 @@ describe('HomeComponent (F60)', () => {
     const { fixture, navSpy } = await setup('anon');
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('h1')?.textContent).toContain('interview scheduling');
-    expect(el.querySelector('a.cta')?.getAttribute('href')).toContain('/login');
+    expect(el.querySelector('a.cta')?.getAttribute('href')).toContain('/request-access');
     expect(navSpy).not.toHaveBeenCalled();
+  });
+
+  it('leads with the prospect CTA and uses honest, non-absolute claims (#3/#4/#5)', async () => {
+    const { fixture } = await setup('anon');
+    const el: HTMLElement = fixture.nativeElement;
+
+    // #5 — primary CTA is "Request access" (prospect action), sign-in demoted but present
+    const primary = el.querySelector('a.cta') as HTMLAnchorElement;
+    expect(primary.getAttribute('href')).toContain('/request-access');
+    expect(primary.textContent?.trim()).toBe('Request access');
+    const signIn = Array.from(el.querySelectorAll('a')).find(a => a.getAttribute('href') === '/login');
+    expect(signIn).withContext('sign-in link still reachable').toBeTruthy();
+
+    // #3/#4 — no absolute "prevent" / "GDPR-safe" claims in the hero
+    const text = el.textContent || '';
+    expect(text).not.toContain('prevent no-shows');
+    expect(text).not.toContain('GDPR-safe');
+    expect(text).toContain('cut no-shows');
+    expect(text).toContain('Built for GDPR');
   });
 
   it('F61: links to the static /resources library via a plain href (full-page nav, not routerLink)', async () => {

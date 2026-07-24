@@ -87,6 +87,26 @@ describe('article-build.lib (F61)', () => {
       expect(html).toContain('class="meta">Published June 1, 2026');
       expect(html).toContain('Updated June 10, 2026');
     });
+
+    it('every static page carries the shared branded header (#1/#2)', () => {
+      const out = buildArtifacts(FIXTURE, '#', ctx());
+      expect(out.pages[0].html).toContain('class="site-header"');
+      expect(out.indexHtml).toContain('class="site-header"');
+    });
+
+    it('no generated static artifact links to an app/auth route (CI FR-011 deny-list parity)', () => {
+      // Mirrors the CI /resources (F61) + legal (F71) href deny-lists so a reserved/app-entry route
+      // reintroduced into the shared header/footer is caught in `ng test`, not only in CI (ci.yml).
+      const legalDoc = { slug: 'terms', title: 'Terms', description: 'T.', version: '1.0',
+        lastUpdated: '2026-06-10', draft: false, bodyHtml: '<h2>Use</h2><p>ok.</p>' };
+      const mktgPage = { slug: 'features', title: 'Features', description: 'What it does.',
+        lastUpdated: '2026-07-17', bodyHtml: '<h2>Overview</h2><p>ok.</p>' };
+      const out = buildArtifacts(FIXTURE, '#', ctx(), [legalDoc], [mktgPage]);
+      const DENY = /href="\/(schedule|booking|confirm|status|feedback|admin|pipeline|scheduling|calendar|workspace|interview-templates|email-templates|login|accept-invite|request-access|reset|app)(\/|"|#)/;
+      const artifacts = [...out.pages.map((p) => p.html), out.indexHtml,
+        ...out.legalPages.map((p) => p.html), ...out.marketingPages.map((p) => p.html)];
+      for (const html of artifacts) expect(html).not.toMatch(DENY);
+    });
   });
 
   // --- US1: sitemap allow-list + SC-001 count + empty library ---
@@ -298,9 +318,10 @@ describe('article-build.lib (F61)', () => {
 
     function render(fullHtml: string): HTMLElement {
       const style = (fullHtml.match(/<style>[\s\S]*?<\/style>/) || [''])[0];
+      const header = (fullHtml.match(/<header[\s\S]*?<\/header>/) || [''])[0];
       const main = (fullHtml.match(/<main>[\s\S]*?<\/main>/) || [''])[0];
       host = document.createElement('div');
-      host.innerHTML = style + main;
+      host.innerHTML = style + header + main;
       attachToBody(host);
       return host;
     }
@@ -341,9 +362,10 @@ describe('article-build.lib (F61)', () => {
     afterEach(() => { if (lhost) detachFromBody(lhost); });
     function lrender(fullHtml: string): HTMLElement {
       const style = (fullHtml.match(/<style>[\s\S]*?<\/style>/) || [''])[0];
+      const header = (fullHtml.match(/<header[\s\S]*?<\/header>/) || [''])[0];
       const main = (fullHtml.match(/<main>[\s\S]*?<\/main>/) || [''])[0];
       lhost = document.createElement('div');
-      lhost.innerHTML = style + main;
+      lhost.innerHTML = style + header + main;
       attachToBody(lhost);
       return lhost;
     }
@@ -354,6 +376,10 @@ describe('article-build.lib (F61)', () => {
         bodyHtml: '<h2>Use</h2><p>See <a href="/privacy/">privacy</a>.</p>', ...over
       };
     }
+
+    it('carries the shared branded site header (#1/#2)', () => {
+      expect(assembleLegalPage(legal({}), ctx())).toContain('class="site-header"');
+    });
 
     it('emits a single h1, trailing-slash canonical, WebPage+BreadcrumbList and NO article schema (T005/FR-022f)', () => {
       const html = assembleLegalPage(legal({}), ctx());
@@ -400,9 +426,10 @@ describe('article-build.lib (F61)', () => {
     afterEach(() => { if (mhost) detachFromBody(mhost); });
     function mrender(fullHtml: string): HTMLElement {
       const style = (fullHtml.match(/<style>[\s\S]*?<\/style>/) || [''])[0];
+      const header = (fullHtml.match(/<header[\s\S]*?<\/header>/) || [''])[0];
       const main = (fullHtml.match(/<main>[\s\S]*?<\/main>/) || [''])[0];
       mhost = document.createElement('div');
-      mhost.innerHTML = style + main;
+      mhost.innerHTML = style + header + main;
       attachToBody(mhost);
       return mhost;
     }
@@ -463,6 +490,18 @@ describe('article-build.lib (F61)', () => {
     it('a marketing page has zero WCAG 2.2 AA violations', async () => {
       const el = mrender(assembleMarketingPage(page({}), ctx()));
       expect(await axeViolations(el)).toEqual([]);
+    });
+
+    it('renders a branded site header: wordmark links home + a >=44px Request access CTA (#1/#2)', () => {
+      const html = assembleMarketingPage(page({}), ctx());
+      expect(html).toContain('class="site-header"');
+      expect(html).toContain('<a class="site-header__brand" href="/"');
+      expect(html).toContain('>Cadence</span>');
+      expect(html).toContain('class="site-header__cta" href="/"');
+      const el = mrender(html);
+      const cta = el.querySelector('.site-header__cta') as HTMLElement;
+      expect(cta.textContent).toContain('Request access');
+      expect(cta.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     });
   });
 });

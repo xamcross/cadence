@@ -31,8 +31,8 @@ export const PUBLIC_HOME: RouteSeo = {
   index: true,
   title: 'Cadence — Interview scheduling & candidate experience',
   description:
-    'Cadence helps recruiters schedule interviews, prevent no-shows, and keep candidates ' +
-    'informed — with no candidate account required. Calendar sync, GDPR-safe by design.',
+    'Cadence helps recruiters schedule interviews, cut no-shows, and keep candidates ' +
+    'informed — with no candidate account required. Calendar sync, built for GDPR.',
   path: '/'
 };
 
