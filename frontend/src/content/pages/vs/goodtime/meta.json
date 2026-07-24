@@ -1,0 +1,11 @@
+{
+  "slug": "vs/goodtime",
+  "title": "Cadence vs GoodTime for small recruiting teams",
+  "description": "GoodTime is a strong enterprise scheduling platform. Cadence covers the same core job for small teams — GDPR tooling built in, free during early access.",
+  "lastUpdated": "2026-07-24",
+  "ogImage": "/assets/og/vs-goodtime.png",
+  "faq": [
+    { "q": "Who is GoodTime best suited for?", "a": "Enterprise and high-volume talent teams with dedicated coordinators: deep ATS coverage across many systems, interview intelligence, campus and high-volume hiring workflows, and analytics at organizational scale." },
+    { "q": "When does Cadence make more sense than an enterprise platform?", "a": "When the team scheduling interviews is one to a handful of recruiters without a coordination function, needs the follow-through automated rather than staffed, hires under GDPR, and wants transparent pricing — free during early access — instead of a sales-led contract." }
+  ]
+}

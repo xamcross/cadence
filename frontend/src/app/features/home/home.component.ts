@@ -82,6 +82,49 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
         </ul>
       </section>
 
+      <section class="how" aria-labelledby="how-h">
+        <p class="eyebrow eyebrow--rule" i18n="@@home.how.eyebrow">How it works</p>
+        <h2 id="how-h" i18n="@@home.how.title">From open role to booked interview in three steps</h2>
+        <ol class="how__list">
+          <li class="card">
+            <h3 i18n="@@home.how.step1.title">Connect calendars and your ATS</h3>
+            <p class="muted" i18n="@@home.how.step1">
+              Link Google or Microsoft 365 calendars, then sync candidates from Greenhouse or Lever —
+              or import a CSV. Working hours, buffers between interviews, and daily caps per
+              interviewer are enforced in the slot math from day one.
+            </p>
+          </li>
+          <li class="card">
+            <h3 i18n="@@home.how.step2.title">Send one self-scheduling link</h3>
+            <p class="muted" i18n="@@home.how.step2">
+              The candidate picks a time against real availability — no account, no back-and-forth
+              email. Panels, reschedules, and cancellations all work from the same private link.
+            </p>
+          </li>
+          <li class="card">
+            <h3 i18n="@@home.how.step3.title">Let Cadence run the follow-through</h3>
+            <p class="muted" i18n="@@home.how.step3">
+              Confirmations and reminders go out on schedule, the no-show confirmation cascade asks
+              the candidate to confirm ahead of time, interviewer scorecards are collected after the
+              interview, and outcomes write back to your ATS.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="closing audience" aria-labelledby="who-h">
+        <h2 id="who-h" i18n="@@home.audience.title">Made for small recruiting teams working under GDPR</h2>
+        <p class="muted" i18n="@@home.audience.body">
+          Cadence is not an enterprise coordination suite. It is built for
+          <a href="/small-teams/">small recruiting teams</a> — in-house recruiters and founders who
+          hire in Europe or anywhere GDPR applies. Candidate data is encrypted at rest, contact
+          consent is recorded before any email is sent, retention runs automatically, and the right
+          to erasure is one click. Read how Cadence approaches
+          <a href="/gdpr/">GDPR and interview scheduling</a>, or see how it compares to
+          <a href="/vs/calendly/">Calendly for recruiting teams</a>.
+        </p>
+      </section>
+
       <section class="closing">
         <h2 i18n="@@home.closing.title">Built for candidate trust</h2>
         <p class="muted" i18n="@@home.closing.body">
@@ -115,14 +158,17 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
     .lede { font-size: var(--step-1); color: var(--ink-muted); max-width: 38rem; margin-inline: auto; margin-bottom: var(--space-8); overflow-wrap: break-word; }
     .hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center; }
 
-    .features { max-width: var(--content-max); margin-inline: auto; padding: var(--space-12) var(--space-4); text-align: center; }
-    .features > .eyebrow { justify-content: center; }
-    .features > h2 { margin-bottom: var(--space-8); }
-    .features__grid {
+    .features, .how { max-width: var(--content-max); margin-inline: auto; padding: var(--space-12) var(--space-4); text-align: center; }
+    .features > .eyebrow, .how > .eyebrow { justify-content: center; }
+    .features > h2, .how > h2 { margin-bottom: var(--space-8); }
+    .features__grid, .how__list {
       list-style: none; margin: 0; padding: 0; text-align: left;
       display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
       counter-reset: feat;   /* the "01..04" feature numbering motif (decorative, aria-hidden) */
     }
+    .how__list > li { counter-increment: feat; overflow-wrap: break-word; }
+    .how__list h3 { font-size: var(--step-1); margin-bottom: var(--space-2); color: var(--ink); }
+    .how__list h3::before { content: counter(feat) '. '; color: var(--ink-muted); }
     /* Hover lift + reduced-motion handling come from the shared .lift-card primitive. */
     .feature { position: relative; overflow-wrap: break-word; counter-increment: feat; }
     .feature__num { position: absolute; top: var(--space-5); inset-inline-end: var(--space-5); }
@@ -137,6 +183,7 @@ import { PublicFooterComponent } from '../../shared/public-footer.component';
     .feature__title { font-size: var(--step-1); margin-bottom: var(--space-2); color: var(--ink); }
 
     .closing { max-width: 40rem; margin-inline: auto; padding: var(--space-8) var(--space-4) var(--space-16); text-align: center; }
+    .audience { padding-bottom: var(--space-8); }
     .closing > h2 { margin-bottom: var(--space-3); }
     .closing > .muted { margin-bottom: var(--space-6); }
   `]

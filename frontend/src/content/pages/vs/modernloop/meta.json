@@ -1,0 +1,11 @@
+{
+  "slug": "vs/modernloop",
+  "title": "Cadence vs ModernLoop for recruiting teams",
+  "description": "ModernLoop automates interview coordination for mid-market TA teams. Cadence covers scheduling end to end for small teams, with GDPR tooling built in.",
+  "lastUpdated": "2026-07-24",
+  "ogImage": "/assets/og/vs-modernloop.png",
+  "faq": [
+    { "q": "Who is ModernLoop best suited for?", "a": "Mid-market and enterprise recruiting operations with coordinators or heavy scheduling load: AI-assisted scheduling, scheduling queues, interviewer load balancing, and role-based workflows for coordination teams." },
+    { "q": "What does Cadence cover that a coordination platform is not focused on?", "a": "The whole small-team loop around the booking: a no-show confirmation cascade, private candidate status pages, consent-gated candidate email, automated retention, and one-click GDPR erasure — designed for teams with no coordinator and no compliance department." }
+  ]
+}

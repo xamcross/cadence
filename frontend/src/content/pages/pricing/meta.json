@@ -1,8 +1,8 @@
 {
   "slug": "pricing",
-  "title": "Pricing",
+  "title": "Interview scheduling software pricing",
   "description": "Cadence is free while in early access. Every feature included: scheduling, no-show defense, status pages, calendar sync, ATS integration, and GDPR tooling.",
-  "lastUpdated": "2026-07-17",
+  "lastUpdated": "2026-07-24",
   "ogImage": "/assets/og/pricing.png",
   "faq": [
     { "q": "How much does Cadence cost during early access?", "a": "Nothing. Early-access workspaces get every feature free, including calendar sync, ATS integrations, no-show defense, and GDPR tooling." },

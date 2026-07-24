@@ -1,0 +1,14 @@
+{
+  "slug": "candidate-data-retention-periods",
+  "title": "How long can you keep candidate data under GDPR?",
+  "summary": "GDPR sets no fixed retention period for candidate data. Practical norms: often 6-12 months in the UK, up to two years in France — define, document, automate.",
+  "datePublished": "2026-07-24",
+  "theme": "privacy",
+  "related": ["gdpr-safe-recruiting", "right-to-erasure-recruiting"],
+  "ogImage": "/assets/og/candidate-data-retention-periods.png",
+  "faq": [
+    { "q": "Is there a legal maximum retention period for CVs?", "a": "The GDPR itself sets no fixed number. It requires that you keep personal data no longer than necessary for the purpose. National authorities publish norms: France's CNIL recommends at most two years after the last contact with the candidate; the UK's ICO expects you to define and justify your own period." },
+    { "q": "Can we keep a candidate's CV for future roles?", "a": "Keeping data for a talent pool is a different purpose from filling the original role, so it needs its own justification — most teams ask for the candidate's consent — and its own retention clock." },
+    { "q": "How fast must we answer a candidate's deletion request?", "a": "Within one month of receiving it, extendable by up to two further months for complex or numerous requests, provided you tell the candidate about the extension within the first month." }
+  ]
+}

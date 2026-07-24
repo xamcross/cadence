@@ -1,0 +1,11 @@
+{
+  "slug": "small-teams",
+  "title": "Interview scheduling for small recruiting teams",
+  "description": "Scheduling platforms assume coordinators. Cadence automates interviews end to end for teams of one to five recruiters — GDPR included, free in early access.",
+  "lastUpdated": "2026-07-24",
+  "ogImage": "/assets/og/small-teams.png",
+  "faq": [
+    { "q": "Is interview scheduling software worth it for a team of one?", "a": "That is where it pays back fastest. A solo recruiter or hiring founder has no slack for reminder-chasing, no-show recovery, or status-update email — automating the follow-through returns hours every week, and candidates get a faster, more consistent process." },
+    { "q": "What makes small-team scheduling different from enterprise coordination?", "a": "Enterprise platforms optimize a staffed coordination function: queues, load balancing, analytics. A small team needs the opposite — a tool that runs the whole loop unattended: booking, reminders, no-show defense, status pages, scorecards, and ATS write-back." }
+  ]
+}
