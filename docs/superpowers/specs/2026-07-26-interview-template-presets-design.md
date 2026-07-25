@@ -6,7 +6,7 @@
 
 ## Problem
 
-Email templates already ship with built-in defaults (8 message types, tone presets) so that surface is never empty. Interview templates have nothing: a new workspace starts with an empty screen and recruiters must invent duration, cadence, buffers, caps, and panel structure from scratch. There are no ready-made examples mapping the product to common hiring use cases.
+Email templates already ship with built-in defaults (9 message types, tone presets) so that surface is never empty. Interview templates have nothing: a new workspace starts with an empty screen and recruiters must invent duration, cadence, buffers, caps, and panel structure from scratch. There are no ready-made examples mapping the product to common hiring use cases.
 
 ## Goal
 
@@ -36,15 +36,15 @@ Six presets. Each pre-fills the numeric/structural fields of `InterviewTemplate`
 | `HR_CULTURE` | 45 min | 15 | 5 / 5 | 3 | 1 required | INVITATION |
 | `FINAL_ROUND` | 60 min | 30 | 10 / 10 | 2 | 1 required + pool "any 1 of N" | INVITATION, CONFIRMATION |
 
-Starter emails are **per-stage variants** of the existing F21 message types. Only types whose wording genuinely differs by interview kind get a starter (mostly INVITATION); REMINDER_1H, REJECTION, SLA_HOLDING, HOLD_UPDATE, and FEEDBACK_REQUEST always fall back to the base library.
+Starter emails are **per-stage variants** of the existing F21 message types. Only types whose wording genuinely differs by interview kind get a starter (mostly INVITATION); REMINDER_1H, REJECTION, SLA_HOLDING, HOLD_UPDATE, FEEDBACK_REQUEST, and CANCELLATION always fall back to the base library. Every candidate-facing starter body ends with the `{{privacy_link}}` footer (GDPR Art. 14 contract, enforced by `EmailPrivacyLinkContractTest`), and starter content must pass the merge-token validation for its message type.
 
-**Content ownership**: email starter wording lives in backend classpath resources (`resources/email-templates/preset/…`), same as built-ins and tone presets. Gallery names/descriptions are frontend `$localize` strings keyed by the stable preset key, so all UI wording follows the app's i18n rule while server-rendered email wording stays server-side.
+**Content ownership**: email starter wording lives in a code-shipped backend catalogue class (Java constants, validated at startup), the same pattern as `BuiltInEmailTemplates` and `TonePresetCatalogue` — this codebase ships no classpath resource files for email content. Gallery names/descriptions are frontend `$localize` strings keyed by the stable preset key, so all UI wording follows the app's i18n rule while server-rendered email wording stays server-side.
 
 ## 2. Architecture & data flow
 
 ### Backend (no new collections, no migration)
 
-1. **`InterviewTemplatePresetCatalogue`** — code-shipped constants class (type-safe, no parsing) holding each preset's structural values, panel hints, and declared starter-email types. **`PresetEmailStarterCatalogue`** loads `{subject, body}` per `(presetKey, messageType)` from classpath resources, mirroring `BuiltInEmailTemplates` / `TonePresetCatalogue`.
+1. **`InterviewTemplatePresetCatalogue`** — code-shipped constants class (type-safe, no parsing) holding each preset's structural values, panel hints, and declared starter-email types. **`PresetEmailStarterCatalogue`** holds `{subject, body}` per `(presetKey, messageType)` as code-shipped constants with a `@PostConstruct` completeness check, mirroring `BuiltInEmailTemplates` / `TonePresetCatalogue`.
 2. **Two endpoints**, both `@PreAuthorize` ADMIN/RECRUITER (picked up by the endpoint-inventory test):
    - `GET /api/internal/interview-templates/presets` — read-only catalogue: keys + structural values + starter-email types. No workspace state involved.
    - `POST /api/internal/email-templates/{messageType}/apply-preset-starter` with `{stageKey, presetKey}` — materialises a per-stage variant override from the starter catalogue via the **existing** variant machinery (same insert/version/audit semantics as `apply-tone`). `stageKey` must be a workspace-owned interview-template id, else the oracle-free 404.
@@ -73,7 +73,7 @@ Starter emails are **per-stage variants** of the existing F21 message types. Onl
 ## 5. Testing
 
 **Backend** (JUnit 5, Testcontainers Mongo singleton, zero downloads):
-- Catalogue-validity test: every preset's values pass template service validation (with a dummy member), and every declared starter type has non-empty resource content — a preset can never propose an invalid template.
+- Catalogue-validity test: every preset's values pass template service validation (with a dummy member), and every declared starter type has non-empty, merge-token-valid content with the `{{privacy_link}}` footer (mirroring `BuiltInTemplateCompletenessTest`) — a preset can never propose an invalid template or an invalid starter email.
 - Endpoint tests: RBAC across all five roles; presets read shape; `apply-preset-starter` materialise / overwrite / locked-403 / foreign-`stageKey`-404.
 - PII log-scan sentinel with a template-name canary through the new paths.
 
