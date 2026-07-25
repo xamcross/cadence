@@ -19,6 +19,8 @@ public final class EmailTemplateDtos {
 
     public record ApplyToneRequest(String stageKey, String tone, Long expectedVersion) {}
 
+    public record ApplyPresetStarterRequest(String stageKey, String presetKey, Long expectedVersion) {}
+
     public record ResetRequest(String stageKey, Long expectedVersion) {}
 
     public record LockRequest(String stageKey, Long expectedVersion) {}

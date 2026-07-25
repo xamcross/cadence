@@ -37,6 +37,13 @@ The library is keyed by `messageType` + `stageKey` (`"BASE"` or an F12 interview
 - **200**: `TemplateResponse` with subject+body replaced by the (type, tone) starter wording (then editable). Same 400/403/409 as edit.
 - **Audit**: `EMAIL_TEMPLATE_EDITED`, `outcome="<messageType>/<stageKey>/tone_apply"`.
 
+### `POST /api/internal/email-templates/{messageType}/apply-preset-starter` — apply a preset starter variant (2026-07-26 spec)
+
+- **Body**: `{ "stageKey": "<interviewTemplateId>", "presetKey": "PHONE_SCREEN|HM_INTRO|TECH_DEEP_DIVE|PANEL_LOOP|HR_CULTURE|FINAL_ROUND", "expectedVersion": null|N }`. `stageKey` is REQUIRED to be a stage variant — `"BASE"`/blank → 400 `invalid_template` (a starter is inherently per-stage).
+- **200**: `TemplateResponse` — variant materialised (version 0) or overwritten (version++) with the (preset, type) starter wording, then freely editable. Same lock (403 `template_locked`), stage (oracle-free 404), variant-cap (400) and version (409 `stale_template`) semantics as `apply-tone`; guard ordering identical.
+- **400 `invalid_template`**: unknown `presetKey`, or the preset declares no starter for this `messageType` (value-free `fields`).
+- **Audit**: one `EMAIL_TEMPLATE_EDITED` row, outcome `<TYPE>/<stageKey>/preset_starter_apply`. Content never audited/logged.
+
 ### `POST /api/internal/email-templates/{messageType}/reset` — reset to default / remove variant
 - **Body**: `{ "stageKey": "BASE", "expectedVersion": 3 }`.
 - **200**: deletes the override (base reset → built-in default; variant reset → base) and returns the now-effective `TemplateResponse` (`source: "BUILTIN"` or the base). **Idempotent**: resetting an already-un-overridden type is a 200 no-op (no version bump, no audit — spec Edge Case).
