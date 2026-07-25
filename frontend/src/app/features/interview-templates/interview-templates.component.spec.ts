@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { InterviewTemplatesComponent } from './interview-templates.component';
 import {
+  InterviewTemplatePreset,
   InterviewTemplatesService,
   SlotComputationResponse,
   TemplateList,
@@ -36,6 +37,7 @@ describe('InterviewTemplatesComponent', () => {
       update: () => of(template),
       retire: () => of({ ...template, status: 'RETIRED' }),
       computeSlots: () => of({ slots: [], windowClamped: false, unschedulable: [] }),
+      presets: () => of({ presets: [] as InterviewTemplatePreset[] }),
       ...overrides
     };
     TestBed.resetTestingModule();
@@ -228,6 +230,53 @@ describe('InterviewTemplatesComponent', () => {
       c.edit(withPools);
       expect(c.optionalCsv).toBe('m9');
       expect(c.pools).toEqual([{ membersCsv: 'm4, m5', n: 2 }]);
+    });
+  });
+
+  describe('preset gallery', () => {
+    const panelLoop: InterviewTemplatePreset = {
+      key: 'PANEL_LOOP', durationMinutes: 90, slotCadenceMinutes: 30, bufferBeforeMinutes: 15,
+      bufferAfterMinutes: 15, dailyCapPerInterviewer: 1, requiredCount: 1, optionalShadow: false,
+      poolN: 2, starterEmailTypes: ['INVITATION', 'CONFIRMATION', 'REMINDER_24H']
+    };
+
+    it('renders a card per preset with a localized name', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [panelLoop] }) });
+      const card = fixture.nativeElement.querySelector('.preset-card');
+      expect(card).not.toBeNull();
+      expect(card.textContent).toContain('Panel');
+    });
+
+    it('applying a preset pre-fills the form, seeds a pool row, and sets the banner', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [panelLoop] }) });
+      const c = fixture.componentInstance;
+      c.applyPreset(panelLoop);
+      expect(c.durationMinutes).toBe(90);
+      expect(c.slotCadenceMinutes).toBe(30);
+      expect(c.bufferBeforeMinutes).toBe(15);
+      expect(c.dailyCapPerInterviewer).toBe(1);
+      expect(c.pools).toEqual([{ membersCsv: '', n: 2 }]);
+      expect(c.activePresetKey()).toBe('PANEL_LOOP');
+      expect(c.name.length).toBeGreaterThan(0);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.preset-banner')).not.toBeNull();
+    });
+
+    it('gallery load failure is non-blocking and offers a retry', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => throwError(() => new Error('down')) });
+      const c = fixture.componentInstance;
+      expect(c.presetsFailed()).toBeTrue();
+      expect(fixture.nativeElement.querySelector('form')).not.toBeNull(); // blank create still works
+    });
+
+    it('has zero axe violations with the gallery rendered', async () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [panelLoop] }) });
+      const violations = await axeViolations(fixture.nativeElement);
+      expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
     });
   });
 });

@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  InterviewTemplatePreset,
   InterviewTemplatesService,
   SlotComputationResponse,
   TemplateRequest,
@@ -39,7 +40,7 @@ import { ToastService } from '../../shared/ui/toast.service';
       } @else if (templates().length === 0) {
         <app-empty-state
           heading="No templates yet" i18n-heading="@@tmpl.empty.heading"
-          body="Create your first interview template using the form below." i18n-body="@@tmpl.empty.body">
+          body="Start from a preset below, or build one from scratch with the form." i18n-body="@@tmpl.empty.body">
         </app-empty-state>
       } @else {
         <ul>
@@ -56,7 +57,35 @@ import { ToastService } from '../../shared/ui/toast.service';
       }
     </section>
 
+    <section class="presets">
+      <h2 i18n="@@tmpl.presets.title">Start from a preset</h2>
+      @if (presetsFailed()) {
+        <p class="muted">
+          <span i18n="@@tmpl.presets.loadErr">Presets could not be loaded.</span>
+          <button type="button" class="btn btn--link" (click)="loadPresets()"
+            i18n="@@tmpl.presets.retry">Try again</button>
+        </p>
+      } @else {
+        <div class="preset-grid">
+          @for (p of presetList(); track p.key) {
+            <button type="button" class="card lift-card preset-card" (click)="applyPreset(p)">
+              <span class="preset-card__name">{{ presetLabels[p.key]?.name || p.key }}</span>
+              <span class="preset-card__desc muted">{{ presetLabels[p.key]?.desc || '' }}</span>
+              <span class="preset-card__meta muted" i18n="@@tmpl.presets.meta">{{ p.durationMinutes }} min, max {{ p.dailyCapPerInterviewer }}/day</span>
+            </button>
+          }
+        </div>
+      }
+    </section>
+
     <section class="form">
+      @if (activePresetKey()) {
+        <p class="alert alert--accent preset-banner">
+          <span i18n="@@tmpl.form.presetBanner">Preset applied - pick your interviewers, then save.</span>
+          <button type="button" class="btn btn--link" (click)="resetForm()"
+            i18n="@@tmpl.form.presetClear">Clear</button>
+        </p>
+      }
       <h2>{{ editingId() ? editTitle : newTitle }}</h2>
       <form (ngSubmit)="submit()">
         <label class="field" i18n="@@tmpl.form.name">Name <input class="input" name="name" [(ngModel)]="name" required /></label>
@@ -117,6 +146,9 @@ import { ToastService } from '../../shared/ui/toast.service';
     .name { font-weight: 600; min-width: 10rem; }
     form { display: flex; flex-direction: column; gap: var(--space-2); max-width: 28rem; }
     .actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-4); }
+    .preset-card { display: flex; flex-direction: column; gap: var(--space-2); text-align: left; cursor: pointer; }
+    .preset-banner { display: flex; align-items: center; gap: var(--space-2); justify-content: space-between; }
   `]
 })
 export class InterviewTemplatesComponent implements OnInit {
@@ -134,6 +166,36 @@ export class InterviewTemplatesComponent implements OnInit {
   readonly editingId = signal<string | null>(null);
   readonly saving = signal(false);
   readonly slotResult = signal<SlotComputationResponse | null>(null);
+  presetList = signal<InterviewTemplatePreset[]>([]);
+  presetsFailed = signal(false);
+  activePresetKey = signal<string | null>(null);
+
+  readonly presetLabels: Record<string, { name: string; desc: string }> = {
+    PHONE_SCREEN: {
+      name: $localize`:@@tmpl.preset.phoneScreen.name:Phone screen`,
+      desc: $localize`:@@tmpl.preset.phoneScreen.desc:A short introductory call - one interviewer, quick turnaround.`
+    },
+    HM_INTRO: {
+      name: $localize`:@@tmpl.preset.hmIntro.name:Hiring-manager intro`,
+      desc: $localize`:@@tmpl.preset.hmIntro.desc:Role and team conversation with the hiring manager.`
+    },
+    TECH_DEEP_DIVE: {
+      name: $localize`:@@tmpl.preset.techDeepDive.name:Technical deep-dive`,
+      desc: $localize`:@@tmpl.preset.techDeepDive.desc:Hands-on technical session with screen sharing and an optional shadow.`
+    },
+    PANEL_LOOP: {
+      name: $localize`:@@tmpl.preset.panelLoop.name:Panel / onsite loop`,
+      desc: $localize`:@@tmpl.preset.panelLoop.desc:A longer session with a required host plus an interviewer pool.`
+    },
+    HR_CULTURE: {
+      name: $localize`:@@tmpl.preset.hrCulture.name:HR / culture interview`,
+      desc: $localize`:@@tmpl.preset.hrCulture.desc:Ways of working, values, and expectations.`
+    },
+    FINAL_ROUND: {
+      name: $localize`:@@tmpl.preset.finalRound.name:Final round`,
+      desc: $localize`:@@tmpl.preset.finalRound.desc:Closing conversation with a senior interviewer from a pool.`
+    }
+  };
 
   // form model
   name = '';
@@ -148,6 +210,27 @@ export class InterviewTemplatesComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadPresets();
+  }
+
+  loadPresets(): void {
+    this.presetsFailed.set(false);
+    this.api.presets().subscribe({
+      next: (r) => this.presetList.set(r.presets),
+      error: () => this.presetsFailed.set(true)
+    });
+  }
+
+  applyPreset(p: InterviewTemplatePreset): void {
+    this.resetForm();
+    this.activePresetKey.set(p.key);
+    this.name = this.presetLabels[p.key]?.name ?? p.key;
+    this.durationMinutes = p.durationMinutes;
+    this.slotCadenceMinutes = p.slotCadenceMinutes;
+    this.bufferBeforeMinutes = p.bufferBeforeMinutes;
+    this.bufferAfterMinutes = p.bufferAfterMinutes;
+    this.dailyCapPerInterviewer = p.dailyCapPerInterviewer;
+    this.pools = p.poolN != null ? [{ membersCsv: '', n: p.poolN }] : [];
   }
 
   submit(): void {
@@ -225,6 +308,7 @@ export class InterviewTemplatesComponent implements OnInit {
 
   resetForm(): void {
     this.editingId.set(null);
+    this.activePresetKey.set(null);
     this.name = '';
     this.durationMinutes = 45;
     this.slotCadenceMinutes = 15;

@@ -38,6 +38,23 @@ export interface TemplateList {
   templates: TemplateResponse[];
 }
 
+export interface InterviewTemplatePreset {
+  key: string;
+  durationMinutes: number;
+  slotCadenceMinutes: number;
+  bufferBeforeMinutes: number;
+  bufferAfterMinutes: number;
+  dailyCapPerInterviewer: number;
+  requiredCount: number;
+  optionalShadow: boolean;
+  poolN: number | null;
+  starterEmailTypes: string[];
+}
+
+export interface PresetList {
+  presets: InterviewTemplatePreset[];
+}
+
 export interface ComputedSlot {
   start: string;
   end: string;
@@ -84,5 +101,9 @@ export class InterviewTemplatesService {
 
   computeSlots(id: string, rangeStart: string, rangeEnd: string): Observable<SlotComputationResponse> {
     return this.http.post<SlotComputationResponse>(`${this.base}/${id}/slots`, { rangeStart, rangeEnd });
+  }
+
+  presets(): Observable<PresetList> {
+    return this.http.get<PresetList>(`${this.base}/presets`);
   }
 }
