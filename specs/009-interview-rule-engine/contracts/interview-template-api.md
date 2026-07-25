@@ -47,6 +47,11 @@ All endpoints are mounted under the internal, non-allow-listed prefix `/api/inte
 - **200**: `TemplateResponse` with `status: "RETIRED"`. Idempotent (retiring a retired template is a no-op 200). Not hard-deleted (FR-004).
 - **Audit**: `INTERVIEW_TEMPLATE_RETIRED`.
 
+### `GET /api/internal/interview-templates/presets` — code-shipped preset gallery (2026-07-26 spec)
+
+- **200**: `{ "presets": [PresetDto, ...] }` — six static presets (`PHONE_SCREEN`, `HM_INTRO`, `TECH_DEEP_DIVE`, `PANEL_LOOP`, `HR_CULTURE`, `FINAL_ROUND`) with structural values, panel hints (`requiredCount`, `optionalShadow`, `poolN`), and `starterEmailTypes`. No workspace state; applying a preset is client-side pre-fill through the normal create path.
+- **Roles**: Admin, Recruiter (class-level gate). 401 unauthenticated / 403 other roles.
+
 ---
 
 ## B. Slot computation / preview (US2, the §II demonstrable leg)
@@ -120,6 +125,7 @@ All endpoints are mounted under the internal, non-allow-listed prefix `/api/inte
 | `PUT /interview-templates/{id}` | 200 | 200 | 403 | 403 | 403 |
 | `POST /interview-templates/{id}/retire` | 200 | 200 | 403 | 403 | 403 |
 | `POST /interview-templates/{id}/slots` | 200 | 200 | 403 | 403 | 403 |
+| `GET /interview-templates/presets` | 200 | 200 | 403 | 403 | 403 |
 
 Cross-workspace: a template (or a pool member reference) from another workspace is never readable/applicable — verified by a two-workspace isolation test (a foreign template id → 404; a create with a foreign-workspace member id → 400 `invalid_template`).
 

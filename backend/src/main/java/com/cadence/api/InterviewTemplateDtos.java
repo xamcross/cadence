@@ -6,6 +6,7 @@ import com.cadence.domain.InterviewTemplate;
 import com.cadence.domain.MemberUnschedulable;
 import com.cadence.domain.PoolRule;
 import com.cadence.domain.SlotComputationResult;
+import com.cadence.service.InterviewTemplatePresetCatalogue;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -76,6 +77,21 @@ public final class InterviewTemplateDtos {
     }
 
     public record ListResponse(List<TemplateResponse> templates) {}
+
+    /** One code-shipped preset for the "start from a preset" gallery - static values, no workspace state. */
+    public record PresetDto(String key, int durationMinutes, int slotCadenceMinutes, int bufferBeforeMinutes,
+                            int bufferAfterMinutes, int dailyCapPerInterviewer, int requiredCount,
+                            boolean optionalShadow, Integer poolN, List<String> starterEmailTypes) {
+
+        public static PresetDto from(InterviewTemplatePresetCatalogue.Preset p) {
+            return new PresetDto(p.key().name(), p.durationMinutes(), p.slotCadenceMinutes(),
+                p.bufferBeforeMinutes(), p.bufferAfterMinutes(), p.dailyCapPerInterviewer(),
+                p.requiredCount(), p.optionalShadow(), p.poolN(),
+                p.starterEmailTypes().stream().map(Enum::name).toList());
+        }
+    }
+
+    public record PresetsResponse(List<PresetDto> presets) {}
 
     public record SlotPreviewRequest(LocalDate rangeStart, LocalDate rangeEnd) {}
 

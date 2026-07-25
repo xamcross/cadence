@@ -1,6 +1,7 @@
 package com.cadence.api;
 
 import com.cadence.api.InterviewTemplateDtos.ListResponse;
+import com.cadence.api.InterviewTemplateDtos.PresetsResponse;
 import com.cadence.api.InterviewTemplateDtos.SlotComputationResponse;
 import com.cadence.api.InterviewTemplateDtos.SlotPreviewRequest;
 import com.cadence.api.InterviewTemplateDtos.TemplateRequest;
@@ -8,6 +9,7 @@ import com.cadence.api.InterviewTemplateDtos.TemplateResponse;
 import com.cadence.domain.AuthEventType;
 import com.cadence.domain.SlotComputationRequest;
 import com.cadence.service.AuthAuditService;
+import com.cadence.service.InterviewTemplatePresetCatalogue;
 import com.cadence.service.InterviewTemplateService;
 import com.cadence.service.RuleEngine;
 import com.cadence.service.SessionService;
@@ -39,11 +41,14 @@ public class InterviewTemplateController {
     private final InterviewTemplateService service;
     private final RuleEngine ruleEngine;
     private final AuthAuditService audit;
+    private final InterviewTemplatePresetCatalogue presetCatalogue;
 
-    public InterviewTemplateController(InterviewTemplateService service, RuleEngine ruleEngine, AuthAuditService audit) {
+    public InterviewTemplateController(InterviewTemplateService service, RuleEngine ruleEngine, AuthAuditService audit,
+            InterviewTemplatePresetCatalogue presetCatalogue) {
         this.service = service;
         this.ruleEngine = ruleEngine;
         this.audit = audit;
+        this.presetCatalogue = presetCatalogue;
     }
 
     @PostMapping
@@ -58,6 +63,17 @@ public class InterviewTemplateController {
             @AuthenticationPrincipal SessionService.Principal principal,
             @RequestParam(value = "status", defaultValue = "ACTIVE") String status) {
         return ResponseEntity.ok(new ListResponse(service.list(principal.workspaceId(), status)));
+    }
+
+    /**
+     * Code-shipped preset gallery (spec 2026-07-26). Static catalogue, no workspace state, covered by
+     * the class-level ADMIN/RECRUITER gate. The literal segment deterministically beats GET /{id}
+     * under PathPattern specificity.
+     */
+    @GetMapping("/presets")
+    public ResponseEntity<PresetsResponse> presets() {
+        return ResponseEntity.ok(new PresetsResponse(
+            presetCatalogue.all().stream().map(InterviewTemplateDtos.PresetDto::from).toList()));
     }
 
     @GetMapping("/{id}")
