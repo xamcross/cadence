@@ -279,6 +279,9 @@ describe('InterviewTemplatesComponent', () => {
       const c = fixture.componentInstance;
       expect(c.presetsFailed()).toBeTrue();
       expect(fixture.nativeElement.querySelector('form')).not.toBeNull(); // blank create still works
+      const retryBtn = fixture.nativeElement.querySelector('.presets button.btn--link');
+      expect(retryBtn).not.toBeNull();
+      expect(retryBtn.textContent).toContain('Try again');
     });
 
     it('has zero axe violations with the gallery rendered', async () => {
@@ -286,6 +289,38 @@ describe('InterviewTemplatesComponent', () => {
         { presets: () => of({ presets: [panelLoop] }) });
       const violations = await axeViolations(fixture.nativeElement);
       expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+    });
+  });
+
+  describe('edit() clears stale preset state (banner leak fix)', () => {
+    const techDeepDive: InterviewTemplatePreset = {
+      key: 'TECH_DEEP_DIVE', durationMinutes: 60, slotCadenceMinutes: 30, bufferBeforeMinutes: 10,
+      bufferAfterMinutes: 10, dailyCapPerInterviewer: 2, requiredCount: 1, optionalShadow: true,
+      poolN: null, starterEmailTypes: ['INVITATION', 'CONFIRMATION', 'REMINDER_24H']
+    };
+
+    it('clears activePresetKey (and hides the banner) when Edit is clicked after applying a preset', () => {
+      const fixture = setup({ templates: [template] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const c = fixture.componentInstance;
+      c.applyPreset(techDeepDive);
+      expect(c.activePresetKey()).toBe('TECH_DEEP_DIVE');
+      c.edit(template);
+      expect(c.activePresetKey()).toBeNull();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.preset-banner')).toBeNull();
+    });
+
+    it('an edit-path submit() never opens the starter dialog, even if a preset was applied beforehand', () => {
+      const fixture = setup({ templates: [template] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const c = fixture.componentInstance;
+      c.applyPreset(techDeepDive);
+      c.edit(template);
+      c.requiredCsv = 'm1';
+      c.submit();
+      fixture.detectChanges();
+      expect(c.starterPrompt()).toBeNull();
     });
   });
 

@@ -81,3 +81,8 @@ Starter emails are **per-stage variants** of the existing F21 message types. Onl
 - Gallery renders from a stubbed presets response; preset selection pre-fills form fields and panel rows correctly.
 - Post-save dialog issues one call per checked type and handles per-type failure.
 - `$localize` on all new user-facing strings; axe-core on the gallery and dialog.
+
+## Implementation adaptations (2026-07-26)
+
+- Panel hints materialise as one pre-seeded pool row (`n` from `poolN`) plus the gallery-card descriptions; `requiredCount`/`optionalShadow` are served by the API and shown as prose but do not pre-create form seats — the form's CSV idiom has no discrete seat rows, so they are kept in the payload as forward-looking hint data rather than rendered as extra inputs.
+- The gallery is a permanent section of the screen rather than a "New template → Blank/preset" split button — the screen has no New-template button, and the spec's goal was a persistent gallery, not a chooser gate in front of the existing form.

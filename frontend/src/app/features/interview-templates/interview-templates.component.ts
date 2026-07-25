@@ -159,9 +159,10 @@ interface StarterPrompt {
     @if (starterPrompt(); as sp) {
       <div class="ps-backdrop" (click)="closeStarterPrompt()" (keydown.escape)="closeStarterPrompt()" tabindex="-1">
         <div class="ps-panel" role="dialog" aria-modal="true" aria-labelledby="starter-title"
+             aria-describedby="starter-body"
              cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
           <h2 class="ps-title" id="starter-title" i18n="@@tmpl.starter.title">Add starter emails for this stage?</h2>
-          <p class="ps-body" i18n="@@tmpl.starter.body">Pre-written wording for this interview type. Everything stays editable in Email templates.</p>
+          <p class="ps-body" id="starter-body" i18n="@@tmpl.starter.body">Pre-written wording for this interview type. Everything stays editable in Email templates.</p>
           <ul class="ps-list">
             @for (row of sp.rows; track row.type) {
               <li class="ps-row">
@@ -202,12 +203,16 @@ interface StarterPrompt {
     .preset-banner { display: flex; align-items: center; gap: var(--space-2); justify-content: space-between; }
     .ps-backdrop { position: fixed; inset: 0; background: rgb(40 33 24 / 0.45); display: flex;
       align-items: center; justify-content: center; z-index: calc(var(--z-overlay) + 10); }
-    .ps-panel { background: var(--surface-raised); border-radius: 0.75rem; padding: var(--space-5);
-      width: min(30rem, calc(100% - 2rem)); }
+    .ps-panel { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg); padding: var(--space-5); width: min(30rem, calc(100% - 2rem)); }
     .ps-list { list-style: none; padding: 0; margin: var(--space-3) 0; display: flex;
       flex-direction: column; gap: var(--space-2); }
     .ps-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
     .ps-actions { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+    @media (prefers-reduced-motion: no-preference) {
+      .ps-panel { animation: cad-ps-in 0.16s ease; }
+      @keyframes cad-ps-in { from { opacity: 0; transform: translateY(0.5rem) scale(0.98); } }
+    }
   `]
 })
 export class InterviewTemplatesComponent implements OnInit {
@@ -226,10 +231,10 @@ export class InterviewTemplatesComponent implements OnInit {
   readonly editingId = signal<string | null>(null);
   readonly saving = signal(false);
   readonly slotResult = signal<SlotComputationResponse | null>(null);
-  presetList = signal<InterviewTemplatePreset[]>([]);
-  presetsFailed = signal(false);
-  activePresetKey = signal<string | null>(null);
-  starterPrompt = signal<StarterPrompt | null>(null);
+  readonly presetList = signal<InterviewTemplatePreset[]>([]);
+  readonly presetsFailed = signal(false);
+  readonly activePresetKey = signal<string | null>(null);
+  readonly starterPrompt = signal<StarterPrompt | null>(null);
 
   readonly starterTypeLabels: Record<string, string> = {
     INVITATION: $localize`:@@tmpl.starter.type.invitation:Invitation`,
@@ -347,6 +352,7 @@ export class InterviewTemplatesComponent implements OnInit {
 
   edit(t: TemplateResponse): void {
     this.editingId.set(t.id);
+    this.activePresetKey.set(null);
     this.name = t.name;
     this.durationMinutes = t.durationMinutes;
     this.slotCadenceMinutes = t.slotCadenceMinutes;
