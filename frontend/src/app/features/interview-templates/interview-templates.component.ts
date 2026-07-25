@@ -66,6 +66,20 @@ import { ToastService } from '../../shared/ui/toast.service';
         <label class="field" i18n="@@tmpl.form.bufferAfter">Buffer after (min) <input class="input" name="ba" type="number" [(ngModel)]="bufferAfterMinutes" /></label>
         <label class="field" i18n="@@tmpl.form.cap">Daily cap per interviewer <input class="input" name="cap" type="number" [(ngModel)]="dailyCapPerInterviewer" required /></label>
         <label class="field" i18n="@@tmpl.form.required">Required member IDs (comma-separated) <input class="input" name="req" [(ngModel)]="requiredCsv" /></label>
+        <label class="field" i18n="@@tmpl.form.optional">Optional member IDs (comma-separated)
+          <input class="input" name="opt" [(ngModel)]="optionalCsv" /></label>
+        @for (pool of pools; track $index) {
+          <div class="pool-row">
+            <label class="field" i18n="@@tmpl.form.poolMembers">Pool member IDs (comma-separated)
+              <input class="input" name="pool-m-{{ $index }}" [(ngModel)]="pool.membersCsv" /></label>
+            <label class="field" i18n="@@tmpl.form.poolN">Need any
+              <input class="input" name="pool-n-{{ $index }}" type="number" min="1" [(ngModel)]="pool.n" /></label>
+            <button type="button" class="btn btn--danger-soft btn--sm" (click)="removePool($index)"
+              i18n="@@tmpl.form.poolRemove">Remove pool</button>
+          </div>
+        }
+        <button type="button" class="btn btn--outline btn--sm" (click)="addPool()"
+          i18n="@@tmpl.form.poolAdd">Add interviewer pool</button>
         <div class="actions">
           <button type="submit" class="btn btn--primary" [disabled]="saving()">{{ editingId() ? saveEdit : saveNew }}</button>
           @if (editingId()) {
@@ -129,6 +143,8 @@ export class InterviewTemplatesComponent implements OnInit {
   bufferAfterMinutes = 15;
   dailyCapPerInterviewer: number | null = 2;
   requiredCsv = '';
+  optionalCsv = '';
+  pools: { membersCsv: string; n: number | null }[] = [];
 
   ngOnInit(): void {
     this.load();
@@ -143,7 +159,11 @@ export class InterviewTemplatesComponent implements OnInit {
       bufferBeforeMinutes: Number(this.bufferBeforeMinutes),
       bufferAfterMinutes: Number(this.bufferAfterMinutes),
       dailyCapPerInterviewer: Number(this.dailyCapPerInterviewer),
-      requiredMemberIds: this.requiredCsv.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+      requiredMemberIds: this.csvToIds(this.requiredCsv),
+      optionalMemberIds: this.csvToIds(this.optionalCsv),
+      pools: this.pools
+        .map((p) => ({ memberIds: this.csvToIds(p.membersCsv), n: Number(p.n) }))
+        .filter((p) => p.memberIds.length > 0)
     };
     const id = this.editingId();
     const isEdit = id !== null;
@@ -173,6 +193,8 @@ export class InterviewTemplatesComponent implements OnInit {
     this.bufferAfterMinutes = t.bufferAfterMinutes;
     this.dailyCapPerInterviewer = t.dailyCapPerInterviewer;
     this.requiredCsv = t.requiredMemberIds.join(', ');
+    this.optionalCsv = (t.optionalMemberIds ?? []).join(', ');
+    this.pools = t.pools.map((p) => ({ membersCsv: p.memberIds.join(', '), n: p.n }));
   }
 
   async retire(t: TemplateResponse): Promise<void> {
@@ -210,6 +232,20 @@ export class InterviewTemplatesComponent implements OnInit {
     this.bufferAfterMinutes = 15;
     this.dailyCapPerInterviewer = 2;
     this.requiredCsv = '';
+    this.optionalCsv = '';
+    this.pools = [];
+  }
+
+  addPool(): void {
+    this.pools.push({ membersCsv: '', n: 1 });
+  }
+
+  removePool(i: number): void {
+    this.pools.splice(i, 1);
+  }
+
+  private csvToIds(csv: string): string[] {
+    return csv.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
   }
 
   private load(): void {

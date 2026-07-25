@@ -24,7 +24,8 @@ import { attachToBody, axeViolations, detachFromBody } from '../../../testing/ax
 describe('InterviewTemplatesComponent', () => {
   const template: TemplateResponse = {
     id: 't1', name: 'Phone Screen', status: 'ACTIVE', durationMinutes: 45, slotCadenceMinutes: 15,
-    bufferBeforeMinutes: 15, bufferAfterMinutes: 15, dailyCapPerInterviewer: 2, requiredMemberIds: ['m1'], pools: []
+    bufferBeforeMinutes: 15, bufferAfterMinutes: 15, dailyCapPerInterviewer: 2, requiredMemberIds: ['m1'],
+    optionalMemberIds: [], pools: []
   };
   let attachedEls: HTMLElement[] = [];
 
@@ -187,5 +188,46 @@ describe('InterviewTemplatesComponent', () => {
   it('no longer exposes a generic error signal (routed through toasts)', () => {
     const fixture = setup({ templates: [] });
     expect((fixture.componentInstance as unknown as { error?: unknown }).error).toBeUndefined();
+  });
+
+  describe('pools and optional members (preset groundwork)', () => {
+    it('adds and removes pool rows', () => {
+      const fixture = setup({ templates: [] });
+      const c = fixture.componentInstance;
+      expect(c.pools.length).toBe(0);
+      c.addPool();
+      expect(c.pools).toEqual([{ membersCsv: '', n: 1 }]);
+      c.removePool(0);
+      expect(c.pools.length).toBe(0);
+    });
+
+    it('submits optional members and pools parsed from CSV rows', () => {
+      const createSpy = jasmine.createSpy('create').and.returnValue(of(template));
+      const fixture = setup({ templates: [] },
+        { create: createSpy as unknown as InterviewTemplatesService['create'] });
+      const c = fixture.componentInstance;
+      c.name = 'Panel loop';
+      c.durationMinutes = 90;
+      c.requiredCsv = 'm1';
+      c.optionalCsv = 'm2, m3';
+      c.pools = [{ membersCsv: 'm4, m5', n: 2 }, { membersCsv: '  ', n: 1 }];
+      c.submit();
+      expect(createSpy).toHaveBeenCalledWith(jasmine.objectContaining({
+        optionalMemberIds: ['m2', 'm3'],
+        pools: [{ memberIds: ['m4', 'm5'], n: 2 }]
+      }));
+    });
+
+    it('edit() populates optional and pool CSV rows from the response', () => {
+      const withPools = {
+        ...template, optionalMemberIds: ['m9'],
+        pools: [{ memberIds: ['m4', 'm5'], n: 2 }]
+      };
+      const fixture = setup({ templates: [withPools] });
+      const c = fixture.componentInstance;
+      c.edit(withPools);
+      expect(c.optionalCsv).toBe('m9');
+      expect(c.pools).toEqual([{ membersCsv: 'm4, m5', n: 2 }]);
+    });
   });
 });

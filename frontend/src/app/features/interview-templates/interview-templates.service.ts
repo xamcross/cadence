@@ -30,6 +30,7 @@ export interface TemplateResponse {
   bufferAfterMinutes: number;
   dailyCapPerInterviewer: number;
   requiredMemberIds: string[];
+  optionalMemberIds: string[];
   pools: PoolRule[];
 }
 
