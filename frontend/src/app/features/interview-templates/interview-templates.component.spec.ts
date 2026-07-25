@@ -1,4 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { InterviewTemplatesComponent } from './interview-templates.component';
 import {
@@ -8,6 +11,7 @@ import {
   TemplateList,
   TemplateResponse
 } from './interview-templates.service';
+import { EmailTemplate, EmailTemplatesService } from '../email-templates/email-templates.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
@@ -43,7 +47,12 @@ describe('InterviewTemplatesComponent', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [InterviewTemplatesComponent],
-      providers: [{ provide: InterviewTemplatesService, useValue: service }]
+      providers: [
+        { provide: InterviewTemplatesService, useValue: service },
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting()
+      ]
     });
     const fixture = TestBed.createComponent(InterviewTemplatesComponent);
     const el = fixture.nativeElement as HTMLElement;
@@ -275,6 +284,92 @@ describe('InterviewTemplatesComponent', () => {
     it('has zero axe violations with the gallery rendered', async () => {
       const fixture = setup({ templates: [] },
         { presets: () => of({ presets: [panelLoop] }) });
+      const violations = await axeViolations(fixture.nativeElement);
+      expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+    });
+  });
+
+  describe('post-save starter-email dialog', () => {
+    const techDeepDive: InterviewTemplatePreset = {
+      key: 'TECH_DEEP_DIVE', durationMinutes: 60, slotCadenceMinutes: 30, bufferBeforeMinutes: 10,
+      bufferAfterMinutes: 10, dailyCapPerInterviewer: 2, requiredCount: 1, optionalShadow: true,
+      poolN: null, starterEmailTypes: ['INVITATION', 'CONFIRMATION', 'REMINDER_24H']
+    };
+    const starterResponse = { messageType: 'INVITATION', stageKey: 't1', subject: 's', body: 'b',
+      locked: false, version: 0, source: 'OVERRIDE', permittedTokens: [] } as EmailTemplate;
+
+    function saveFromPreset(fixture: ReturnType<typeof setup>): void {
+      const c = fixture.componentInstance;
+      c.applyPreset(techDeepDive);
+      c.requiredCsv = 'm1';
+      c.submit();
+      fixture.detectChanges();
+    }
+
+    it('opens the dialog after saving from a preset, listing the starter types checked', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      saveFromPreset(fixture);
+      const prompt = fixture.componentInstance.starterPrompt();
+      expect(prompt).not.toBeNull();
+      expect(prompt!.templateId).toBe('t1');
+      expect(prompt!.rows.map((r) => r.type)).toEqual(['INVITATION', 'CONFIRMATION', 'REMINDER_24H']);
+      expect(prompt!.rows.every((r) => r.checked)).toBeTrue();
+      expect(fixture.nativeElement.querySelector('.ps-panel')).not.toBeNull();
+    });
+
+    it('does not open the dialog after a blank (non-preset) save', () => {
+      const fixture = setup({ templates: [] });
+      const c = fixture.componentInstance;
+      c.name = 'Blank';
+      c.requiredCsv = 'm1';
+      c.submit();
+      expect(c.starterPrompt()).toBeNull();
+    });
+
+    it('applies one starter per checked type with expectedVersion null', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const applySpy = spyOn(TestBed.inject(EmailTemplatesService), 'applyPresetStarter')
+        .and.returnValue(of(starterResponse));
+      saveFromPreset(fixture);
+      fixture.componentInstance.toggleStarterRow('CONFIRMATION'); // uncheck one
+      fixture.componentInstance.applyStarters();
+      expect(applySpy).toHaveBeenCalledTimes(2);
+      expect(applySpy).toHaveBeenCalledWith('INVITATION',
+        { stageKey: 't1', presetKey: 'TECH_DEEP_DIVE', expectedVersion: null });
+      expect(fixture.componentInstance.starterPrompt()!.rows
+        .find((r) => r.type === 'INVITATION')!.status).toBe('done');
+    });
+
+    it('a failed apply marks the row failed and retry re-applies it', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const applySpy = spyOn(TestBed.inject(EmailTemplatesService), 'applyPresetStarter')
+        .and.returnValue(throwError(() => new Error('boom')));
+      saveFromPreset(fixture);
+      const c = fixture.componentInstance;
+      c.applyStarterRow(c.starterPrompt()!, 'INVITATION');
+      expect(c.starterPrompt()!.rows.find((r) => r.type === 'INVITATION')!.status).toBe('failed');
+      applySpy.and.returnValue(of(starterResponse));
+      c.applyStarterRow(c.starterPrompt()!, 'INVITATION');
+      expect(c.starterPrompt()!.rows.find((r) => r.type === 'INVITATION')!.status).toBe('done');
+    });
+
+    it('skip closes the dialog without calling the email service', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const applySpy = spyOn(TestBed.inject(EmailTemplatesService), 'applyPresetStarter');
+      saveFromPreset(fixture);
+      fixture.componentInstance.closeStarterPrompt();
+      expect(fixture.componentInstance.starterPrompt()).toBeNull();
+      expect(applySpy).not.toHaveBeenCalled();
+    });
+
+    it('has zero axe violations with the dialog open', async () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      saveFromPreset(fixture);
       const violations = await axeViolations(fixture.nativeElement);
       expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
     });

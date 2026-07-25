@@ -1,5 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { A11yModule } from '@angular/cdk/a11y';
+import { RouterLink } from '@angular/router';
 import {
   InterviewTemplatePreset,
   InterviewTemplatesService,
@@ -7,11 +9,24 @@ import {
   TemplateRequest,
   TemplateResponse
 } from './interview-templates.service';
+import { EmailTemplatesService } from '../email-templates/email-templates.service';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
+
+interface StarterRow {
+  type: string;
+  checked: boolean;
+  status: 'idle' | 'applying' | 'done' | 'failed';
+}
+
+interface StarterPrompt {
+  templateId: string;
+  presetKey: string;
+  rows: StarterRow[];
+}
 
 /**
  * Recruiter/Admin "Interview templates" surface (F12, the §II demonstrable leg): list / create / edit /
@@ -25,7 +40,7 @@ import { ToastService } from '../../shared/ui/toast.service';
 @Component({
   selector: 'app-interview-templates',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
+  imports: [FormsModule, A11yModule, RouterLink, PageHeaderComponent, EmptyStateComponent, SkeletonComponent],
   template: `
     <app-page-header
       eyebrow="Templates" i18n-eyebrow="@@tmpl.eyebrow"
@@ -140,6 +155,42 @@ import { ToastService } from '../../shared/ui/toast.service';
         }
       </section>
     }
+
+    @if (starterPrompt(); as sp) {
+      <div class="ps-backdrop" (click)="closeStarterPrompt()" (keydown.escape)="closeStarterPrompt()" tabindex="-1">
+        <div class="ps-panel" role="dialog" aria-modal="true" aria-labelledby="starter-title"
+             cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
+          <h2 class="ps-title" id="starter-title" i18n="@@tmpl.starter.title">Add starter emails for this stage?</h2>
+          <p class="ps-body" i18n="@@tmpl.starter.body">Pre-written wording for this interview type. Everything stays editable in Email templates.</p>
+          <ul class="ps-list">
+            @for (row of sp.rows; track row.type) {
+              <li class="ps-row">
+                <label>
+                  <input type="checkbox" [checked]="row.checked" (change)="toggleStarterRow(row.type)"
+                         [disabled]="row.status === 'applying' || row.status === 'done'" />
+                  {{ starterTypeLabels[row.type] || row.type }}
+                </label>
+                @if (row.status === 'done') {
+                  <span class="badge badge--ok" i18n="@@tmpl.starter.done">Added</span>
+                }
+                @if (row.status === 'failed') {
+                  <button type="button" class="btn btn--outline btn--sm" (click)="applyStarterRow(sp, row.type)"
+                    i18n="@@tmpl.starter.retry">Retry</button>
+                }
+              </li>
+            }
+          </ul>
+          <div class="ps-actions">
+            <button type="button" class="btn btn--ghost" (click)="closeStarterPrompt()"
+              i18n="@@tmpl.starter.skip">Skip</button>
+            <a class="btn btn--link" routerLink="/email-templates" (click)="closeStarterPrompt()"
+              i18n="@@tmpl.starter.review">Review in Email templates</a>
+            <button type="button" class="btn btn--primary" (click)="applyStarters()"
+              i18n="@@tmpl.starter.apply">Add selected</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); padding: var(--space-1) 0; }
@@ -149,12 +200,21 @@ import { ToastService } from '../../shared/ui/toast.service';
     .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-4); }
     .preset-card { display: flex; flex-direction: column; gap: var(--space-2); text-align: left; cursor: pointer; }
     .preset-banner { display: flex; align-items: center; gap: var(--space-2); justify-content: space-between; }
+    .ps-backdrop { position: fixed; inset: 0; background: rgb(40 33 24 / 0.45); display: flex;
+      align-items: center; justify-content: center; z-index: calc(var(--z-overlay) + 10); }
+    .ps-panel { background: var(--surface-raised); border-radius: 0.75rem; padding: var(--space-5);
+      width: min(30rem, calc(100% - 2rem)); }
+    .ps-list { list-style: none; padding: 0; margin: var(--space-3) 0; display: flex;
+      flex-direction: column; gap: var(--space-2); }
+    .ps-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+    .ps-actions { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
   `]
 })
 export class InterviewTemplatesComponent implements OnInit {
   private readonly api = inject(InterviewTemplatesService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
+  private readonly emailApi = inject(EmailTemplatesService);
 
   readonly newTitle = $localize`:@@tmpl.form.newTitle:New template`;
   readonly editTitle = $localize`:@@tmpl.form.editTitle:Edit template`;
@@ -169,6 +229,13 @@ export class InterviewTemplatesComponent implements OnInit {
   presetList = signal<InterviewTemplatePreset[]>([]);
   presetsFailed = signal(false);
   activePresetKey = signal<string | null>(null);
+  starterPrompt = signal<StarterPrompt | null>(null);
+
+  readonly starterTypeLabels: Record<string, string> = {
+    INVITATION: $localize`:@@tmpl.starter.type.invitation:Invitation`,
+    CONFIRMATION: $localize`:@@tmpl.starter.type.confirmation:Confirmation`,
+    REMINDER_24H: $localize`:@@tmpl.starter.type.reminder24h:24-hour reminder`
+  };
 
   readonly presetLabels: Record<string, { name: string; desc: string }> = {
     PHONE_SCREEN: {
@@ -252,13 +319,24 @@ export class InterviewTemplatesComponent implements OnInit {
     const isEdit = id !== null;
     const call = id ? this.api.update(id, body) : this.api.create(body);
     call.subscribe({
-      next: () => {
+      next: (saved) => {
+        const presetKey = this.activePresetKey();
         this.saving.set(false);
         this.resetForm();
         this.load();
         this.toast.success(isEdit
           ? $localize`:@@toast.tmpl.updated:Template saved.`
           : $localize`:@@toast.tmpl.created:Template created.`);
+        if (!isEdit && presetKey) {
+          const types = this.presetList().find((p) => p.key === presetKey)?.starterEmailTypes ?? [];
+          if (types.length > 0) {
+            this.starterPrompt.set({
+              templateId: saved.id,
+              presetKey,
+              rows: types.map((t) => ({ type: t, checked: true, status: 'idle' as const }))
+            });
+          }
+        }
       },
       error: () => {
         this.saving.set(false);
@@ -326,6 +404,41 @@ export class InterviewTemplatesComponent implements OnInit {
 
   removePool(i: number): void {
     this.pools.splice(i, 1);
+  }
+
+  applyStarters(): void {
+    const prompt = this.starterPrompt();
+    if (!prompt) { return; }
+    for (const row of prompt.rows) {
+      if (row.checked && row.status !== 'done' && row.status !== 'applying') {
+        this.applyStarterRow(prompt, row.type);
+      }
+    }
+  }
+
+  applyStarterRow(prompt: StarterPrompt, type: string): void {
+    this.setStarterStatus(type, 'applying');
+    this.emailApi.applyPresetStarter(type,
+      { stageKey: prompt.templateId, presetKey: prompt.presetKey, expectedVersion: null }).subscribe({
+      next: () => this.setStarterStatus(type, 'done'),
+      error: () => this.setStarterStatus(type, 'failed')
+    });
+  }
+
+  toggleStarterRow(type: string): void {
+    this.starterPrompt.update((p) => p
+      ? { ...p, rows: p.rows.map((r) => r.type === type ? { ...r, checked: !r.checked } : r) }
+      : p);
+  }
+
+  closeStarterPrompt(): void {
+    this.starterPrompt.set(null);
+  }
+
+  private setStarterStatus(type: string, status: StarterRow['status']): void {
+    this.starterPrompt.update((p) => p
+      ? { ...p, rows: p.rows.map((r) => r.type === type ? { ...r, status } : r) }
+      : p);
   }
 
   private csvToIds(csv: string): string[] {
