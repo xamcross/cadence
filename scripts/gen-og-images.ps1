@@ -107,6 +107,9 @@ New-OgCard (Join-Path $ogDir 'reducing-interview-no-shows.png') 'Recruiting guid
 New-OgCard (Join-Path $ogDir 'candidate-experience-best-practices.png') 'Recruiting guide' 'Candidate experience best practices for recruiters'
 New-OgCard (Join-Path $ogDir 'gdpr-safe-recruiting.png') 'Recruiting guide' 'Privacy-safe and GDPR-conscious recruiting'
 New-OgCard (Join-Path $ogDir 'interview-scheduling-and-calendar-coordination.png') 'Recruiting guide' 'Interview scheduling and calendar coordination'
+New-OgCard (Join-Path $ogDir 'candidate-data-retention-periods.png') 'Recruiting guide' 'Candidate data retention periods under GDPR'
+New-OgCard (Join-Path $ogDir 'right-to-erasure-recruiting.png') 'Recruiting guide' 'The right to erasure in recruiting'
+New-OgCard (Join-Path $ogDir 'candidate-self-scheduling.png') 'Recruiting guide' 'Candidate self-scheduling done well'
 
 # Marketing pages.
 New-OgCard (Join-Path $ogDir 'features.png') 'Product' 'Interview scheduling software features'
@@ -117,5 +120,9 @@ New-OgCard (Join-Path $ogDir 'integrations-microsoft-365.png') 'Integration' 'Mi
 New-OgCard (Join-Path $ogDir 'integrations-greenhouse.png') 'Integration' 'Greenhouse ATS sync'
 New-OgCard (Join-Path $ogDir 'integrations-lever.png') 'Integration' 'Lever ATS sync'
 New-OgCard (Join-Path $ogDir 'vs-calendly.png') 'Comparison' 'Cadence vs Calendly for recruiting teams'
+New-OgCard (Join-Path $ogDir 'vs-goodtime.png') 'Comparison' 'Cadence vs GoodTime for small recruiting teams'
+New-OgCard (Join-Path $ogDir 'vs-modernloop.png') 'Comparison' 'Cadence vs ModernLoop for recruiting teams'
+New-OgCard (Join-Path $ogDir 'gdpr.png') 'Product' 'Interview scheduling built for GDPR'
+New-OgCard (Join-Path $ogDir 'small-teams.png') 'Product' 'For small recruiting teams'
 
 Write-Host 'done'

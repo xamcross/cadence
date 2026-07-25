@@ -1,0 +1,14 @@
+{
+  "slug": "candidate-self-scheduling",
+  "title": "Candidate self-scheduling: what it is and how to do it well",
+  "summary": "Candidate self-scheduling lets candidates book their own interviews from real availability. What it is, why it cuts time-to-interview, and how to do it right.",
+  "datePublished": "2026-07-24",
+  "theme": "scheduling",
+  "related": ["interview-scheduling-and-calendar-coordination", "reducing-interview-no-shows"],
+  "ogImage": "/assets/og/candidate-self-scheduling.png",
+  "faq": [
+    { "q": "Do candidates actually prefer self-scheduling?", "a": "Overwhelmingly, yes. Booking a slot in a minute — often outside office hours, from a phone — beats a multi-day email negotiation. Candidates in active processes are usually juggling several employers; the company that is easiest to schedule with interviews first." },
+    { "q": "Can self-scheduling handle panel interviews?", "a": "It should, and this is where basic booking links break. Proper self-scheduling intersects the availability of every required panelist, applies quorum rules for interviewer pools, and reserves the whole panel atomically at booking time." },
+    { "q": "What stops a candidate from booking an inconvenient time?", "a": "The offered slots are computed, not open-ended: working hours, buffers before and after interviews, daily interview caps per interviewer, and blackout dates are enforced before a time is ever shown to the candidate." }
+  ]
+}

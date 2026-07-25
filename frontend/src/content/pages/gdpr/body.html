@@ -1,0 +1,55 @@
+<h2>Why interview scheduling is a GDPR problem</h2>
+<p>
+  Scheduling an interview scatters personal data further than most teams realize. A candidate's name
+  and email land in calendar events on every interviewer's account, in confirmation and reminder
+  emails, in the ATS, and often in a spreadsheet or two. Each copy is personal data you are
+  accountable for under GDPR — subject to storage limitation, purpose limitation, and the right to
+  erasure. When a candidate asks "delete my data", every one of those copies is in scope, and a
+  scheduler that only knows about calendar events cannot help you find them.
+</p>
+
+<h2>What "built for GDPR" means in practice</h2>
+<p>
+  Cadence treats data protection as an architectural constraint, not a settings page. Concretely:
+</p>
+<ul>
+  <li><strong>Encryption at rest</strong>: candidate personal data — names, emails, notes, interview
+    locations, scorecard content — is encrypted at rest, not stored as plain text.</li>
+  <li><strong>Consent recorded before contact</strong>: a lawful contact basis is recorded per
+    candidate, and every outgoing email is checked against it at send time. No recorded basis, no
+    email — the gate is enforced by the system, not by whoever clicks send.</li>
+  <li><strong>Data minimization</strong>: candidate-facing pages need no account and no login; the
+    booking and status links carry no personal data in the URL. Availability checks read busy/free
+    time only, never other people's event contents.</li>
+  <li><strong>Automated retention</strong>: you set a retention period per workspace; candidates who
+    pass it are flagged and processed automatically instead of accumulating forever. See our guide
+    to <a href="/resources/candidate-data-retention-periods/">candidate data retention periods</a>.</li>
+  <li><strong>One-click erasure</strong>: an erasure request wipes the candidate record, unsent
+    email, scheduling artifacts, and synced ATS fields together, and leaves a PII-free audit entry
+    proving it happened. Candidates can raise the request themselves from their private status page.
+    The workflow is described in
+    <a href="/resources/right-to-erasure-recruiting/">the right to erasure in recruiting</a>.</li>
+</ul>
+
+<h2>What a tool cannot do for you</h2>
+<p>
+  Honesty matters here: no software makes an organization GDPR compliant. Choosing a lawful basis,
+  writing your privacy notice, deciding retention periods, and answering subject-access requests are
+  your decisions, usually with your legal counsel. What Cadence changes is whether those decisions
+  are cheap to execute. A retention policy that requires a quarterly manual purge will be skipped in
+  a busy quarter; one that runs automatically will not. A consent check that lives in a wiki gets
+  forgotten; one enforced at send time cannot be.
+</p>
+
+<h2>Where to start</h2>
+<p>
+  If you are building a privacy-conscious recruiting practice, start with our practical guide to
+  <a href="/resources/gdpr-safe-recruiting/">privacy-safe and GDPR-conscious recruiting</a>, then
+  decide your <a href="/resources/candidate-data-retention-periods/">retention periods</a> and your
+  <a href="/resources/right-to-erasure-recruiting/">erasure workflow</a>. When you want the
+  operational side handled for you, see the <a href="/features/">full feature overview</a> and
+  <a href="/pricing/">pricing</a> — Cadence is free during early access — or start from the
+  <a href="/">Cadence home page</a>. It is built for
+  <a href="/small-teams/">small recruiting teams</a> that have GDPR duties but no compliance
+  department.
+</p>

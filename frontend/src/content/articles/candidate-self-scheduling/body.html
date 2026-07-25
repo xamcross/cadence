@@ -1,0 +1,74 @@
+<h2>What candidate self-scheduling is</h2>
+<p>
+  Candidate self-scheduling means the candidate books their own interview: instead of a recruiter
+  proposing times over email, the candidate opens a link, sees slots computed from the interviewers'
+  real availability, and picks one. The calendars update, confirmations go out, and nobody played
+  timezone tennis. The idea is simple; the difference between a toy version and a working one is
+  everything that happens around that click.
+</p>
+
+<h2>Why it matters more than it looks</h2>
+<p>
+  Scheduling is usually the largest <em>controllable</em> delay in an interview process. The role
+  is approved, the candidate is interested — and then three emails, two counter-proposals, and a
+  weekend go by before a thirty-minute screen lands on a calendar. Multiply by every stage and
+  scheduling friction quietly adds days to time-to-hire. Self-scheduling collapses that negotiation
+  to minutes, and the second-order effects are just as valuable: candidates in parallel processes
+  interview with you first, fewer hand-offs mean fewer dropped candidates, and recruiters get their
+  calendar-admin hours back. (Our guide to
+  <a href="/resources/interview-scheduling-and-calendar-coordination/">interview scheduling and
+  calendar coordination</a> covers the mechanics underneath.)
+</p>
+
+<h2>What good self-scheduling looks like</h2>
+<ul>
+  <li><strong>Real availability, not a static grid</strong>: slots come from the interviewers'
+    live calendars and are re-validated at booking time, so a meeting that appeared this morning
+    takes its slot off the table.</li>
+  <li><strong>Rules enforced in the slot math</strong>: working hours, buffers between interviews,
+    daily caps per interviewer, and blackout dates are applied before a slot is shown — the
+    candidate only ever sees times that are genuinely bookable.</li>
+  <li><strong>Panels, not just 1:1s</strong>: required attendees intersected, interviewer pools
+    filled by quorum, and the whole panel reserved atomically so two candidates cannot claim the
+    same scarce slot.</li>
+  <li><strong>No account, no app</strong>: a candidate should never create a login to attend your
+    interview. A private link is the whole interface — and it should carry no personal data in the
+    URL.</li>
+  <li><strong>Reschedule and cancel built in</strong>: life happens; the same link should let the
+    candidate move or cancel the interview gracefully, releasing everyone's time.</li>
+  <li><strong>Follow-through attached</strong>: confirmations, reminders, and a
+    <a href="/resources/reducing-interview-no-shows/">no-show confirmation cascade</a> belong to
+    the booking, not to a recruiter's memory.</li>
+</ul>
+
+<h2>The usual objections, answered</h2>
+<p>
+  <strong>"We lose the personal touch."</strong> The personal touch was never the Doodle poll. Time
+  saved on logistics is time available for the conversations that actually are personal — and a
+  candidate who booked in one minute, got a reminder, and can see their
+  status on a private page experiences more care, not less.
+</p>
+<p>
+  <strong>"Interviewers will lose control of their calendars."</strong> The opposite, when rules
+  are enforced in the slot math: buffers, caps, and working hours are guaranteed by the system,
+  which a polite human scheduler under pressure cannot promise.
+</p>
+<p>
+  <strong>"Our process is too complicated."</strong> Panels with quorums and multi-stage processes
+  are exactly where manual scheduling costs the most. If a link genuinely cannot express your
+  process, that is a tool limitation — not a reason to keep negotiating by email.
+</p>
+
+<h2>Self-scheduling in Cadence</h2>
+<p>
+  Cadence implements the full version of the list above for
+  <a href="/small-teams/">small recruiting teams</a>: computed slots from
+  <a href="/integrations/google-calendar/">Google Calendar</a> and
+  <a href="/integrations/microsoft-365/">Microsoft 365</a>, panel quorums and atomic reservation,
+  no candidate account ever, reschedule and cancellation on the same private link, and the
+  follow-through — reminders, no-show defense, a candidate status page, ATS write-back to
+  <a href="/integrations/greenhouse/">Greenhouse</a> or <a href="/integrations/lever/">Lever</a> —
+  running automatically, with candidate data handled the
+  <a href="/gdpr/">built-for-GDPR</a> way. See the <a href="/features/">feature overview</a> or
+  start from the <a href="/">home page</a>; it is free during early access.
+</p>

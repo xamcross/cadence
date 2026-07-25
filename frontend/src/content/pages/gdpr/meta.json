@@ -1,0 +1,12 @@
+{
+  "slug": "gdpr",
+  "title": "Interview scheduling software built for GDPR",
+  "description": "Interview scheduling designed around GDPR: candidate data encrypted at rest, consent recorded before contact, automated retention, and one-click erasure.",
+  "lastUpdated": "2026-07-24",
+  "ogImage": "/assets/og/gdpr.png",
+  "faq": [
+    { "q": "Does using a scheduling tool make recruiting GDPR compliant?", "a": "No tool makes an organization compliant by itself. Compliance is a set of decisions and processes you own: lawful basis, notices, and policies. What a well-designed tool changes is the operational side, so consent records, retention limits, and erasure actually happen instead of living in a policy document." },
+    { "q": "What happens when a candidate asks Cadence users for erasure?", "a": "An erasure request, whether raised by a recruiter or by the candidate from their status page, wipes the candidate record, unsent email, scheduling artifacts, and synced ATS fields in one action, and keeps a PII-free audit entry proving the erasure happened." },
+    { "q": "Does Cadence email candidates without recorded consent?", "a": "No. Every candidate email is checked against the recorded contact basis at send time. If consent is missing, withdrawn, or the candidate has been erased, the message is refused rather than sent." }
+  ]
+}

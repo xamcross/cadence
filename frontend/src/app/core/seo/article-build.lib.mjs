@@ -108,7 +108,7 @@ export function validateMeta(meta, knownSlugs) {
 // /integrations/<x>/, ...): Cloudflare Pages serves the directory index at the slash URL and
 // 308-redirects the no-slash form, so a no-slash internal link costs every visitor (and crawler) a
 // redirect hop. The lint REJECTS the no-slash form outright — build-time enforcement of the served form.
-const PUBLIC_LINK_RE = /^(\/|#[a-z0-9-]*|https:\/\/[a-z0-9.-]+(?:\/[^\s"']*)?|\/resources\/(?:[a-z0-9-]+\/)?|\/(?:terms|privacy|features|pricing|integrations)\/|\/(?:integrations|vs)\/[a-z0-9-]+\/)$/i;
+const PUBLIC_LINK_RE = /^(\/|#[a-z0-9-]*|https:\/\/[a-z0-9.-]+(?:\/[^\s"']*)?|\/resources\/(?:[a-z0-9-]+\/)?|\/(?:terms|privacy|features|pricing|integrations|gdpr|small-teams)\/|\/(?:integrations|vs)\/[a-z0-9-]+\/)$/i;
 const PII_TOKEN_RE = /token=|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 
 /** Reject an unsafe body fragment (defense-in-depth; content is first-party). Throws on violation. */

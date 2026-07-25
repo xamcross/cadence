@@ -1,0 +1,14 @@
+{
+  "slug": "right-to-erasure-recruiting",
+  "title": "The right to erasure in recruiting: a practical workflow",
+  "summary": "A candidate asked you to delete their data. What Article 17 requires, the one-month deadline, where candidate data hides, and a workflow that actually works.",
+  "datePublished": "2026-07-24",
+  "theme": "privacy",
+  "related": ["gdpr-safe-recruiting", "candidate-data-retention-periods"],
+  "ogImage": "/assets/og/right-to-erasure-recruiting.png",
+  "faq": [
+    { "q": "Do we have to delete everything when a candidate asks?", "a": "Almost everything. Article 17 has narrow exceptions — most relevantly, data you genuinely need to establish or defend legal claims, such as evidence of a fair process within a discrimination-claim window. The exception covers that minimum, not the whole file." },
+    { "q": "Can we prove we deleted a candidate after deleting them?", "a": "Yes — keep an erasure log that records that a deletion happened and when, without containing the deleted personal data itself. A PII-free audit entry is compatible with the erasure it documents." },
+    { "q": "Does erasure cover interviewer calendars and sent email?", "a": "The right applies to personal data wherever you control it: ATS records, scheduling tools, calendar events, and mailboxes. Practically, teams delete what is reachable, and document anything that legitimately remains and why." }
+  ]
+}
