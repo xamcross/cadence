@@ -383,34 +383,32 @@ jobs:
           fi
           echo "Principle V scan passed — all scripts are pure ASCII."
 
-      - name: Agent-context guard — CLAUDE.md implementation notes must stay inside MANUAL ADDITIONS
+      - name: Agent-context guard — CLAUDE.md architecture brief must stay inside MANUAL ADDITIONS
         run: |
-          # The implementation notes are hard-won, non-reconstructable project knowledge. Anything
-          # OUTSIDE the MANUAL ADDITIONS block is the region agent-context regeneration (/init,
-          # .specify/scripts/*/update-agent-context.*) treats as rebuildable, so notes left there
-          # get silently dropped. A 2026-06-26 regeneration wiped all 266 lines and the loss went
-          # unnoticed for 3.5 weeks because nothing checked. This is that check.
-          MIN_SECTIONS=19
+          # CLAUDE.md is a hand-maintained architecture brief (rewritten 2026-07-25; the old
+          # per-feature implementation notes were deliberately deleted). Content OUTSIDE the
+          # MANUAL ADDITIONS block is the region agent-context regeneration (/init,
+          # .specify/scripts/*/update-agent-context.*) treats as rebuildable — a 2026-06-26
+          # regeneration silently wiped 266 lines. This check detects a wiped brief.
           start=$(grep -n '<!-- MANUAL ADDITIONS START -->' CLAUDE.md | cut -d: -f1)
           end=$(grep -n '<!-- MANUAL ADDITIONS END -->' CLAUDE.md | cut -d: -f1)
           if [ -z "$start" ] || [ -z "$end" ]; then
             echo "ERROR: CLAUDE.md is missing the MANUAL ADDITIONS markers."
             exit 1
           fi
-          total=$(grep -c '^## Implementation Notes' CLAUDE.md)
-          inside=$(awk -v s="$start" -v e="$end" \
-            'NR>s && NR<e && /^## Implementation Notes/ {n++} END {print n+0}' CLAUDE.md)
-          if [ "$total" -lt "$MIN_SECTIONS" ]; then
-            echo "ERROR: only $total '## Implementation Notes' sections in CLAUDE.md; expected >= $MIN_SECTIONS."
-            echo "       Agent-context regeneration probably wiped them. Restore from git history."
+          if ! awk -v s="$start" -v e="$end" \
+            'NR>s && NR<e && /^## Architecture decisions/ {found=1} END {exit !found}' CLAUDE.md; then
+            echo "ERROR: the '## Architecture decisions' section is missing from the MANUAL ADDITIONS block."
+            echo "       Agent-context regeneration probably wiped the brief. Restore from git history."
             exit 1
           fi
-          if [ "$inside" -ne "$total" ]; then
-            echo "ERROR: $((total - inside)) '## Implementation Notes' section(s) sit OUTSIDE the MANUAL ADDITIONS block."
-            echo "       Move them inside it — content outside is treated as regenerable and can be silently lost."
+          inside=$((end - start))
+          if [ "$inside" -lt 40 ]; then
+            echo "ERROR: MANUAL ADDITIONS block is only $inside lines; the architecture brief appears wiped."
+            echo "       Restore from git history."
             exit 1
           fi
-          echo "Agent-context guard passed — all $total implementation-note sections are protected."
+          echo "Agent-context guard passed — architecture brief intact ($inside lines inside the block)."
 
       - name: Upload test results
         if: always()
