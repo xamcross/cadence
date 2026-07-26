@@ -62,6 +62,11 @@ export class EmailTemplatesService {
     return this.http.post<EmailTemplate>(`${this.base}/${messageType}/apply-tone`, body);
   }
 
+  applyPresetStarter(messageType: string,
+    body: { stageKey: string; presetKey: string; expectedVersion: number | null }): Observable<EmailTemplate> {
+    return this.http.post<EmailTemplate>(`${this.base}/${messageType}/apply-preset-starter`, body);
+  }
+
   reset(messageType: string, body: { stageKey: string; expectedVersion: number | null }): Observable<EmailTemplate> {
     return this.http.post<EmailTemplate>(`${this.base}/${messageType}/reset`, body);
   }

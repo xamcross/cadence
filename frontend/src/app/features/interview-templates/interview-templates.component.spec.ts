@@ -1,12 +1,17 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { InterviewTemplatesComponent } from './interview-templates.component';
 import {
+  InterviewTemplatePreset,
   InterviewTemplatesService,
   SlotComputationResponse,
   TemplateList,
   TemplateResponse
 } from './interview-templates.service';
+import { EmailTemplate, EmailTemplatesService } from '../email-templates/email-templates.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
@@ -24,7 +29,8 @@ import { attachToBody, axeViolations, detachFromBody } from '../../../testing/ax
 describe('InterviewTemplatesComponent', () => {
   const template: TemplateResponse = {
     id: 't1', name: 'Phone Screen', status: 'ACTIVE', durationMinutes: 45, slotCadenceMinutes: 15,
-    bufferBeforeMinutes: 15, bufferAfterMinutes: 15, dailyCapPerInterviewer: 2, requiredMemberIds: ['m1'], pools: []
+    bufferBeforeMinutes: 15, bufferAfterMinutes: 15, dailyCapPerInterviewer: 2, requiredMemberIds: ['m1'],
+    optionalMemberIds: [], pools: []
   };
   let attachedEls: HTMLElement[] = [];
 
@@ -35,12 +41,18 @@ describe('InterviewTemplatesComponent', () => {
       update: () => of(template),
       retire: () => of({ ...template, status: 'RETIRED' }),
       computeSlots: () => of({ slots: [], windowClamped: false, unschedulable: [] }),
+      presets: () => of({ presets: [] as InterviewTemplatePreset[] }),
       ...overrides
     };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [InterviewTemplatesComponent],
-      providers: [{ provide: InterviewTemplatesService, useValue: service }]
+      providers: [
+        { provide: InterviewTemplatesService, useValue: service },
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting()
+      ]
     });
     const fixture = TestBed.createComponent(InterviewTemplatesComponent);
     const el = fixture.nativeElement as HTMLElement;
@@ -187,5 +199,214 @@ describe('InterviewTemplatesComponent', () => {
   it('no longer exposes a generic error signal (routed through toasts)', () => {
     const fixture = setup({ templates: [] });
     expect((fixture.componentInstance as unknown as { error?: unknown }).error).toBeUndefined();
+  });
+
+  describe('pools and optional members (preset groundwork)', () => {
+    it('adds and removes pool rows', () => {
+      const fixture = setup({ templates: [] });
+      const c = fixture.componentInstance;
+      expect(c.pools.length).toBe(0);
+      c.addPool();
+      expect(c.pools).toEqual([{ membersCsv: '', n: 1 }]);
+      c.removePool(0);
+      expect(c.pools.length).toBe(0);
+    });
+
+    it('submits optional members and pools parsed from CSV rows', () => {
+      const createSpy = jasmine.createSpy('create').and.returnValue(of(template));
+      const fixture = setup({ templates: [] },
+        { create: createSpy as unknown as InterviewTemplatesService['create'] });
+      const c = fixture.componentInstance;
+      c.name = 'Panel loop';
+      c.durationMinutes = 90;
+      c.requiredCsv = 'm1';
+      c.optionalCsv = 'm2, m3';
+      c.pools = [{ membersCsv: 'm4, m5', n: 2 }, { membersCsv: '  ', n: 1 }];
+      c.submit();
+      expect(createSpy).toHaveBeenCalledWith(jasmine.objectContaining({
+        optionalMemberIds: ['m2', 'm3'],
+        pools: [{ memberIds: ['m4', 'm5'], n: 2 }]
+      }));
+    });
+
+    it('edit() populates optional and pool CSV rows from the response', () => {
+      const withPools = {
+        ...template, optionalMemberIds: ['m9'],
+        pools: [{ memberIds: ['m4', 'm5'], n: 2 }]
+      };
+      const fixture = setup({ templates: [withPools] });
+      const c = fixture.componentInstance;
+      c.edit(withPools);
+      expect(c.optionalCsv).toBe('m9');
+      expect(c.pools).toEqual([{ membersCsv: 'm4, m5', n: 2 }]);
+    });
+  });
+
+  describe('preset gallery', () => {
+    const panelLoop: InterviewTemplatePreset = {
+      key: 'PANEL_LOOP', durationMinutes: 90, slotCadenceMinutes: 30, bufferBeforeMinutes: 15,
+      bufferAfterMinutes: 15, dailyCapPerInterviewer: 1, requiredCount: 1, optionalShadow: false,
+      poolN: 2, starterEmailTypes: ['INVITATION', 'CONFIRMATION', 'REMINDER_24H']
+    };
+
+    it('renders a card per preset with a localized name', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [panelLoop] }) });
+      const card = fixture.nativeElement.querySelector('.preset-card');
+      expect(card).not.toBeNull();
+      expect(card.textContent).toContain('Panel');
+    });
+
+    it('applying a preset pre-fills the form, seeds a pool row, and sets the banner', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [panelLoop] }) });
+      const c = fixture.componentInstance;
+      c.applyPreset(panelLoop);
+      expect(c.durationMinutes).toBe(90);
+      expect(c.slotCadenceMinutes).toBe(30);
+      expect(c.bufferBeforeMinutes).toBe(15);
+      expect(c.dailyCapPerInterviewer).toBe(1);
+      expect(c.pools).toEqual([{ membersCsv: '', n: 2 }]);
+      expect(c.activePresetKey()).toBe('PANEL_LOOP');
+      expect(c.name.length).toBeGreaterThan(0);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.preset-banner')).not.toBeNull();
+    });
+
+    it('gallery load failure is non-blocking and offers a retry', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => throwError(() => new Error('down')) });
+      const c = fixture.componentInstance;
+      expect(c.presetsFailed()).toBeTrue();
+      expect(fixture.nativeElement.querySelector('form')).not.toBeNull(); // blank create still works
+      const retryBtn = fixture.nativeElement.querySelector('.presets button.btn--link');
+      expect(retryBtn).not.toBeNull();
+      expect(retryBtn.textContent).toContain('Try again');
+    });
+
+    it('has zero axe violations with the gallery rendered', async () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [panelLoop] }) });
+      const violations = await axeViolations(fixture.nativeElement);
+      expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+    });
+  });
+
+  describe('edit() clears stale preset state (banner leak fix)', () => {
+    const techDeepDive: InterviewTemplatePreset = {
+      key: 'TECH_DEEP_DIVE', durationMinutes: 60, slotCadenceMinutes: 30, bufferBeforeMinutes: 10,
+      bufferAfterMinutes: 10, dailyCapPerInterviewer: 2, requiredCount: 1, optionalShadow: true,
+      poolN: null, starterEmailTypes: ['INVITATION', 'CONFIRMATION', 'REMINDER_24H']
+    };
+
+    it('clears activePresetKey (and hides the banner) when Edit is clicked after applying a preset', () => {
+      const fixture = setup({ templates: [template] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const c = fixture.componentInstance;
+      c.applyPreset(techDeepDive);
+      expect(c.activePresetKey()).toBe('TECH_DEEP_DIVE');
+      c.edit(template);
+      expect(c.activePresetKey()).toBeNull();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.preset-banner')).toBeNull();
+    });
+
+    it('an edit-path submit() never opens the starter dialog, even if a preset was applied beforehand', () => {
+      const fixture = setup({ templates: [template] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const c = fixture.componentInstance;
+      c.applyPreset(techDeepDive);
+      c.edit(template);
+      c.requiredCsv = 'm1';
+      c.submit();
+      fixture.detectChanges();
+      expect(c.starterPrompt()).toBeNull();
+    });
+  });
+
+  describe('post-save starter-email dialog', () => {
+    const techDeepDive: InterviewTemplatePreset = {
+      key: 'TECH_DEEP_DIVE', durationMinutes: 60, slotCadenceMinutes: 30, bufferBeforeMinutes: 10,
+      bufferAfterMinutes: 10, dailyCapPerInterviewer: 2, requiredCount: 1, optionalShadow: true,
+      poolN: null, starterEmailTypes: ['INVITATION', 'CONFIRMATION', 'REMINDER_24H']
+    };
+    const starterResponse = { messageType: 'INVITATION', stageKey: 't1', subject: 's', body: 'b',
+      locked: false, version: 0, source: 'OVERRIDE', permittedTokens: [] } as EmailTemplate;
+
+    function saveFromPreset(fixture: ReturnType<typeof setup>): void {
+      const c = fixture.componentInstance;
+      c.applyPreset(techDeepDive);
+      c.requiredCsv = 'm1';
+      c.submit();
+      fixture.detectChanges();
+    }
+
+    it('opens the dialog after saving from a preset, listing the starter types checked', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      saveFromPreset(fixture);
+      const prompt = fixture.componentInstance.starterPrompt();
+      expect(prompt).not.toBeNull();
+      expect(prompt!.templateId).toBe('t1');
+      expect(prompt!.rows.map((r) => r.type)).toEqual(['INVITATION', 'CONFIRMATION', 'REMINDER_24H']);
+      expect(prompt!.rows.every((r) => r.checked)).toBeTrue();
+      expect(fixture.nativeElement.querySelector('.ps-panel')).not.toBeNull();
+    });
+
+    it('does not open the dialog after a blank (non-preset) save', () => {
+      const fixture = setup({ templates: [] });
+      const c = fixture.componentInstance;
+      c.name = 'Blank';
+      c.requiredCsv = 'm1';
+      c.submit();
+      expect(c.starterPrompt()).toBeNull();
+    });
+
+    it('applies one starter per checked type with expectedVersion null', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const applySpy = spyOn(TestBed.inject(EmailTemplatesService), 'applyPresetStarter')
+        .and.returnValue(of(starterResponse));
+      saveFromPreset(fixture);
+      fixture.componentInstance.toggleStarterRow('CONFIRMATION'); // uncheck one
+      fixture.componentInstance.applyStarters();
+      expect(applySpy).toHaveBeenCalledTimes(2);
+      expect(applySpy).toHaveBeenCalledWith('INVITATION',
+        { stageKey: 't1', presetKey: 'TECH_DEEP_DIVE', expectedVersion: null });
+      expect(fixture.componentInstance.starterPrompt()!.rows
+        .find((r) => r.type === 'INVITATION')!.status).toBe('done');
+    });
+
+    it('a failed apply marks the row failed and retry re-applies it', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const applySpy = spyOn(TestBed.inject(EmailTemplatesService), 'applyPresetStarter')
+        .and.returnValue(throwError(() => new Error('boom')));
+      saveFromPreset(fixture);
+      const c = fixture.componentInstance;
+      c.applyStarterRow(c.starterPrompt()!, 'INVITATION');
+      expect(c.starterPrompt()!.rows.find((r) => r.type === 'INVITATION')!.status).toBe('failed');
+      applySpy.and.returnValue(of(starterResponse));
+      c.applyStarterRow(c.starterPrompt()!, 'INVITATION');
+      expect(c.starterPrompt()!.rows.find((r) => r.type === 'INVITATION')!.status).toBe('done');
+    });
+
+    it('skip closes the dialog without calling the email service', () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      const applySpy = spyOn(TestBed.inject(EmailTemplatesService), 'applyPresetStarter');
+      saveFromPreset(fixture);
+      fixture.componentInstance.closeStarterPrompt();
+      expect(fixture.componentInstance.starterPrompt()).toBeNull();
+      expect(applySpy).not.toHaveBeenCalled();
+    });
+
+    it('has zero axe violations with the dialog open', async () => {
+      const fixture = setup({ templates: [] },
+        { presets: () => of({ presets: [techDeepDive] }) });
+      saveFromPreset(fixture);
+      const violations = await axeViolations(fixture.nativeElement);
+      expect(violations).withContext(violations.map((v) => v.id).join(', ')).toEqual([]);
+    });
   });
 });

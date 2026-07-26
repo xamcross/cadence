@@ -43,6 +43,7 @@ class InterviewTemplateContractTest extends InterviewItBase {
             expectForbidden(post("/api/internal/interview-templates").cookie(c).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{}"));
             expectForbidden(get("/api/internal/interview-templates").cookie(c));
+            expectForbidden(get("/api/internal/interview-templates/presets").cookie(c));
             expectForbidden(get("/api/internal/interview-templates/x").cookie(c));
             expectForbidden(put("/api/internal/interview-templates/x").cookie(c).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{}"));

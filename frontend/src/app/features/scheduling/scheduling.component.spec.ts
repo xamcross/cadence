@@ -407,7 +407,8 @@ describe('SchedulingComponent', () => {
     const templateList: TemplateList = {
       templates: [{
         id: 'tmpl1', name: 'Onsite loop', status: 'ACTIVE', durationMinutes: 60, slotCadenceMinutes: 30,
-        bufferBeforeMinutes: 0, bufferAfterMinutes: 0, dailyCapPerInterviewer: 3, requiredMemberIds: [], pools: []
+        bufferBeforeMinutes: 0, bufferAfterMinutes: 0, dailyCapPerInterviewer: 3, requiredMemberIds: [],
+        optionalMemberIds: [], pools: []
       }]
     };
 

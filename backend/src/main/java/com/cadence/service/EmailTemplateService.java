@@ -1,5 +1,6 @@
 package com.cadence.service;
 
+import com.cadence.api.EmailTemplateDtos.ApplyPresetStarterRequest;
 import com.cadence.api.EmailTemplateDtos.ApplyToneRequest;
 import com.cadence.api.EmailTemplateDtos.EditRequest;
 import com.cadence.api.EmailTemplateDtos.ListResponse;
@@ -15,6 +16,7 @@ import com.cadence.domain.AuthEventType;
 import com.cadence.domain.Candidate;
 import com.cadence.domain.EmailMessageType;
 import com.cadence.domain.EmailTemplate;
+import com.cadence.domain.InterviewPresetKey;
 import com.cadence.domain.RenderedMessage;
 import com.cadence.domain.Role;
 import com.cadence.domain.TonePreset;
@@ -56,6 +58,7 @@ public class EmailTemplateService {
     private final EmailTemplateRepository repo;
     private final BuiltInEmailTemplates builtins;
     private final TonePresetCatalogue tones;
+    private final PresetEmailStarterCatalogue presetStarters;
     private final MergeTokenCatalogue catalogue;
     private final MergeRenderer renderer;
     private final CandidateRepository candidates;
@@ -66,13 +69,15 @@ public class EmailTemplateService {
     private final Clock clock;
 
     public EmailTemplateService(EmailTemplateRepository repo, BuiltInEmailTemplates builtins,
-                                TonePresetCatalogue tones, MergeTokenCatalogue catalogue, MergeRenderer renderer,
+                                TonePresetCatalogue tones, PresetEmailStarterCatalogue presetStarters,
+                                MergeTokenCatalogue catalogue, MergeRenderer renderer,
                                 CandidateRepository candidates, InterviewTemplateRepository interviewTemplates,
                                 AuthAuditService audit, EmailTemplateProperties props, AuthProperties authProps,
                                 Clock clock) {
         this.repo = repo;
         this.builtins = builtins;
         this.tones = tones;
+        this.presetStarters = presetStarters;
         this.catalogue = catalogue;
         this.renderer = renderer;
         this.candidates = candidates;
@@ -142,6 +147,49 @@ public class EmailTemplateService {
         persist(workspaceId, actorMemberId, type, sk, content.subject(), content.body(), existing);
         auditChange(AuthEventType.EMAIL_TEMPLATE_EDITED, workspaceId, actorMemberId, type, sk, "tone_apply");
         return toResponse(resolveForRender(workspaceId, type, sk));
+    }
+
+    /**
+     * Materialise a per-stage variant from the preset starter catalogue (spec 2026-07-26). BASE is
+     * refused - a starter is inherently a stage variant. Same guard ordering and version/audit
+     * semantics as applyTone; audit kind "preset_starter_apply".
+     */
+    public TemplateResponse applyPresetStarter(String workspaceId, String actorMemberId, Role role,
+                                               EmailMessageType type, ApplyPresetStarterRequest req) {
+        String sk = normalize(req.stageKey());
+        if (EmailTemplate.BASE.equals(sk)) {
+            Map<String, String> err = new LinkedHashMap<>();
+            err.put("stageKey", "A preset starter applies to an interview stage, not the base template.");
+            throw new EmailTemplateExceptions.InvalidTemplateException(err);
+        }
+        InterviewPresetKey preset = parsePresetKey(req.presetKey());
+        Content content = presetStarters.forPresetAndType(preset, type);
+        if (content == null) {
+            Map<String, String> err = new LinkedHashMap<>();
+            err.put("messageType", "This preset has no starter wording for this message type.");
+            throw new EmailTemplateExceptions.InvalidTemplateException(err);
+        }
+        EmailTemplate existing = repo.findByWorkspaceIdAndMessageTypeAndStageKey(workspaceId, type, sk).orElse(null);
+        lockedEditGuard(existing, role);
+        validateStage(workspaceId, sk);
+        if (existing == null) {
+            enforceVariantCap(workspaceId, type);
+        }
+        versionCheck(existing, req.expectedVersion());
+
+        persist(workspaceId, actorMemberId, type, sk, content.subject(), content.body(), existing);
+        auditChange(AuthEventType.EMAIL_TEMPLATE_EDITED, workspaceId, actorMemberId, type, sk, "preset_starter_apply");
+        return toResponse(resolveForRender(workspaceId, type, sk));
+    }
+
+    private InterviewPresetKey parsePresetKey(String raw) {
+        try {
+            return InterviewPresetKey.valueOf(raw == null ? "" : raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            Map<String, String> err = new LinkedHashMap<>();
+            err.put("presetKey", "Unknown preset.");
+            throw new EmailTemplateExceptions.InvalidTemplateException(err);
+        }
     }
 
     public TemplateResponse reset(String workspaceId, String actorMemberId, Role role,

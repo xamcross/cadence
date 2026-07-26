@@ -1,5 +1,6 @@
 package com.cadence.api;
 
+import com.cadence.api.EmailTemplateDtos.ApplyPresetStarterRequest;
 import com.cadence.api.EmailTemplateDtos.ApplyToneRequest;
 import com.cadence.api.EmailTemplateDtos.EditRequest;
 import com.cadence.api.EmailTemplateDtos.ListResponse;
@@ -71,6 +72,15 @@ public class EmailTemplateController {
             @PathVariable String messageType,
             @RequestBody ApplyToneRequest req) {
         return ResponseEntity.ok(service.applyTone(
+            principal.workspaceId(), principal.memberId(), principal.role(), parseType(messageType), req));
+    }
+
+    @PostMapping("/{messageType}/apply-preset-starter")
+    public ResponseEntity<TemplateResponse> applyPresetStarter(
+            @AuthenticationPrincipal SessionService.Principal principal,
+            @PathVariable String messageType,
+            @RequestBody ApplyPresetStarterRequest req) {
+        return ResponseEntity.ok(service.applyPresetStarter(
             principal.workspaceId(), principal.memberId(), principal.role(), parseType(messageType), req));
     }
 
