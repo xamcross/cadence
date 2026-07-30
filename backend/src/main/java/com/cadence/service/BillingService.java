@@ -29,8 +29,10 @@ import java.util.Optional;
 
 /**
  * 032 -- checkout URL, license claim (the ONLY binding act, FR-006/FR-007), and provider-truth
- * refresh (FR-010/FR-011). Binding is insert-only under the two unique indexes; the
- * DuplicateKeyException loser re-reads to classify the race deterministically. Refresh never
+ * refresh (FR-010/FR-011). Binding on a fresh workspace is insert-only under the two unique indexes;
+ * on a LAPSED workspace it is a guarded findAndModify replace of the stale row (final-review fix: a
+ * row that no longer confers TEAM must never block a repurchase). Either way the
+ * DuplicateKeyException loser re-reads / refuses to classify the race deterministically. Refresh never
  * downgrades on a provider error (FR-011) -- BillingApiException propagates to the caller, which
  * isolates per row. Logs carry workspace/Freemius ids only.
  */
@@ -76,9 +78,17 @@ public class BillingService {
         return provider.checkoutUrl(adminEmail);
     }
 
+    /**
+     * Bind a license to the workspace (FR-006/FR-007). The "already upgraded" pre-check tests the row's
+     * CURRENT effect, not its mere existence: rows are never deleted on downgrade, so a LAPSED workspace
+     * (EXPIRED / past expiresAt) must be able to buy again -- refusing it would strand a paying customer
+     * after checkout. A stale row is refreshed (same license -- it may have been renewed) or CAS-replaced
+     * (new license), never left to shadow the purchase.
+     */
     public BillingDtos.EntitlementResponse claim(String workspaceId, String licenseId, String actorMemberId) {
+        Instant now = Instant.now(clock);
         Optional<WorkspaceEntitlement> existing = entitlements.findByWorkspaceId(workspaceId);
-        if (existing.isPresent()) {
+        if (existing.isPresent() && existing.get().confersTeam(now)) {
             if (licenseId.equals(existing.get().getFsLicenseId())) {
                 return view(workspaceId); // idempotent re-claim (return-page refresh)
             }
@@ -88,10 +98,12 @@ public class BillingService {
         if (!props.getTeamPlanId().equals(license.planId())) {
             throw new BillingExceptions.ClaimRejectedException("wrong_plan");
         }
-        Instant now = Instant.now(clock);
         boolean pastEnd = license.expiresAt() != null && !license.expiresAt().isAfter(now);
         if (license.cancelled() || pastEnd) {
             throw new BillingExceptions.ClaimRejectedException("license_inactive"); // FR-006: active only
+        }
+        if (existing.isPresent()) {
+            return claimOverStaleRow(workspaceId, licenseId, license, existing.get(), now, actorMemberId);
         }
         WorkspaceEntitlement e = new WorkspaceEntitlement();
         e.setWorkspaceId(workspaceId);
@@ -114,6 +126,61 @@ public class BillingService {
                 throw new BillingExceptions.ClaimRejectedException("already_upgraded");
             }
             throw new BillingExceptions.ClaimRejectedException("license_already_bound");
+        }
+        audit.billingLicenseClaimed(workspaceId, actorMemberId);
+        log.info("billing license claimed {} {}",
+            StructuredArguments.kv("workspaceId", workspaceId),
+            StructuredArguments.kv("fsLicenseId", license.id()));
+        return view(workspaceId);
+    }
+
+    /**
+     * Claim onto a workspace that already holds a STALE (non-conferring) row -- the lapsed-then-repurchase
+     * path. Same license id: re-verify against the provider (a renewal is the common case) and refuse
+     * honestly if truth still says lapsed -- never a 200 FREE, which the SPA would toast as success.
+     * Different license id: replace the row under a findAndModify GUARDED on it still being non-conferring,
+     * so a concurrent renewal (webhook/sweep) can never be silently overwritten.
+     */
+    private BillingDtos.EntitlementResponse claimOverStaleRow(String workspaceId, String licenseId,
+                                                              BillingLicense license, WorkspaceEntitlement stale,
+                                                              Instant now, String actorMemberId) {
+        if (licenseId.equals(stale.getFsLicenseId())) {
+            try {
+                refresh(stale); // provider truth wins -- the same license may have been renewed
+            } catch (BillingApiException ex) {
+                throw new BillingExceptions.ClaimUnavailableException();
+            }
+            BillingDtos.EntitlementResponse refreshed = view(workspaceId);
+            if (refreshed.plan() != BillingPlan.TEAM) {
+                throw new BillingExceptions.ClaimRejectedException("license_inactive");
+            }
+            return refreshed;
+        }
+        // CAS: only replace while the row is STILL non-conferring (EXPIRED or past its effective end) --
+        // the exact negation of WorkspaceEntitlement.confersTeam(now).
+        Query guard = Query.query(Criteria.where("_id").is(stale.getId())
+            .orOperator(Criteria.where("status").is(EntitlementStatus.EXPIRED),
+                Criteria.where("expiresAt").lte(now)));
+        Update replace = new Update()
+            .set("fsLicenseId", license.id())
+            .set("fsUserId", license.userId())
+            .set("fsPlanId", license.planId())
+            .set("status", EntitlementStatus.ACTIVE)
+            .set("expiresAt", license.expiresAt())
+            .set("boundAt", now)
+            .set("lastVerifiedAt", now)
+            .set("updatedAt", now);
+        WorkspaceEntitlement replaced;
+        try {
+            replaced = mongo.findAndModify(guard, replace,
+                FindAndModifyOptions.options().returnNew(true), WorkspaceEntitlement.class);
+        } catch (DuplicateKeyException dup) {
+            // The unique {fsLicenseId} index rejected the $set: this license backs another workspace.
+            throw new BillingExceptions.ClaimRejectedException("license_already_bound");
+        }
+        if (replaced == null) {
+            // A concurrent renewal made the row confer TEAM again between the read and the CAS.
+            throw new BillingExceptions.ClaimRejectedException("already_upgraded");
         }
         audit.billingLicenseClaimed(workspaceId, actorMemberId);
         log.info("billing license claimed {} {}",

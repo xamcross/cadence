@@ -1,5 +1,6 @@
 package com.cadence.scheduling;
 
+import com.cadence.domain.AtsWriteBack;
 import com.cadence.domain.Candidate;
 import com.cadence.domain.EmailMessageType;
 import com.cadence.domain.ErasureState;
@@ -9,7 +10,9 @@ import com.cadence.domain.OfferedSlot;
 import com.cadence.domain.RecruiterNotification;
 import com.cadence.domain.RecruiterNotificationType;
 import com.cadence.domain.SchedulingRequest;
+import com.cadence.domain.SchedulingStatus;
 import com.cadence.domain.WorkspaceEntitlement;
+import com.cadence.integration.AtsProvider;
 import com.cadence.repository.SchedulingRequestRepository;
 import com.cadence.scheduler.NoShowDefenseScheduler;
 import org.junit.jupiter.api.Test;
@@ -53,6 +56,20 @@ class NoShowCascadeTest extends SchedulingItBase {
     private long reminderCount(String candidateId) {
         return mongoTemplate.count(Query.query(Criteria.where("candidateId").is(candidateId)
             .and("messageType").is(EmailMessageType.REMINDER_24H)), "emailDispatches");
+    }
+
+    /**
+     * ATS-link a seeded candidate so an F40 write-back enqueue is NOT vacuously a no-op -- without a provider ref
+     * {@code AtsWriteBackService.enqueue} returns early, which would make a "no write-back row" assertion circular.
+     */
+    private void linkToAts(String candidateId) {
+        mongoTemplate.updateFirst(Query.query(Criteria.where("_id").is(candidateId)),
+            new Update().set("atsProvider", AtsProvider.GREENHOUSE).set("atsExternalRef", "ext-" + candidateId),
+            Candidate.class);
+    }
+
+    private long writeBacks(String candidateId) {
+        return mongoTemplate.count(Query.query(Criteria.where("candidateId").is(candidateId)), AtsWriteBack.class);
     }
 
     private long unconfirmedAlerts(String candidateId) {
@@ -178,5 +195,50 @@ class NoShowCascadeTest extends SchedulingItBase {
         scheduler.sweep();
 
         assertThat(requests.findById(inFlight.getId()).orElseThrow().getEscalatedAt()).isNotNull();
+    }
+
+    /**
+     * 032 final review: stage 3 must NOT stamp a no-show for a non-entitled workspace when stage 1 never ran.
+     * There is no in-flight cascade to complete, and every stamp enqueues an F40 ATS write-back that the
+     * (deliberately ungated) drain would deliver to a connection the plan gate reports as "paused" (US2-AS2).
+     */
+    @Test
+    void noEntitlement_stage3DoesNotStampARowWhoseCascadeNeverStarted() {
+        seedBase();
+        mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
+        seedContactableCandidate("candFreeFresh", "Hana", "hana@x.test");
+        linkToAts("candFreeFresh");
+        SchedulingRequest fresh = seedBooked("candFreeFresh", Duration.ofMinutes(-1)); // start passed, stage 1 never ran
+
+        scheduler.sweep();
+
+        SchedulingRequest after = requests.findById(fresh.getId()).orElseThrow();
+        assertThat(after.getConfirmationRequestedAt()).isNull(); // fixture check: the cascade truly never started
+        assertThat(after.getNoShowAt()).isNull();
+        assertThat(after.getStatus()).isEqualTo(SchedulingStatus.BOOKED);
+        assertThat(writeBacks("candFreeFresh")).isZero();
+    }
+
+    /**
+     * The in-flight half of that same gate (companion to the stage-2 test above): a FREE workspace whose stage 1
+     * ALREADY ran still gets its stage-3 stamp and its write-back -- an already-started cascade completes
+     * (US2-AS3). Same fixture as the test above except the in-flight marker, which makes that test's
+     * "no write-back" assertion non-circular.
+     */
+    @Test
+    void noEntitlement_stage3StillStampsAnInFlightRow_withItsAtsWriteBack() {
+        seedBase();
+        mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
+        seedContactableCandidate("candFreeInFlight", "Iris", "iris@x.test");
+        linkToAts("candFreeInFlight");
+        SchedulingRequest inFlight = seedBooked("candFreeInFlight", Duration.ofMinutes(-1));
+        mongoTemplate.updateFirst(Query.query(Criteria.where("_id").is(inFlight.getId())),
+            new Update().set("confirmationRequestedAt", Instant.now(clock).minus(Duration.ofHours(23))),
+            SchedulingRequest.class);
+
+        scheduler.sweep();
+
+        assertThat(requests.findById(inFlight.getId()).orElseThrow().getNoShowAt()).isNotNull();
+        assertThat(writeBacks("candFreeInFlight")).isEqualTo(1);
     }
 }

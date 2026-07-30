@@ -18,10 +18,11 @@ import { UpgradePromptComponent } from '../../../shared/ui/upgrade-prompt.compon
  * (⚠ danger). `connect`/`disconnect` outcomes are surfaced via `ToastService`, replacing the old
  * connect-only inline `error` signal (disconnect previously had no feedback at all).
  *
- * 032 T9: ATS integrations are a Team-plan feature (FR-013). On a FREE workspace the connect/disconnect
- * controls are replaced by the shared upgrade prompt — but provider status keeps rendering unconditionally,
- * so a previously configured connection still reads as retained (with a `pausedForPlan` badge), never as
- * gone (US2-AS2). A failed entitlement load leaves `plan()` null, which is treated the same as TEAM here
+ * 032 T9: ATS integrations are a Team-plan feature (FR-013). On a FREE workspace the CONNECT form is replaced
+ * by the shared upgrade prompt — but provider status keeps rendering unconditionally, so a previously configured
+ * connection still reads as retained (with a `pausedForPlan` badge), never as gone (US2-AS2). DISCONNECT stays
+ * outside the gate (final-review fix): the server never gates it, and a Free admin must be able to remove a
+ * stored credential. A failed entitlement load leaves `plan()` null, which is treated the same as TEAM here
  * (never blocks the screen — the server remains the actual enforcement boundary).
  */
 @Component({
@@ -62,11 +63,13 @@ import { UpgradePromptComponent } from '../../../shared/ui/upgrade-prompt.compon
                    [ngModel]="keys[p.provider]" (ngModelChange)="keys[p.provider] = $event" autocomplete="off" />
             <button type="submit" class="btn btn--primary" [disabled]="busy()">{{ connectLabel }}</button>
           </form>
-
-          <button class="disconnect btn btn--danger-soft" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
-            {{ disconnectLabel }}
-          </button>
         }
+
+        <!-- Deliberately OUTSIDE the plan gate: disconnect is ungated server-side, so a FREE admin must always
+             be able to remove a stored credential (never trap a workspace with a paused connection it cannot delete). -->
+        <button class="disconnect btn btn--danger-soft" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
+          {{ disconnectLabel }}
+        </button>
       </article>
     </section>
   `,

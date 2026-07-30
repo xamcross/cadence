@@ -153,12 +153,14 @@ describe('AtsIntegrationComponent', () => {
       expect(fixture.nativeElement.querySelector('form.connect')).not.toBeNull();
     });
 
-    it('FREE plan: shows the upgrade prompt and hides the connect form', () => {
+    it('FREE plan: shows the upgrade prompt and hides the connect form, but KEEPS disconnect', () => {
       const { fixture } = setup([greenhouse, lever], undefined, undefined, { getEntitlement: () => of(freeEntitlement) });
       expect(fixture.componentInstance.plan()).toBe('FREE');
       expect(fixture.nativeElement.querySelector('app-upgrade-prompt')).not.toBeNull();
       expect(fixture.nativeElement.querySelector('form.connect')).toBeNull();
-      expect(fixture.nativeElement.querySelector('button.disconnect')).toBeNull();
+      // Disconnect is ungated server-side, so a Free admin must still be able to remove a stored credential
+      // (greenhouse has credentialSet: true) — never trap a workspace with a connection it cannot delete.
+      expect(fixture.nativeElement.querySelector('button.disconnect')).not.toBeNull();
     });
 
     it('a failed entitlement load leaves plan() null and shows normal content (never blocks the screen)', () => {

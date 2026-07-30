@@ -94,8 +94,9 @@ public class NoShowDefenseScheduler {
             int noShow = 0;
 
             // Stage 1: confirmation request (per-workspace lead time, Java-filtered; future starts only).
-            // Gated (US2): a FREE workspace cannot INITIATE a new confirmation-request cascade. Stages 2/3 are
-            // NOT gated below — an in-flight cascade (one this stage already started) completes (spec US2-AS3).
+            // Gated (US2): a FREE workspace cannot INITIATE a new confirmation-request cascade. Stage 2 is NOT
+            // gated and stage 3 is gated ONLY for rows this stage never touched — an in-flight cascade (one this
+            // stage already started) always completes (spec US2-AS3).
             for (SchedulingRequest req : requests.findConfirmationRequestDue(now, bound, page)) {
                 if (!noShowEntitled.computeIfAbsent(req.getWorkspaceId(),
                         ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
@@ -119,6 +120,17 @@ public class NoShowDefenseScheduler {
 
             // Stage 3: no-show stamp (start already reached — no per-workspace offset).
             for (SchedulingRequest req : requests.findNoShowDue(now, page)) {
+                // 032 final-review fix: a row whose stage 1 NEVER ran (confirmationRequestedAt null) is not an
+                // in-flight cascade — for a non-entitled workspace it is a cascade that must never have started
+                // at all, so stamping it here would smuggle the gated feature back in. It also LEAKS: every stamp
+                // enqueues an F40 ATS write-back, and the write-back drain is deliberately ungated, so the note
+                // would be delivered to a connection the plan gate reports as "paused" (US2-AS2). In-flight rows
+                // (confirmationRequestedAt set) still stamp on Free — an already-started cascade completes (US2-AS3).
+                if (req.getConfirmationRequestedAt() == null
+                    && !noShowEntitled.computeIfAbsent(req.getWorkspaceId(),
+                        ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
+                    continue;
+                }
                 SchedulingRequest stamped = cascade.stampNoShow(req, now);
                 if (stamped != null) {
                     noShow++;
