@@ -5,6 +5,7 @@ import com.cadence.domain.AtsConnection;
 import com.cadence.domain.AtsConnectionStatus;
 import com.cadence.domain.AtsWriteBack;
 import com.cadence.domain.AtsWriteBackStatus;
+import com.cadence.domain.GatedFeature;
 import com.cadence.integration.AtsApiException;
 import com.cadence.integration.AtsConnector;
 import com.cadence.integration.AtsProvider;
@@ -44,9 +45,11 @@ public class AtsConnectionService {
     private final AtsWriteBackInvalidator writeBacks;
     private final Map<AtsProvider, AtsConnector> connectors = new EnumMap<>(AtsProvider.class);
     private final Clock clock;
+    private final EntitlementService entitlements;
 
     public AtsConnectionService(AtsConnectionRepository connections, MongoTemplate mongo,
-                                AtsWriteBackInvalidator writeBacks, List<AtsConnector> connectorList, Clock clock) {
+                                AtsWriteBackInvalidator writeBacks, List<AtsConnector> connectorList, Clock clock,
+                                EntitlementService entitlements) {
         this.connections = connections;
         this.mongo = mongo;
         this.writeBacks = writeBacks;
@@ -54,18 +57,27 @@ public class AtsConnectionService {
             connectors.put(c.provider(), c);
         }
         this.clock = clock;
+        this.entitlements = entitlements;
     }
 
-    /** Connection health projection (never the key) — drives the Admin status surface (SC-011). */
+    /**
+     * Connection health projection (never the key) — drives the Admin status surface (SC-011).
+     * {@code pausedForPlan} is true only when a CONNECTED row's workspace has since lost the ATS_INTEGRATIONS
+     * entitlement (a Team->Free downgrade) — the connection persists (F41 coexistence) but the sync sweep
+     * skips it at initiation (032 T7 placement 3).
+     */
     public record Health(AtsProvider provider, AtsConnectionStatus status, boolean credentialSet,
-                         Instant lastVerifiedAt, Instant lastSyncAt, boolean degraded, long deadLetterCount) {}
+                         Instant lastVerifiedAt, Instant lastSyncAt, boolean degraded, long deadLetterCount,
+                         boolean pausedForPlan) {}
 
     /**
      * Verify the credential against the provider, then store it encrypted and mark the connection CONNECTED.
      * Throws {@link AtsExceptions.InvalidRequestException} (blank key) or {@link AtsExceptions.VerificationFailedException}
-     * (rejected key) — neither stores a usable connection and neither echoes the key.
+     * (rejected key) — neither stores a usable connection and neither echoes the key. Gated: a FREE workspace is
+     * refused with the 402 upgrade_required envelope before any credential I/O (032 T7 placement 1).
      */
     public Health connect(String workspaceId, AtsProvider provider, String apiKey) {
+        entitlements.requireFeature(workspaceId, GatedFeature.ATS_INTEGRATIONS);
         if (apiKey == null || apiKey.isBlank()) {
             throw new AtsExceptions.InvalidRequestException();
         }
@@ -141,11 +153,13 @@ public class AtsConnectionService {
             AtsWriteBack.class);
         if (c == null) {
             return new Health(provider, AtsConnectionStatus.INTEGRATION_PENDING, false,
-                null, null, deadLetters > 0, deadLetters);
+                null, null, deadLetters > 0, deadLetters, false);
         }
         boolean degraded = c.getStatus() == AtsConnectionStatus.ERROR
             || c.getStatus() == AtsConnectionStatus.NEEDS_REAUTH || deadLetters > 0;
+        boolean pausedForPlan = c.getStatus() == AtsConnectionStatus.CONNECTED
+            && !entitlements.hasFeature(workspaceId, GatedFeature.ATS_INTEGRATIONS);
         return new Health(c.getProvider(), c.getStatus(), c.isCredentialSet(),
-            c.getLastVerifiedAt(), c.getLastSyncAt(), degraded, deadLetters);
+            c.getLastVerifiedAt(), c.getLastSyncAt(), degraded, deadLetters, pausedForPlan);
     }
 }

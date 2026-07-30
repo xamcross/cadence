@@ -37,6 +37,17 @@ public class AtsExceptionHandler {
         return envelope(HttpStatus.CONFLICT, "verification_failed");
     }
 
+    /**
+     * 032 T7 placement 6 (ledger ruling from T3 review): without this SPECIFIC handler, the catch-all
+     * {@code @ExceptionHandler(RuntimeException)} below — scoped to this same controller, and able to win the
+     * ordering tie against the global {@code EntitlementExceptionHandler} — would swallow the ATS connect gate's
+     * 402 into a 500. Must stay in lockstep with any gated call this advice's controller makes.
+     */
+    @ExceptionHandler(BillingExceptions.UpgradeRequiredException.class)
+    public ResponseEntity<Map<String, Object>> upgradeRequired(BillingExceptions.UpgradeRequiredException e) {
+        return envelope(HttpStatus.PAYMENT_REQUIRED, "upgrade_required");
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> illegal(IllegalArgumentException e) {
         return envelope(HttpStatus.BAD_REQUEST, "invalid_request");

@@ -9,6 +9,7 @@ import com.cadence.domain.OfferedSlot;
 import com.cadence.domain.RecruiterNotification;
 import com.cadence.domain.RecruiterNotificationType;
 import com.cadence.domain.SchedulingRequest;
+import com.cadence.domain.WorkspaceEntitlement;
 import com.cadence.repository.SchedulingRequestRepository;
 import com.cadence.scheduler.NoShowDefenseScheduler;
 import org.junit.jupiter.api.Test;
@@ -147,5 +148,35 @@ class NoShowCascadeTest extends SchedulingItBase {
         SchedulingRequest after = requests.findById(b.getId()).orElseThrow();
         assertThat(after.getNoShowAt()).isNotNull();
         assertThat(after.getEscalatedAt()).isNull(); // a past interview is never escalated (stage 2 guard)
+    }
+
+    /**
+     * 032 T7 placement 4: a FREE workspace does not INITIATE a new confirmation-request cascade (stage 1), but
+     * an ALREADY in-flight one (this row's stage 1 already ran) still completes -- stage 2 escalation is NOT
+     * gated (spec US2-AS3).
+     */
+    @Test
+    void noEntitlement_stage1Skips_butInFlightCascadeStillEscalates() {
+        seedBase();
+        // Downgrade to Free: stage 1 must not touch a fresh booking, even though it is due.
+        mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
+        SchedulingRequest fresh = seedBooked("cand1", Duration.ofHours(1)); // within both lead and deadline
+
+        scheduler.sweep();
+
+        assertThat(requests.findById(fresh.getId()).orElseThrow().getConfirmationRequestedAt()).isNull();
+        assertThat(reminderCount("cand1")).isZero();
+
+        // An already in-flight cascade (stage 1 ran before the downgrade) still escalates on the SAME sweep.
+        // A distinct start (90m, not 1h) so the two bookings' per-(member,start) claims do not collide.
+        seedContactableCandidate("cand2", "Eve", "eve@x.test");
+        SchedulingRequest inFlight = seedBooked("cand2", Duration.ofMinutes(90));
+        mongoTemplate.updateFirst(Query.query(Criteria.where("_id").is(inFlight.getId())),
+            new Update().set("confirmationRequestedAt", Instant.now(clock).minus(Duration.ofHours(22))),
+            SchedulingRequest.class);
+
+        scheduler.sweep();
+
+        assertThat(requests.findById(inFlight.getId()).orElseThrow().getEscalatedAt()).isNotNull();
     }
 }

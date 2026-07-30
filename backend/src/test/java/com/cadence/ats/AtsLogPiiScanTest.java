@@ -24,6 +24,7 @@ class AtsLogPiiScanTest extends AtsItBase {
 
     @Test
     void noLeverCandidateNameOrCredentialAtRest() {
+        seedTeamEntitlement(WS); // 032 T7: connect() gates on ATS_INTEGRATIONS before the credential check
         // Connect with a sentinel key (verify -> 200), then import a candidate whose name is a sentinel.
         connectionService.connect(WS, AtsProvider.LEVER, KEY_SENTINEL);
         leverStub.addOpportunity("lv-1", NAME_SENTINEL, "jane@example.com", "555-1", "lvjob", "LV Eng", "Phone Screen");

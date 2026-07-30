@@ -5,6 +5,7 @@ import com.cadence.domain.AtsConnection;
 import com.cadence.domain.AtsSyncRun;
 import com.cadence.domain.AtsWriteBack;
 import com.cadence.domain.Candidate;
+import com.cadence.domain.WorkspaceEntitlement;
 import com.cadence.integration.AtsProvider;
 import com.cadence.repository.AtsConnectionRepository;
 import com.cadence.repository.AtsWriteBackRepository;
@@ -16,6 +17,7 @@ import com.cadence.service.AtsSyncService;
 import com.cadence.service.AtsWriteBackService;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -57,16 +59,36 @@ abstract class AtsItBase extends BaseIntegrationTest {
         mongoTemplate.remove(new Query(), AtsWriteBack.class);
         mongoTemplate.remove(new Query(), AtsSyncRun.class);
         mongoTemplate.remove(new Query(), Candidate.class);
+        mongoTemplate.remove(new Query(), WorkspaceEntitlement.class);
+    }
+
+    /**
+     * 032 T7: seed a Team entitlement for a workspace so the ATS_INTEGRATIONS gate does not block these
+     * pre-existing F40/F41 fixtures (which predate billing and never modeled a plan). Idempotent per workspace
+     * (some tests connect Greenhouse then Lever for the SAME workspace, which would otherwise double-insert
+     * against the unique {@code workspaceId} index).
+     */
+    protected void seedTeamEntitlement(String workspaceId) {
+        if (mongoTemplate.exists(Query.query(Criteria.where("workspaceId").is(workspaceId)), WorkspaceEntitlement.class)) {
+            return;
+        }
+        WorkspaceEntitlement e = new WorkspaceEntitlement();
+        e.setWorkspaceId(workspaceId);
+        e.setFsLicenseId("lic-" + workspaceId);
+        e.setFsPlanId("2002");
+        mongoTemplate.insert(e);
     }
 
     /** Connect a workspace against the Greenhouse stub (verifies via GET /v1/jobs -> 200) and return the CONNECTED row. */
     protected AtsConnection connect(String workspaceId) {
+        seedTeamEntitlement(workspaceId);
         connectionService.connect(workspaceId, AtsProvider.GREENHOUSE, "test-key-" + workspaceId);
         return connections.findByWorkspaceIdAndProvider(workspaceId, AtsProvider.GREENHOUSE).orElseThrow();
     }
 
     /** Connect a workspace against the Lever stub and return the CONNECTED row. */
     protected AtsConnection connectLever(String workspaceId) {
+        seedTeamEntitlement(workspaceId);
         connectionService.connect(workspaceId, AtsProvider.LEVER, "lever-key-" + workspaceId);
         return connections.findByWorkspaceIdAndProvider(workspaceId, AtsProvider.LEVER).orElseThrow();
     }

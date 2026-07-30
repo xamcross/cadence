@@ -1,9 +1,12 @@
 package com.cadence.ats;
 
 import com.cadence.domain.Candidate;
+import com.cadence.domain.WorkspaceEntitlement;
 import com.cadence.integration.AtsProvider;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 
 import java.util.List;
 
@@ -94,5 +97,28 @@ class AtsSyncIT extends AtsItBase {
         assertThat(run.getInteger("processed")).isEqualTo(50);
         assertThat(run.getInteger("created")).isEqualTo(50);
         assertThat(run.getString("outcome")).isEqualTo("SUCCESS");
+    }
+
+    /**
+     * 032 T7 placement 3: a Team->Free downgrade leaves the connection CONNECTED (disconnect is a separate,
+     * ungated, user action) but {@link com.cadence.scheduler.AtsSyncScheduler#sweep()} must skip it at
+     * initiation -- zero requests reach the provider. Re-entitling makes the very next sweep pass sync normally.
+     */
+    @Test
+    void sweepSkipsNonEntitledWorkspace_thenSyncsOnceReEntitled() {
+        connect(WS); // seeds Team (F40 gate 1) + CONNECTED
+        mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
+        stub.addCandidate("gh_app:1", "Jane", "Roe", "jane@example.com", "555-1", "job1", "Engineer", "Phone Screen");
+
+        syncScheduler.sweep();
+
+        assertThat(stub.count("GET", "/v1/candidates")).isZero();
+        assertThat(candidates.findAll()).isEmpty();
+
+        seedTeamEntitlement(WS);
+        syncScheduler.sweep();
+
+        assertThat(stub.count("GET", "/v1/candidates")).isEqualTo(1);
+        assertThat(candidates.findAll()).hasSize(1);
     }
 }

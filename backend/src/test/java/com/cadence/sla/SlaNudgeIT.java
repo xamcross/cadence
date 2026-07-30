@@ -11,6 +11,7 @@ import com.cadence.domain.Role;
 import com.cadence.domain.SlaDraftStatus;
 import com.cadence.domain.SlaNudgeDraft;
 import com.cadence.domain.SlaState;
+import com.cadence.domain.WorkspaceEntitlement;
 import com.cadence.scheduler.SlaNudgeScheduler;
 import com.cadence.service.CandidateErasureService;
 import com.cadence.service.SlaNudgeService;
@@ -188,5 +189,30 @@ class SlaNudgeIT extends SlaItBase {
         var result = sla.approve(WS, draft.getId(), rec.getId());
         assertThat(result.result()).isEqualTo("ALREADY_ACTIONED");
         assertThat(emailDispatchCount()).isZero();
+    }
+
+    /**
+     * 032 T7 placement 5: a FREE workspace's scan does not INITIATE a new draft (the negative twin of
+     * {@code scan_breaching_createsExactlyOneDraftAndNotification...} above); re-entitling makes the very next
+     * sweep pass draft normally.
+     */
+    @Test
+    void noEntitlement_scanCreatesNoDraft_thenDraftsOnceReEntitled() {
+        configuredWorkspace();
+        seedCandidate("c1", "Ada", "ada@x.test", 10); // 10 days > 5-day window -> RED
+        mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
+
+        scheduler.sweep();
+
+        assertThat(openDraftCount()).isZero();
+
+        WorkspaceEntitlement e = new WorkspaceEntitlement();
+        e.setWorkspaceId(WS);
+        e.setFsLicenseId("lic-" + WS + "-sla-reentitle");
+        e.setFsPlanId("2002");
+        mongoTemplate.insert(e);
+        scheduler.sweep();
+
+        assertThat(openDraftCount()).isEqualTo(1);
     }
 }

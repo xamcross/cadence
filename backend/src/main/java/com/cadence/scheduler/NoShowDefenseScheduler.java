@@ -1,12 +1,14 @@
 package com.cadence.scheduler;
 
 import com.cadence.config.NoShowProperties;
+import com.cadence.domain.GatedFeature;
 import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.WorkspaceConfig;
 import com.cadence.repository.SchedulingRequestRepository;
 import com.cadence.repository.WorkspaceConfigRepository;
 import com.cadence.domain.AtsWriteBackType;
 import com.cadence.service.AtsWriteBackService;
+import com.cadence.service.EntitlementService;
 import com.cadence.service.NoShowCascadeService;
 import jakarta.annotation.PostConstruct;
 import net.logstash.logback.argument.StructuredArguments;
@@ -50,10 +52,12 @@ public class NoShowDefenseScheduler {
     private final AtsWriteBackService atsWriteBacks;
     private final NoShowProperties props;
     private final Clock clock;
+    private final EntitlementService entitlements;
 
     public NoShowDefenseScheduler(SchedulerCheckpointService checkpoints, SchedulingRequestRepository requests,
                                   WorkspaceConfigRepository workspaceConfigs, NoShowCascadeService cascade,
-                                  AtsWriteBackService atsWriteBacks, NoShowProperties props, Clock clock) {
+                                  AtsWriteBackService atsWriteBacks, NoShowProperties props, Clock clock,
+                                  EntitlementService entitlements) {
         this.checkpoints = checkpoints;
         this.requests = requests;
         this.workspaceConfigs = workspaceConfigs;
@@ -61,6 +65,7 @@ public class NoShowDefenseScheduler {
         this.atsWriteBacks = atsWriteBacks;
         this.props = props;
         this.clock = clock;
+        this.entitlements = entitlements;
     }
 
     @PostConstruct
@@ -81,13 +86,21 @@ public class NoShowDefenseScheduler {
             Instant bound = now.plus(props.getCascadeQueryBound());
             PageRequest page = PageRequest.of(0, props.getCascadeSweepBatchLimit());
             Map<String, WorkspaceConfig> wsCache = new HashMap<>();
+            // 032 T7 placement 4: per-sweep memo so N rows in one workspace cost one entitlement query.
+            Map<String, Boolean> noShowEntitled = new HashMap<>();
 
             int requested = 0;
             int escalated = 0;
             int noShow = 0;
 
             // Stage 1: confirmation request (per-workspace lead time, Java-filtered; future starts only).
+            // Gated (US2): a FREE workspace cannot INITIATE a new confirmation-request cascade. Stages 2/3 are
+            // NOT gated below — an in-flight cascade (one this stage already started) completes (spec US2-AS3).
             for (SchedulingRequest req : requests.findConfirmationRequestDue(now, bound, page)) {
+                if (!noShowEntitled.computeIfAbsent(req.getWorkspaceId(),
+                        ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
+                    continue;
+                }
                 Duration lead = leadTime(req.getWorkspaceId(), wsCache);
                 if (req.getBookedStartAt() != null && !req.getBookedStartAt().minus(lead).isAfter(now)) {
                     cascade.requestConfirmation(req, now);
