@@ -260,6 +260,20 @@ cadence:
     poll-interval-ms: 300000
     writeback-interval-ms: 30000
     reaper-interval-ms: 60000
+  # 032 Freemius billing (FR-018/FR-019). base-url points at live Freemius in prod; tests override it
+  # to the JDK HttpServer stub. product-id/team-plan-id/api-bearer/webhook-secret arrive only via Fly
+  # env secrets; blank values fail closed (webhook rejects, checkout/claim error) -- no secrets here.
+  billing:
+    base-url: ${FREEMIUS_API_BASE_URL:https://api.freemius.com}
+    checkout-base-url: ${FREEMIUS_CHECKOUT_BASE_URL:https://checkout.freemius.com}
+    product-id: ${FREEMIUS_PRODUCT_ID:}
+    team-plan-id: ${FREEMIUS_TEAM_PLAN_ID:}
+    api-bearer: ${FREEMIUS_API_BEARER:}
+    webhook-secret: ${FREEMIUS_WEBHOOK_SECRET:}
+    connect-timeout: PT5S
+    read-timeout: PT10S
+    retry-max-attempts: 3
+    retry-base-backoff: PT2S
   # F42 Standalone CSV Import. The upload endpoint returns 202 + a jobId; a @Scheduled sweep parses/validates/
   # imports each job asynchronously (no broker, §IV). max-file-size is the in-service gate (the multipart caps
   # above sit higher — D9); reject-ratio is the >80% whole-file reject threshold; job-ttl bounds an unresolved

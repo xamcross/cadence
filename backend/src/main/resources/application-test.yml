@@ -52,3 +52,9 @@ cadence:
     max-per-workspace-per-window: 5
     workspace-window: PT1H
     min-fill-millis: 1500
+  billing:
+    product-id: "1001"
+    team-plan-id: "2002"
+    api-bearer: test-billing-bearer
+    webhook-secret: test-billing-webhook-secret
+    retry-base-backoff: PT0S
