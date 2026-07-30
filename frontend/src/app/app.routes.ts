@@ -194,6 +194,15 @@ export const routes: Routes = [
       import('./features/admin/ats/ats-integration.component').then((m) => m.AtsIntegrationComponent)
   },
   {
+    // 032 Billing & plan (US1/US4). Admin-only internal screen; checkout returns land here
+    // with ?license_id=... for the claim (FR-006). No third-party script (FR-005).
+    path: 'admin/billing',
+    canActivate: [authGuard, roleGuard('ADMIN')],
+    data: { seo: PRIVATE, shell: true },
+    loadComponent: () =>
+      import('./features/admin/billing/billing.component').then((m) => m.BillingComponent)
+  },
+  {
     // F42 standalone CSV import — upload candidates, poll status, resolve duplicates. Admin OR Recruiter
     // internal screen (no candidate-facing §IX gate — the F50/F51 precedent).
     path: 'admin/csv-import',
