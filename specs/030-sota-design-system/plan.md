@@ -13,7 +13,7 @@ form styling and hardcoded color/spacing literals.
   stack rather than bolt on a fetched font.)
 - **No UI framework added** (Material/Tailwind). Rationale: a mature codebase with strict CSP, a
   2 kB/4 kB per-component style budget, axe + Lighthouse gates, and 250+ specs. A hand-crafted
-  token system is what top-tier products (Linear/Stripe/Vercel) actually ship and is lower-risk +
+  token system is what top-tier products (Linear/Vercel) actually ship and is lower-risk +
   lower-weight than a library. (Decision recorded for reviewer challenge.)
 - **Per-component style budget**: warn 2 kB / **error 4 kB**. ⇒ grow the *global* `styles.scss`
   (unbudgeted) with shared primitives; *shrink* per-component CSS.
