@@ -2,9 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { NEVER, of, throwError } from 'rxjs';
 import { WorkspaceSettingsComponent } from './workspace-settings.component';
 import { WorkspaceConfig, WorkspaceService } from './workspace.service';
+import { BillingService, EntitlementView } from '../billing/billing.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../../shared/ui/toast.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../../testing/axe';
+
+const teamEntitlement: EntitlementView = { plan: 'TEAM', status: 'ACTIVE', expiresAt: null, boundAt: null };
+const freeEntitlement: EntitlementView = { plan: 'FREE', status: null, expiresAt: null, boundAt: null };
 
 /**
  * F03 US6 (SC-012 sibling): the settings component renders for an Admin and loads the config. The
@@ -23,17 +28,23 @@ describe('WorkspaceSettingsComponent', () => {
     workingHours: { start: '09:00', end: '17:00' },
     slaSilenceWindowDays: 5, retentionPeriodDays: 365, retentionAcknowledgedAt: '2026-06-14T00:00:00Z',
     brandColor: '#1F2937', hasLogo: false, emailSendingDomain: null, credentialSet: false,
-    templateLocks: { interview_invite: true }
+    templateLocks: { interview_invite: true },
+    confirmationLeadTime: 'PT24H', unconfirmedEscalationDeadline: 'PT4H'
   };
 
   let attachedEls: HTMLElement[] = [];
 
-  function setup(overrides: Partial<WorkspaceService> = {}) {
+  function setup(overrides: Partial<WorkspaceService> = {}, billingOverrides: Partial<BillingService> = {}) {
     const stub: Partial<WorkspaceService> = { getConfig: () => of(config), ...overrides };
+    const billingStub: Partial<BillingService> = { getEntitlement: () => of(teamEntitlement), ...billingOverrides };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [WorkspaceSettingsComponent],
-      providers: [{ provide: WorkspaceService, useValue: stub }]
+      providers: [
+        { provide: WorkspaceService, useValue: stub },
+        { provide: BillingService, useValue: billingStub },
+        { provide: AuthService, useValue: { member$: of(null) } }
+      ]
     });
     const fixture = TestBed.createComponent(WorkspaceSettingsComponent);
     const el = fixture.nativeElement as HTMLElement;
@@ -317,6 +328,60 @@ describe('WorkspaceSettingsComponent', () => {
       fixture.componentInstance.lockForm.controls.key.setValue('offer');
       fixture.componentInstance.addLock();
       expect(toastSpy).toHaveBeenCalled();
+    });
+  });
+
+  // ---- 032 T9: no-show defense timing fields + FREE-plan upgrade prompt ----
+
+  describe('no-show defense settings (toast; 032 FR-013/FR-016)', () => {
+    it('loads the confirmation lead time / escalation deadline (hours) from the config', () => {
+      const fixture = setup();
+      expect(fixture.componentInstance.noShow.getRawValue()).toEqual({
+        confirmationLeadTimeHours: 24, escalationDeadlineHours: 4
+      });
+    });
+
+    it('saves the no-show settings (converted to ISO-8601 Duration) and toasts success', () => {
+      const patched: WorkspaceConfig = { ...config, confirmationLeadTime: 'PT12H', unconfirmedEscalationDeadline: 'PT2H' };
+      const patchSpy = jasmine.createSpy('patchConfig').and.returnValue(of(patched));
+      const fixture = setup({ patchConfig: patchSpy as unknown as WorkspaceService['patchConfig'] });
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'success');
+      fixture.componentInstance.noShow.patchValue({ confirmationLeadTimeHours: 12, escalationDeadlineHours: 2 });
+      fixture.componentInstance.saveNoShow();
+      expect(patchSpy).toHaveBeenCalledWith({ confirmationLeadTime: 'PT12H', unconfirmedEscalationDeadline: 'PT2H' });
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('toasts an error on failure', () => {
+      const patchSpy = jasmine.createSpy('patchConfig').and.returnValue(throwError(() => ({ status: 500 })));
+      const fixture = setup({ patchConfig: patchSpy as unknown as WorkspaceService['patchConfig'] });
+      const toastSpy = spyOn(TestBed.inject(ToastService), 'error');
+      fixture.componentInstance.saveNoShow();
+      expect(toastSpy).toHaveBeenCalled();
+    });
+
+    it('TEAM plan: no upgrade prompt, fields present and enabled', () => {
+      const fixture = setup({}, { getEntitlement: () => of(teamEntitlement) });
+      expect(fixture.componentInstance.plan()).toBe('TEAM');
+      expect(fixture.nativeElement.querySelector('app-upgrade-prompt')).toBeNull();
+      expect(fixture.componentInstance.noShow.enabled).toBe(true);
+      expect(fixture.nativeElement.querySelector('#leadTime')).not.toBeNull();
+    });
+
+    it('FREE plan: shows the upgrade prompt above the fields, which stay present and editable', () => {
+      const fixture = setup({}, { getEntitlement: () => of(freeEntitlement) });
+      expect(fixture.componentInstance.plan()).toBe('FREE');
+      expect(fixture.nativeElement.querySelector('app-upgrade-prompt')).not.toBeNull();
+      // Settings stay editable — config is retained; only cascade initiation is gated server-side.
+      expect(fixture.componentInstance.noShow.enabled).toBe(true);
+      expect(fixture.nativeElement.querySelector('#leadTime')).not.toBeNull();
+      expect((fixture.nativeElement.querySelector('#leadTime') as HTMLInputElement).disabled).toBe(false);
+    });
+
+    it('a failed entitlement load leaves plan() null and shows no upgrade prompt', () => {
+      const fixture = setup({}, { getEntitlement: () => throwError(() => ({ status: 500 })) });
+      expect(fixture.componentInstance.plan()).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-upgrade-prompt')).toBeNull();
     });
   });
 });

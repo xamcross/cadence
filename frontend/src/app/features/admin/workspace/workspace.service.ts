@@ -21,6 +21,11 @@ export interface WorkspaceConfig {
   emailSendingDomain: string | null;
   credentialSet: boolean;
   templateLocks: Record<string, boolean>;
+  // F23 No-show defense cascade settings (ISO-8601 Duration, e.g. "PT24H"). null = workspace uses the
+  // global default (NoShowProperties). 032 T9: gated to the Team plan on the FREE workspace, but the
+  // settings themselves are always retained/editable (only cascade INITIATION is gated server-side).
+  confirmationLeadTime: string | null;
+  unconfirmedEscalationDeadline: string | null;
 }
 
 export interface SetupRequest {
@@ -30,6 +35,13 @@ export interface SetupRequest {
   slaSilenceWindowDays: number;
   retentionPeriodDays: number;
   retentionAcknowledged: boolean;
+}
+
+/** Partial settings update — any omitted/null field is left unchanged (targeted $set), mirroring the
+ *  backend's WorkspaceDtos.SettingsPatch. Distinct from SetupRequest (the first-run wizard body). */
+export interface WorkspaceSettingsPatch extends Partial<SetupRequest> {
+  confirmationLeadTime?: string | null;
+  unconfirmedEscalationDeadline?: string | null;
 }
 
 /** Admin workspace-configuration API client (F03). The provider credential is write-only — it is
@@ -47,7 +59,7 @@ export class WorkspaceService {
     return this.http.post<WorkspaceConfig>(`${this.base}/setup`, req);
   }
 
-  patchConfig(patch: Partial<SetupRequest>): Observable<WorkspaceConfig> {
+  patchConfig(patch: WorkspaceSettingsPatch): Observable<WorkspaceConfig> {
     return this.http.patch<WorkspaceConfig>(`${this.base}/config`, patch);
   }
 

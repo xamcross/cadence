@@ -2,9 +2,11 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AtsService, AtsHealth } from './ats.service';
+import { BillingService } from '../billing/billing.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../../shared/ui/toast.service';
+import { UpgradePromptComponent } from '../../../shared/ui/upgrade-prompt.component';
 
 /**
  * F40/F41 ATS integration admin screen (US1/US2/US4). Lists EVERY ATS provider (Greenhouse + Lever) with its own
@@ -15,11 +17,17 @@ import { ToastService } from '../../../shared/ui/toast.service';
  * Phase 3b (workbench overhaul): `disconnect(provider)` is gated behind the shared `ConfirmDialogService`
  * (⚠ danger). `connect`/`disconnect` outcomes are surfaced via `ToastService`, replacing the old
  * connect-only inline `error` signal (disconnect previously had no feedback at all).
+ *
+ * 032 T9: ATS integrations are a Team-plan feature (FR-013). On a FREE workspace the connect/disconnect
+ * controls are replaced by the shared upgrade prompt — but provider status keeps rendering unconditionally,
+ * so a previously configured connection still reads as retained (with a `pausedForPlan` badge), never as
+ * gone (US2-AS2). A failed entitlement load leaves `plan()` null, which is treated the same as TEAM here
+ * (never blocks the screen — the server remains the actual enforcement boundary).
  */
 @Component({
   selector: 'app-ats-integration',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, UpgradePromptComponent],
   template: `
     <section class="ats">
       <app-page-header
@@ -28,11 +36,18 @@ import { ToastService } from '../../../shared/ui/toast.service';
         subtitle="Connect Greenhouse or Lever and sync status." i18n-subtitle="@@ats.subtitle">
       </app-page-header>
 
+      @if (plan() === 'FREE') {
+        <app-upgrade-prompt featureLabel="ATS integrations" i18n-featureLabel="@@upgrade.ats" />
+      }
+
       <article class="provider" *ngFor="let p of providers()">
         <div class="status">
           <p>
             <strong>{{ p.provider }}</strong>
             <span class="badge" [class.ok]="p.status === 'CONNECTED'" [class.warn]="p.degraded">{{ p.status }}</span>
+            @if (p.pausedForPlan) {
+              <span class="badge badge--warn" data-test="paused-badge" i18n="@@ats.pausedForPlan">Paused - requires Team plan</span>
+            }
           </p>
           <p *ngIf="p.lastVerifiedAt">{{ verifiedLabel }} {{ p.lastVerifiedAt }}</p>
           <p *ngIf="p.lastSyncAt">{{ lastSyncLabel }} {{ p.lastSyncAt }}</p>
@@ -40,16 +55,18 @@ import { ToastService } from '../../../shared/ui/toast.service';
           <p *ngIf="p.deadLetterCount > 0" class="warn-text">{{ deadLetterCountLabel }} {{ p.deadLetterCount }}</p>
         </div>
 
-        <form class="connect field" (ngSubmit)="connect(p.provider)" *ngIf="!p.credentialSet">
-          <label class="field__label" [attr.for]="'apiKey-' + p.provider">{{ apiKeyLabel }} ({{ p.provider }})</label>
-          <input class="input" [id]="'apiKey-' + p.provider" [name]="'apiKey-' + p.provider" type="password"
-                 [ngModel]="keys[p.provider]" (ngModelChange)="keys[p.provider] = $event" autocomplete="off" />
-          <button type="submit" class="btn btn--primary" [disabled]="busy()">{{ connectLabel }}</button>
-        </form>
+        @if (plan() !== 'FREE') {
+          <form class="connect field" (ngSubmit)="connect(p.provider)" *ngIf="!p.credentialSet">
+            <label class="field__label" [attr.for]="'apiKey-' + p.provider">{{ apiKeyLabel }} ({{ p.provider }})</label>
+            <input class="input" [id]="'apiKey-' + p.provider" [name]="'apiKey-' + p.provider" type="password"
+                   [ngModel]="keys[p.provider]" (ngModelChange)="keys[p.provider] = $event" autocomplete="off" />
+            <button type="submit" class="btn btn--primary" [disabled]="busy()">{{ connectLabel }}</button>
+          </form>
 
-        <button class="disconnect btn btn--danger-soft" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
-          {{ disconnectLabel }}
-        </button>
+          <button class="disconnect btn btn--danger-soft" *ngIf="p.credentialSet" (click)="disconnect(p.provider)" [disabled]="busy()">
+            {{ disconnectLabel }}
+          </button>
+        }
       </article>
     </section>
   `,
@@ -57,6 +74,7 @@ import { ToastService } from '../../../shared/ui/toast.service';
 })
 export class AtsIntegrationComponent implements OnInit {
   private readonly ats = inject(AtsService);
+  private readonly billing = inject(BillingService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
 
@@ -70,11 +88,17 @@ export class AtsIntegrationComponent implements OnInit {
 
   readonly providers = signal<AtsHealth[]>([]);
   readonly busy = signal(false);
+  /** 032: null until the entitlement load resolves; a load failure leaves it null (never blocks the screen). */
+  readonly plan = signal<'FREE' | 'TEAM' | null>(null);
   /** Per-provider write-only key inputs (never retained after a successful connect). */
   keys: Record<string, string> = {};
 
   ngOnInit(): void {
     this.refresh();
+    this.billing.getEntitlement().subscribe({
+      next: (e) => this.plan.set(e.plan),
+      error: () => this.plan.set(null)
+    });
   }
 
   refresh(): void {
