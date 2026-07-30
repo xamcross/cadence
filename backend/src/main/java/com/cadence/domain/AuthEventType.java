@@ -72,5 +72,9 @@ public enum AuthEventType {
     // F70 Join / Express-Interest (append-only — never reorder). The CSV export of the admin review queue is a
     // deliberate PII egress, so it is recorded as an attributable event; the outcome carries the status filter +
     // row count only (no submitter name/email/organization/message — the DASHBOARD_EXPORTED precedent).
-    INTEREST_REQUESTS_EXPORTED
+    INTEREST_REQUESTS_EXPORTED,
+    // 032 Billing (append-only -- never reorder)
+    BILLING_CHECKOUT_STARTED,
+    BILLING_LICENSE_CLAIMED,
+    BILLING_ENTITLEMENT_UPDATED
 }

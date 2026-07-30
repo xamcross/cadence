@@ -54,7 +54,8 @@ public abstract class BillingItBase extends BaseIntegrationTest {
     }
 
     protected Member member(String email, Role role) {
-        return memberService.create(WS, email, email, role, null, null);
+        return memberService.findByEmail(WS, email)
+            .orElseGet(() -> memberService.create(WS, email, email, role, null, null));
     }
 
     protected Cookie cookie(Member m) {

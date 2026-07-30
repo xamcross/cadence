@@ -128,4 +128,36 @@ public class AuthAuditService {
         repository.save(event);
         return true;
     }
+
+    /** 032: an Admin started a checkout session. Ids only -- never the email or the URL. */
+    public void billingCheckoutStarted(String workspaceId, String actorMemberId) {
+        AuthAuditEvent event = new AuthAuditEvent();
+        event.setEventType(AuthEventType.BILLING_CHECKOUT_STARTED);
+        event.setWorkspaceId(workspaceId);
+        event.setMemberId(actorMemberId);
+        event.setOutcome("checkout_started");
+        event.setOccurredAt(Instant.now(clock));
+        repository.save(event);
+    }
+
+    /** 032: a license was claim-bound to the workspace (FR-006). Ids only. */
+    public void billingLicenseClaimed(String workspaceId, String actorMemberId) {
+        AuthAuditEvent event = new AuthAuditEvent();
+        event.setEventType(AuthEventType.BILLING_LICENSE_CLAIMED);
+        event.setWorkspaceId(workspaceId);
+        event.setMemberId(actorMemberId);
+        event.setOutcome("license_claimed");
+        event.setOccurredAt(Instant.now(clock));
+        repository.save(event);
+    }
+
+    /** 032: entitlement changed from provider truth (webhook poke or nightly sweep). Ids + status only. */
+    public void billingEntitlementUpdated(String workspaceId, String outcome) {
+        AuthAuditEvent event = new AuthAuditEvent();
+        event.setEventType(AuthEventType.BILLING_ENTITLEMENT_UPDATED);
+        event.setWorkspaceId(workspaceId);
+        event.setOutcome(outcome);
+        event.setOccurredAt(Instant.now(clock));
+        repository.save(event);
+    }
 }
