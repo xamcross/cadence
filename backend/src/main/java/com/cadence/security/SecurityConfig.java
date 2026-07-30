@@ -27,8 +27,9 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
  *   1. /actuator/**            -> permitAll (preserves the F00 management-port contract; unchanged)
  *   2. /api/public/**,         -> permitAll, CSRF-exempt (login/invite/reset have no session yet)
  *      /api/candidate/**
- *   3. /api/webhooks/email/**  -> permitAll, CSRF-exempt, STATELESS (F22 provider webhook; the real auth is
- *                                 the in-controller HMAC signature, not a session — research D4)
+ *   3. /api/webhooks/email/**, -> permitAll, CSRF-exempt, STATELESS (F22 email + 032 Freemius billing
+ *      /api/webhooks/billing/**  provider webhooks; the real auth is the in-controller HMAC signature
+ *                                 for each, not a session — research D4)
  *   4. everything else (incl.  -> deny-by-default authenticated(); OIDC login; session-cookie filter;
  *      /oauth2/**, callback)      CSRF via readable cookie; 401 entry point for APIs (no redirect).
  *
@@ -65,19 +66,20 @@ public class SecurityConfig {
     }
 
     /**
-     * F22 (research D4): the inbound provider bounce/delivery webhook is a machine caller with no session.
-     * The @Order(2) public matcher (/api/public,/api/candidate) does NOT cover /api/webhooks, so without this
+     * F22 (research D4) + 032: inbound provider webhooks are machine callers with no session. The
+     * @Order(2) public matcher (/api/public,/api/candidate) does NOT cover /api/webhooks, so without this
      * dedicated chain the @Order(4) /api/** entry point would 401 the unauthenticated provider POST before the
-     * in-controller HMAC signature check runs. This chain routes ONLY /api/webhooks/email/** -> permitAll,
-     * CSRF-exempt + STATELESS (the signature is the real gate). It does NOT widen the @Order(2) public chain or
-     * the @Order(4) /api/** 401 / 403 / actuator-404 contracts (asserted by WebhookSecurityChainTest). Placed
-     * ordered before the catch-all chain but it only matches the webhook path.
+     * in-controller HMAC signature check runs. This chain routes /api/webhooks/email/** (F22) and
+     * /api/webhooks/billing/** (032 Freemius) -> permitAll, CSRF-exempt + STATELESS; the real gate for each is
+     * that controller's own HMAC signature check, not this chain. It does NOT widen the @Order(2) public chain
+     * or the @Order(4) /api/** 401 / 403 / actuator-404 contracts (asserted by WebhookSecurityChainTest /
+     * BillingWebhookChainIT). Placed ordered before the catch-all chain but it only matches these webhook paths.
      */
     @Bean
     @Order(3)
     SecurityFilterChain webhookSecurityChain(HttpSecurity http) throws Exception {
         return http
-            .securityMatcher("/api/webhooks/email/**")
+            .securityMatcher("/api/webhooks/email/**", "/api/webhooks/billing/**")
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
