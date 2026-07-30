@@ -198,12 +198,14 @@ class NoShowCascadeTest extends SchedulingItBase {
     }
 
     /**
-     * 032 final review: stage 3 must NOT stamp a no-show for a non-entitled workspace when stage 1 never ran.
-     * There is no in-flight cascade to complete, and every stamp enqueues an F40 ATS write-back that the
-     * (deliberately ungated) drain would deliver to a connection the plan gate reports as "paused" (US2-AS2).
+     * 032 round 2: stage 3 ALWAYS stamps -- {@code findNoShowDue} has no lower time bound and nothing else ever
+     * writes {@code noShowAt}, so a skipped row would never leave the candidate set and would eventually starve
+     * the capped batch for every workspace. What the plan gate suppresses is the OUTBOUND side effect: a FREE
+     * workspace gets no fresh F40 ATS write-back (the ungated drain would otherwise deliver it to a connection
+     * the gate reports as "paused", US2-AS2). This is the fresh-row half (stage 1 never ran).
      */
     @Test
-    void noEntitlement_stage3DoesNotStampARowWhoseCascadeNeverStarted() {
+    void noEntitlement_stage3StampsFreshRow_butEnqueuesNoAtsWriteBack() {
         seedBase();
         mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
         seedContactableCandidate("candFreeFresh", "Hana", "hana@x.test");
@@ -214,19 +216,18 @@ class NoShowCascadeTest extends SchedulingItBase {
 
         SchedulingRequest after = requests.findById(fresh.getId()).orElseThrow();
         assertThat(after.getConfirmationRequestedAt()).isNull(); // fixture check: the cascade truly never started
-        assertThat(after.getNoShowAt()).isNull();
+        assertThat(after.getNoShowAt()).isNotNull();             // the local stamp always happens (no starvation)
         assertThat(after.getStatus()).isEqualTo(SchedulingStatus.BOOKED);
-        assertThat(writeBacks("candFreeFresh")).isZero();
+        assertThat(writeBacks("candFreeFresh")).isZero();        // ...but no provider write-back on Free
     }
 
     /**
-     * The in-flight half of that same gate (companion to the stage-2 test above): a FREE workspace whose stage 1
-     * ALREADY ran still gets its stage-3 stamp and its write-back -- an already-started cascade completes
-     * (US2-AS3). Same fixture as the test above except the in-flight marker, which makes that test's
-     * "no write-back" assertion non-circular.
+     * The in-flight half of the same rule: an already-started cascade completes its stamp on Free (US2-AS3), yet
+     * it STILL gets no fresh provider write-back -- "no new provider writes for a non-entitled workspace" holds
+     * in-flight or not. The Team control below keeps both "no write-back" assertions non-circular.
      */
     @Test
-    void noEntitlement_stage3StillStampsAnInFlightRow_withItsAtsWriteBack() {
+    void noEntitlement_stage3StampsInFlightRow_butEnqueuesNoAtsWriteBack() {
         seedBase();
         mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
         seedContactableCandidate("candFreeInFlight", "Iris", "iris@x.test");
@@ -239,6 +240,24 @@ class NoShowCascadeTest extends SchedulingItBase {
         scheduler.sweep();
 
         assertThat(requests.findById(inFlight.getId()).orElseThrow().getNoShowAt()).isNotNull();
-        assertThat(writeBacks("candFreeInFlight")).isEqualTo(1);
+        assertThat(writeBacks("candFreeInFlight")).isZero();
+    }
+
+    /**
+     * Team control for the two tests above: the ENTITLED workspace (seeded by {@link SchedulingItBase}) both
+     * stamps and enqueues the F40 write-back on the very same fixture -- so "zero write-backs" on Free is a real
+     * gate, not a fixture that could never enqueue one.
+     */
+    @Test
+    void entitled_stage3StampsAndEnqueuesTheAtsWriteBack() {
+        seedBase();
+        seedContactableCandidate("candTeamNoShow", "Jo", "jo@x.test");
+        linkToAts("candTeamNoShow");
+        SchedulingRequest b = seedBooked("candTeamNoShow", Duration.ofMinutes(-1));
+
+        scheduler.sweep();
+
+        assertThat(requests.findById(b.getId()).orElseThrow().getNoShowAt()).isNotNull();
+        assertThat(writeBacks("candTeamNoShow")).isEqualTo(1);
     }
 }

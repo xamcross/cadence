@@ -3,8 +3,12 @@ package com.cadence.billing;
 import com.cadence.domain.EntitlementStatus;
 import com.cadence.domain.WorkspaceEntitlement;
 import com.cadence.scheduler.EntitlementReconciliationScheduler;
+import com.cadence.service.BillingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -16,6 +20,9 @@ class EntitlementReconcileIT extends BillingItBase {
 
     @Autowired
     EntitlementReconciliationScheduler scheduler;
+
+    @Autowired
+    BillingService billing;
 
     @Test
     void sweep_selfHeals_missedCancellation() {
@@ -50,6 +57,36 @@ class EntitlementReconcileIT extends BillingItBase {
                 org.springframework.data.mongodb.core.query.Criteria.where("workspaceId").is("ws-b")),
             WorkspaceEntitlement.class);
         assertThat(b.getStatus()).isEqualTo(EntitlementStatus.CANCELLED);
+    }
+
+    /**
+     * 032 round 2: {@code refresh} must CAS on the license it actually verified. {@code fsLicenseId} is mutable
+     * (the lapsed-then-repurchase guarded replace), so a stale snapshot -- the nightly {@code findAll}, or a
+     * trailing webhook for the OLD license -- must never stamp the old license's EXPIRED state onto a row that
+     * has since been rebound to a NEW, active license.
+     */
+    @Test
+    void refresh_staleSnapshot_doesNotStampOldLicenseStateOntoAReboundRow() {
+        seedTeam(WS, "L-old", Instant.now(clock).plus(Duration.ofDays(30)));
+        WorkspaceEntitlement stale = mongoTemplate.findAll(WorkspaceEntitlement.class).get(0); // the stale snapshot
+
+        // A concurrent repurchase rebinds the SAME row to a new, active license.
+        mongoTemplate.updateFirst(Query.query(Criteria.where("_id").is(stale.getId())),
+            new Update().set("fsLicenseId", "L-new").set("status", EntitlementStatus.ACTIVE)
+                .set("expiresAt", Instant.now(clock).plus(Duration.ofDays(365))),
+            WorkspaceEntitlement.class);
+
+        // Provider truth for the OLD license says it is over.
+        stub.programLicense("L-old", "{\"id\":\"L-old\",\"plan_id\":\"2002\",\"user_id\":\"55\","
+            + "\"expiration\":\"2026-07-01 00:00:00\",\"is_cancelled\":true}");
+
+        billing.refresh(stale); // the stale write must not land
+
+        WorkspaceEntitlement after = mongoTemplate.findById(stale.getId(), WorkspaceEntitlement.class);
+        assertThat(after.getFsLicenseId()).isEqualTo("L-new");
+        assertThat(after.getStatus()).isEqualTo(EntitlementStatus.ACTIVE);
+        assertThat(after.getExpiresAt()).isAfter(Instant.now(clock));
+        assertThat(after.getLastVerifiedAt()).isNull(); // never touched by the old license's verification
     }
 
     @Test

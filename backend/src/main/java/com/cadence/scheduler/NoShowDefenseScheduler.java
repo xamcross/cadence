@@ -94,9 +94,9 @@ public class NoShowDefenseScheduler {
             int noShow = 0;
 
             // Stage 1: confirmation request (per-workspace lead time, Java-filtered; future starts only).
-            // Gated (US2): a FREE workspace cannot INITIATE a new confirmation-request cascade. Stage 2 is NOT
-            // gated and stage 3 is gated ONLY for rows this stage never touched — an in-flight cascade (one this
-            // stage already started) always completes (spec US2-AS3).
+            // Gated (US2): a FREE workspace cannot INITIATE a new confirmation-request cascade. Stage 2 and the
+            // stage-3 STAMP are NOT gated — an in-flight cascade always completes (spec US2-AS3) and the stamp is
+            // what retires a row from the sweep. Only stage 3's outbound ATS write-back is gated (see below).
             for (SchedulingRequest req : requests.findConfirmationRequestDue(now, bound, page)) {
                 if (!noShowEntitled.computeIfAbsent(req.getWorkspaceId(),
                         ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
@@ -120,23 +120,23 @@ public class NoShowDefenseScheduler {
 
             // Stage 3: no-show stamp (start already reached — no per-workspace offset).
             for (SchedulingRequest req : requests.findNoShowDue(now, page)) {
-                // 032 final-review fix: a row whose stage 1 NEVER ran (confirmationRequestedAt null) is not an
-                // in-flight cascade — for a non-entitled workspace it is a cascade that must never have started
-                // at all, so stamping it here would smuggle the gated feature back in. It also LEAKS: every stamp
-                // enqueues an F40 ATS write-back, and the write-back drain is deliberately ungated, so the note
-                // would be delivered to a connection the plan gate reports as "paused" (US2-AS2). In-flight rows
-                // (confirmationRequestedAt set) still stamp on Free — an already-started cascade completes (US2-AS3).
-                if (req.getConfirmationRequestedAt() == null
-                    && !noShowEntitled.computeIfAbsent(req.getWorkspaceId(),
-                        ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
-                    continue;
-                }
+                // 032 round-2 fix: the local stamp is NEVER gated. findNoShowDue has no lower time bound and
+                // nothing else ever writes noShowAt/candidateConfirmedAt for a due row, so a skipped row stays in
+                // the candidate set forever; served oldest-first by {status,bookedStartAt}, enough of them would
+                // fill the capped batch and starve stage 3 for EVERY workspace. Rows must exit via the stamp.
                 SchedulingRequest stamped = cascade.stampNoShow(req, now);
                 if (stamped != null) {
                     noShow++;
-                    // F40: write the no-show to the ATS timeline (best-effort; only the CAS winner enqueues).
-                    atsWriteBacks.enqueue(stamped.getWorkspaceId(), stamped.getCandidateId(),
-                        AtsWriteBackType.NO_SHOW, stamped.getBookedStartAt());
+                    // What IS gated is the outbound side effect (US2-AS2): a non-entitled workspace gets NO fresh
+                    // provider write-backs — its ATS connection is "paused" under the plan gate, and the F40 drain
+                    // is deliberately ungated, so suppressing the enqueue is the only place to hold the line. This
+                    // applies in-flight or not; the local no-show signal (F50 data) is kept either way.
+                    if (noShowEntitled.computeIfAbsent(stamped.getWorkspaceId(),
+                            ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
+                        // F40: write the no-show to the ATS timeline (best-effort; only the CAS winner enqueues).
+                        atsWriteBacks.enqueue(stamped.getWorkspaceId(), stamped.getCandidateId(),
+                            AtsWriteBackType.NO_SHOW, stamped.getBookedStartAt());
+                    }
                 }
             }
 

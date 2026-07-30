@@ -179,7 +179,14 @@ public class BillingService {
             throw new BillingExceptions.ClaimRejectedException("license_already_bound");
         }
         if (replaced == null) {
-            // A concurrent renewal made the row confer TEAM again between the read and the CAS.
+            // Lost the CAS -- re-read before classifying, mirroring the insert path's DuplicateKeyException
+            // handler: if the concurrent winner bound the SAME license we are claiming, the caller's intent is
+            // already satisfied and "already_upgraded" would be a lie on the return page.
+            Optional<WorkspaceEntitlement> current = entitlements.findByWorkspaceId(workspaceId);
+            if (current.isPresent() && licenseId.equals(current.get().getFsLicenseId())) {
+                return view(workspaceId);
+            }
+            // Otherwise a concurrent renewal made the row confer TEAM again between the read and the CAS.
             throw new BillingExceptions.ClaimRejectedException("already_upgraded");
         }
         audit.billingLicenseClaimed(workspaceId, actorMemberId);
@@ -224,12 +231,19 @@ public class BillingService {
             status = EntitlementStatus.EXPIRED;
         }
         boolean changed = status != e.getStatus() || !Objects.equals(license.expiresAt(), e.getExpiresAt());
-        mongo.findAndModify(
-            Query.query(Criteria.where("_id").is(e.getId())),
+        // CAS on the license we actually verified, not just the row id: fsLicenseId is MUTABLE (the
+        // lapsed-then-repurchase guarded replace), so a stale snapshot -- the nightly findAll, or a trailing
+        // webhook for the OLD license via refreshByLicenseId -- must never stamp the old license's state onto a
+        // row that now holds a new one.
+        WorkspaceEntitlement updated = mongo.findAndModify(
+            Query.query(Criteria.where("_id").is(e.getId()).and("fsLicenseId").is(e.getFsLicenseId())),
             new Update().set("status", status).set("expiresAt", license.expiresAt())
                 .set("lastVerifiedAt", now).set("updatedAt", now),
             FindAndModifyOptions.options().returnNew(true),
             WorkspaceEntitlement.class);
+        if (updated == null) {
+            return; // the row was rebound to another license between the read and the CAS -- silent no-op
+        }
         if (changed) {
             audit.billingEntitlementUpdated(e.getWorkspaceId(), status.name().toLowerCase());
             log.info("billing entitlement updated {} {}",
