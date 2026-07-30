@@ -81,8 +81,9 @@ export class BillingComponent implements OnInit {
     const licenseId = this.route.snapshot.queryParamMap.get('license_id');
     if (licenseId) {
       this.claim(licenseId);
+    } else {
+      this.load();
     }
-    this.load();
   }
 
   load(): void {
@@ -115,6 +116,7 @@ export class BillingComponent implements OnInit {
       error: (err) => {
         this.busy.set(false);
         this.error.set(this.claimErrorText(err?.error?.error));
+        this.load();
       }
     });
   }

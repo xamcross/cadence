@@ -48,16 +48,19 @@ describe('BillingComponent (032 US1/US4)', () => {
 
   it('claims the license from the return query param and toasts success', () => {
     billing.claim.and.returnValue(of(TEAM));
-    billing.getEntitlement.and.returnValue(of(TEAM));
     create({ license_id: 'L1' });
     expect(billing.claim).toHaveBeenCalledWith('L1');
     expect(toast.success).toHaveBeenCalled();
+    expect(billing.getEntitlement).not.toHaveBeenCalled();
   });
 
   it('shows the typed claim error inline on refusal', () => {
     billing.claim.and.returnValue(throwError(() => ({ status: 409, error: { error: 'license_already_bound' } })));
+    billing.getEntitlement.and.returnValue(of(FREE));
     const fixture = create({ license_id: 'L1' });
     expect(fixture.componentInstance.error()).toBeTruthy();
+    expect(fixture.componentInstance.entitlement()).toEqual(FREE);
+    expect(billing.getEntitlement).toHaveBeenCalled();
   });
 
   it('on TEAM shows status and the customer-portal link instead of upgrade', () => {
