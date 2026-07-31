@@ -1,5 +1,7 @@
 app = "cadence--mlohw"
-primary_region = "ams"
+# fra: co-located with the Atlas cluster (AWS eu-central-1, Frankfurt) since 2026-07-31 —
+# the machine was moved out of ams during the 032 launch incident.
+primary_region = "fra"
 
 [http_service]
   internal_port = 8080
