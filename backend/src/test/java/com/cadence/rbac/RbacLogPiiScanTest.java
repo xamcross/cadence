@@ -66,7 +66,7 @@ class RbacLogPiiScanTest extends BaseIntegrationTest {
         Cookie ro = new Cookie("cad_session", sessionService.issue(target).jwt());
         mvc.perform(get("/api/internal/members").cookie(ro)).andExpect(status().isForbidden());
 
-        for (ILoggingEvent e : appender.list) {
+        for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
             // Scan the full log surface: message, structured arguments, MDC, and any throwable —
             // not just the formatted message (PII could leak via StructuredArguments/MDC/stack).
             String surface = e.getFormattedMessage()

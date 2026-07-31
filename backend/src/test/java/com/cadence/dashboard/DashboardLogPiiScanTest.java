@@ -34,7 +34,7 @@ class DashboardLogPiiScanTest extends DashboardItBase {
             DashboardSnapshot snap = dashboardService.snapshot(WS, DashboardWindow.LAST_30_DAYS);
             String csv = dashboardService.renderCsv(snap);
             assertThat(csv).contains(SENTINEL); // present in the egress (correct)
-            for (ILoggingEvent e : appender.list) {
+            for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
                 assertThat(e.getFormattedMessage()).doesNotContain(SENTINEL);
             }
         } finally {

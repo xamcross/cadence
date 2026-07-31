@@ -64,7 +64,7 @@ class BillingWebhookIT extends BillingItBase {
             mvc.perform(post(PATH).contentType(APPLICATION_JSON)
                     .header("X-Signature", "deadbeef").content(body))
                 .andExpect(status().isUnauthorized());
-            assertThat(appender.list)
+            assertThat(new java.util.ArrayList<>(appender.list)) // snapshot: CME guard
                 .anySatisfy(e -> {
                     assertThat(e.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
                     assertThat(e.getFormattedMessage()).contains("rejected");
