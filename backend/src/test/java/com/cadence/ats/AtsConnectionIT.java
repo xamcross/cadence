@@ -14,6 +14,7 @@ class AtsConnectionIT extends AtsItBase {
 
     @Test
     void badCredentialIsNotStoredAndDoesNotLeak() {
+        seedTeamEntitlement(WS); // 032 T7: connect() gates on ATS_INTEGRATIONS before the credential check
         stub.program("GET", "/v1/jobs", 401); // provider rejects the key
         assertThatThrownBy(() -> connectionService.connect(WS, AtsProvider.GREENHOUSE, "bad-key"))
             .isInstanceOf(AtsExceptions.VerificationFailedException.class);

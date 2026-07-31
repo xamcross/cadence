@@ -58,7 +58,7 @@ class CalendarEventLogPiiScanTest extends CalendarApiItBase {
             eventService.createPanelEvents(WS, "bk2", panel(a.getId(), b.getId()), details);
 
             boolean ranThePath = false;
-            for (ILoggingEvent e : appender.list) {
+            for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
                 String line = e.getFormattedMessage();
                 if (line == null) {
                     continue;

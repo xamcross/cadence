@@ -11,6 +11,9 @@ export interface AtsHealth {
   lastSyncAt: string | null;
   degraded: boolean;
   deadLetterCount: number;
+  // 032 T7/T9: true when a previously configured connection is retained but sync/write-back is
+  // paused because the workspace has fallen back to the FREE plan (US2-AS2).
+  pausedForPlan: boolean;
 }
 
 export interface AtsSyncStatus {

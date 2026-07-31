@@ -56,7 +56,7 @@ class InterviewTemplateLogPiiScanTest extends InterviewItBase {
                 .andExpect(status().isOk());
 
             boolean ranThePath = false;
-            for (ILoggingEvent e : appender.list) {
+            for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
                 String line = e.getFormattedMessage();
                 if (line == null) {
                     continue;

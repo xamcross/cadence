@@ -67,6 +67,7 @@ class AtsConnectionContractTest extends AtsItBase {
 
     @Test
     void connectAndDisconnect_adminOnly() throws Exception {
+        seedTeamEntitlement(WS); // 032 T7: connect() gates on ATS_INTEGRATIONS before the credential check
         Cookie admin = cookie(Role.ADMIN);
         Cookie recruiter = cookie(Role.RECRUITER);
         // ADMIN can mutate (POST verifies against the Lever stub -> 200).
@@ -90,6 +91,7 @@ class AtsConnectionContractTest extends AtsItBase {
 
     @Test
     void rejectedCredential_is409VerificationFailed() throws Exception {
+        seedTeamEntitlement(WS); // 032 T7: connect() gates on ATS_INTEGRATIONS before the credential check
         leverStub.program("GET", "/v1/opportunities", 401);
         mvc.perform(post("/api/internal/ats/LEVER/connection").cookie(cookie(Role.ADMIN)).with(csrf())
                 .contentType("application/json").content("{\"apiKey\":\"bad\"}"))

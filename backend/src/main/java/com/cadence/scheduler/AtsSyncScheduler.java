@@ -2,8 +2,10 @@ package com.cadence.scheduler;
 
 import com.cadence.domain.AtsConnection;
 import com.cadence.domain.AtsConnectionStatus;
+import com.cadence.domain.GatedFeature;
 import com.cadence.repository.AtsConnectionRepository;
 import com.cadence.service.AtsSyncService;
+import com.cadence.service.EntitlementService;
 import jakarta.annotation.PostConstruct;
 import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
@@ -29,12 +31,14 @@ public class AtsSyncScheduler {
     private final SchedulerCheckpointService checkpoints;
     private final AtsConnectionRepository connections;
     private final AtsSyncService syncService;
+    private final EntitlementService entitlements;
 
     public AtsSyncScheduler(SchedulerCheckpointService checkpoints, AtsConnectionRepository connections,
-                            AtsSyncService syncService) {
+                            AtsSyncService syncService, EntitlementService entitlements) {
         this.checkpoints = checkpoints;
         this.connections = connections;
         this.syncService = syncService;
+        this.entitlements = entitlements;
     }
 
     @PostConstruct
@@ -53,6 +57,13 @@ public class AtsSyncScheduler {
         try {
             List<AtsConnection> connected = connections.findByStatus(AtsConnectionStatus.CONNECTED);
             for (AtsConnection conn : connected) {
+                // 032 T7 placement 3: a Team->Free downgrade leaves the connection CONNECTED (F41 coexistence —
+                // disconnect stays a separate, ungated, user action) but the sweep must not initiate a NEW sync
+                // for it. Inside the loop only — never around checkpoints.start/complete (those bracket the whole
+                // pass regardless of any single workspace's entitlement).
+                if (!entitlements.hasFeature(conn.getWorkspaceId(), GatedFeature.ATS_INTEGRATIONS)) {
+                    continue;
+                }
                 // Per-connection isolation (F41 SC-014/FR-022): syncWorkspace already swallows AtsApiException, but
                 // an UNEXPECTED RuntimeException (e.g. a Mongo DataAccessException) must NOT abort the sweep and
                 // starve the other provider's / other workspaces' connections. Log and continue.

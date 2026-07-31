@@ -1,12 +1,14 @@
 package com.cadence.scheduler;
 
 import com.cadence.config.NoShowProperties;
+import com.cadence.domain.GatedFeature;
 import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.WorkspaceConfig;
 import com.cadence.repository.SchedulingRequestRepository;
 import com.cadence.repository.WorkspaceConfigRepository;
 import com.cadence.domain.AtsWriteBackType;
 import com.cadence.service.AtsWriteBackService;
+import com.cadence.service.EntitlementService;
 import com.cadence.service.NoShowCascadeService;
 import jakarta.annotation.PostConstruct;
 import net.logstash.logback.argument.StructuredArguments;
@@ -50,10 +52,12 @@ public class NoShowDefenseScheduler {
     private final AtsWriteBackService atsWriteBacks;
     private final NoShowProperties props;
     private final Clock clock;
+    private final EntitlementService entitlements;
 
     public NoShowDefenseScheduler(SchedulerCheckpointService checkpoints, SchedulingRequestRepository requests,
                                   WorkspaceConfigRepository workspaceConfigs, NoShowCascadeService cascade,
-                                  AtsWriteBackService atsWriteBacks, NoShowProperties props, Clock clock) {
+                                  AtsWriteBackService atsWriteBacks, NoShowProperties props, Clock clock,
+                                  EntitlementService entitlements) {
         this.checkpoints = checkpoints;
         this.requests = requests;
         this.workspaceConfigs = workspaceConfigs;
@@ -61,6 +65,7 @@ public class NoShowDefenseScheduler {
         this.atsWriteBacks = atsWriteBacks;
         this.props = props;
         this.clock = clock;
+        this.entitlements = entitlements;
     }
 
     @PostConstruct
@@ -81,13 +86,22 @@ public class NoShowDefenseScheduler {
             Instant bound = now.plus(props.getCascadeQueryBound());
             PageRequest page = PageRequest.of(0, props.getCascadeSweepBatchLimit());
             Map<String, WorkspaceConfig> wsCache = new HashMap<>();
+            // 032 T7 placement 4: per-sweep memo so N rows in one workspace cost one entitlement query.
+            Map<String, Boolean> noShowEntitled = new HashMap<>();
 
             int requested = 0;
             int escalated = 0;
             int noShow = 0;
 
             // Stage 1: confirmation request (per-workspace lead time, Java-filtered; future starts only).
+            // Gated (US2): a FREE workspace cannot INITIATE a new confirmation-request cascade. Stage 2 and the
+            // stage-3 STAMP are NOT gated — an in-flight cascade always completes (spec US2-AS3) and the stamp is
+            // what retires a row from the sweep. Only stage 3's outbound ATS write-back is gated (see below).
             for (SchedulingRequest req : requests.findConfirmationRequestDue(now, bound, page)) {
+                if (!noShowEntitled.computeIfAbsent(req.getWorkspaceId(),
+                        ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
+                    continue;
+                }
                 Duration lead = leadTime(req.getWorkspaceId(), wsCache);
                 if (req.getBookedStartAt() != null && !req.getBookedStartAt().minus(lead).isAfter(now)) {
                     cascade.requestConfirmation(req, now);
@@ -106,12 +120,23 @@ public class NoShowDefenseScheduler {
 
             // Stage 3: no-show stamp (start already reached — no per-workspace offset).
             for (SchedulingRequest req : requests.findNoShowDue(now, page)) {
+                // 032 round-2 fix: the local stamp is NEVER gated. findNoShowDue has no lower time bound and
+                // nothing else ever writes noShowAt/candidateConfirmedAt for a due row, so a skipped row stays in
+                // the candidate set forever; served oldest-first by {status,bookedStartAt}, enough of them would
+                // fill the capped batch and starve stage 3 for EVERY workspace. Rows must exit via the stamp.
                 SchedulingRequest stamped = cascade.stampNoShow(req, now);
                 if (stamped != null) {
                     noShow++;
-                    // F40: write the no-show to the ATS timeline (best-effort; only the CAS winner enqueues).
-                    atsWriteBacks.enqueue(stamped.getWorkspaceId(), stamped.getCandidateId(),
-                        AtsWriteBackType.NO_SHOW, stamped.getBookedStartAt());
+                    // What IS gated is the outbound side effect (US2-AS2): a non-entitled workspace gets NO fresh
+                    // provider write-backs — its ATS connection is "paused" under the plan gate, and the F40 drain
+                    // is deliberately ungated, so suppressing the enqueue is the only place to hold the line. This
+                    // applies in-flight or not; the local no-show signal (F50 data) is kept either way.
+                    if (noShowEntitled.computeIfAbsent(stamped.getWorkspaceId(),
+                            ws -> entitlements.hasFeature(ws, GatedFeature.NO_SHOW_DEFENSE))) {
+                        // F40: write the no-show to the ATS timeline (best-effort; only the CAS winner enqueues).
+                        atsWriteBacks.enqueue(stamped.getWorkspaceId(), stamped.getCandidateId(),
+                            AtsWriteBackType.NO_SHOW, stamped.getBookedStartAt());
+                    }
                 }
             }
 

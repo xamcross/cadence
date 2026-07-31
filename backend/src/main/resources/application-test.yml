@@ -52,3 +52,22 @@ cadence:
     max-per-workspace-per-window: 5
     workspace-window: PT1H
     min-fill-millis: 1500
+  billing:
+    product-id: "1001"
+    team-plan-id: "2002"
+    api-bearer: test-billing-bearer
+    webhook-secret: test-billing-webhook-secret
+    retry-base-backoff: PT0S
+  # Park the remaining background @Scheduled fires far out (the F22/F42 pattern above, completed):
+  # every suite drives its sweep() directly, and live ticks from cached Spring contexts otherwise
+  # mutate shared collections mid-test (the 2026-07-31 DashboardPerfIT no-show-stamp CI flake).
+  noshow:
+    cascade-interval-ms: 3600000
+  sla:
+    scan-interval-ms: 3600000
+  ats:
+    poll-interval-ms: 3600000
+    writeback-interval-ms: 3600000
+    reaper-interval-ms: 3600000
+  feedback:
+    scan-interval: PT1H

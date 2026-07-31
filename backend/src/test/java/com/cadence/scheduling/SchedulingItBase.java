@@ -19,6 +19,7 @@ import com.cadence.domain.Session;
 import com.cadence.domain.TemplateStatus;
 import com.cadence.domain.WorkingHours;
 import com.cadence.domain.WorkspaceConfig;
+import com.cadence.domain.WorkspaceEntitlement;
 import com.cadence.security.SecureTokens;
 import com.cadence.security.TokenHasher;
 import com.cadence.service.MemberService;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -77,6 +79,15 @@ abstract class SchedulingItBase extends BaseIntegrationTest {
         mongoTemplate.remove(new Query(), InterviewSlotClaim.class);
         mongoTemplate.remove(new Query(), com.cadence.domain.EmailDispatch.class);
         mongoTemplate.remove(new Query(), com.cadence.domain.RecruiterNotification.class);
+        // 032 T7: this suite predates billing and never modeled a plan -- seed Team so the no-show stage-1
+        // gate (NO_SHOW_DEFENSE) does not block these pre-existing F23 fixtures. Cleared first: another
+        // package's ItBase using the same WS ("ws1") may have left a stale row (no cross-package scoping).
+        mongoTemplate.remove(Query.query(Criteria.where("workspaceId").is(WS)), WorkspaceEntitlement.class);
+        WorkspaceEntitlement e = new WorkspaceEntitlement();
+        e.setWorkspaceId(WS);
+        e.setFsLicenseId("lic-" + WS + "-scheduling");
+        e.setFsPlanId("2002");
+        mongoTemplate.insert(e);
     }
 
     protected Member member(String email, Role role) {

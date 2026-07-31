@@ -7,8 +7,10 @@ import com.cadence.domain.ErasureState;
 import com.cadence.domain.LawfulBasis;
 import com.cadence.domain.SchedulingRequest;
 import com.cadence.domain.SchedulingStatus;
+import com.cadence.scheduler.NoShowDefenseScheduler;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -24,6 +26,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("perf")
 class DashboardPerfIT extends DashboardItBase {
+
+    @Autowired
+    NoShowDefenseScheduler noShowDefenseScheduler;
 
     @Test
     void read_under3sBudget_forLargeWorkspace() {
@@ -60,11 +65,22 @@ class DashboardPerfIT extends DashboardItBase {
             r.setBookedStartAt(past);
             if (i % 5 == 0) {
                 r.setNoShowAt(past);
+            } else {
+                // Attended interviews are confirmed ones. Also keeps the fixture out of the no-show
+                // sweep's stage-3 candidate set (candidateConfirmedAt null would make these rows
+                // stampable by the background tick, corrupting noShowCount mid-test).
+                r.setCandidateConfirmedAt(past.minus(Duration.ofHours(1)));
             }
             r.setCreatedAt(past);
             reqs.add(r);
         }
         mongoTemplate.insertAll(reqs);
+
+        // Force a no-show sweep pass between seeding and the timed read: the fixture must be immune
+        // to the background NoShowDefenseScheduler tick (60s fixedDelay in the shared IT context),
+        // which otherwise stamps up to a 200-row batch of overdue unconfirmed rows mid-test and
+        // inflates noShowCount (the 2026-07-31 CI flake).
+        noShowDefenseScheduler.sweep();
 
         dashboardService.snapshot(WS, DashboardWindow.LAST_90_DAYS); // warm-up (discarded)
 

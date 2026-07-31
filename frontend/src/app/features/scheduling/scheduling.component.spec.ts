@@ -15,7 +15,12 @@ import { ToastService } from '../../shared/ui/toast.service';
 import { SearchPickerComponent } from '../../shared/ui/search-picker.component';
 import { PipelinePage, PipelineService } from '../pipeline/pipeline.service';
 import { InterviewTemplatesService, TemplateList } from '../interview-templates/interview-templates.service';
+import { BillingService, EntitlementView } from '../admin/billing/billing.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { attachToBody, axeViolations, detachFromBody } from '../../../testing/axe';
+
+const teamEntitlement: EntitlementView = { plan: 'TEAM', status: 'ACTIVE', expiresAt: null, boundAt: null };
+const freeEntitlement: EntitlementView = { plan: 'FREE', status: null, expiresAt: null, boundAt: null };
 
 /**
  * F13 US1 (§II): the recruiter surface sends a link (happy path), surfaces a 409 not-contactable, and
@@ -43,7 +48,8 @@ describe('SchedulingComponent', () => {
 
   function setup(initiate: SchedulingService['initiate'], overrides: Partial<SchedulingService> = {},
                  slaOverrides: Partial<SlaNudgeService> = {},
-                 pipelineOverrides: Partial<PipelineService> = {}, templatesOverrides: Partial<InterviewTemplatesService> = {}) {
+                 pipelineOverrides: Partial<PipelineService> = {}, templatesOverrides: Partial<InterviewTemplatesService> = {},
+                 billingOverrides: Partial<BillingService> = {}) {
     const stub: Partial<SchedulingService> = { initiate, status: () => of(sentStatus), ...overrides };
     const slaStub: Partial<SlaNudgeService> = {
       getSla: () => of({ candidateId: 'cand1', slaState: 'GREEN', lastActivityAt: null, openDraftId: null }),
@@ -54,6 +60,7 @@ describe('SchedulingComponent', () => {
     };
     const pipelineStub: Partial<PipelineService> = { list: () => of(emptyPipelinePage), ...pipelineOverrides };
     const templatesStub: Partial<InterviewTemplatesService> = { list: () => of(emptyTemplateList), ...templatesOverrides };
+    const billingStub: Partial<BillingService> = { getEntitlement: () => of(teamEntitlement), ...billingOverrides };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [SchedulingComponent],
@@ -61,7 +68,9 @@ describe('SchedulingComponent', () => {
         { provide: SchedulingService, useValue: stub },
         { provide: SlaNudgeService, useValue: slaStub },
         { provide: PipelineService, useValue: pipelineStub },
-        { provide: InterviewTemplatesService, useValue: templatesStub }
+        { provide: InterviewTemplatesService, useValue: templatesStub },
+        { provide: BillingService, useValue: billingStub },
+        { provide: AuthService, useValue: { member$: of(null) } }
       ]
     });
     const fixture = TestBed.createComponent(SchedulingComponent);
@@ -70,7 +79,8 @@ describe('SchedulingComponent', () => {
 
   /** Renders the component (setup() above only ever returns the bare instance) for masthead/axe assertions. */
   function setupFixture(pipelineOverrides: Partial<PipelineService> = {},
-                        templatesOverrides: Partial<InterviewTemplatesService> = {}): ComponentFixture<SchedulingComponent> {
+                        templatesOverrides: Partial<InterviewTemplatesService> = {},
+                        billingOverrides: Partial<BillingService> = {}): ComponentFixture<SchedulingComponent> {
     const stub: Partial<SchedulingService> = { initiate: () => of(initiated), status: () => of(sentStatus) };
     const slaStub: Partial<SlaNudgeService> = {
       getSla: () => of({ candidateId: 'cand1', slaState: 'GREEN', lastActivityAt: null, openDraftId: null }),
@@ -80,6 +90,7 @@ describe('SchedulingComponent', () => {
     };
     const pipelineStub: Partial<PipelineService> = { list: () => of(emptyPipelinePage), ...pipelineOverrides };
     const templatesStub: Partial<InterviewTemplatesService> = { list: () => of(emptyTemplateList), ...templatesOverrides };
+    const billingStub: Partial<BillingService> = { getEntitlement: () => of(teamEntitlement), ...billingOverrides };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [SchedulingComponent],
@@ -87,7 +98,9 @@ describe('SchedulingComponent', () => {
         { provide: SchedulingService, useValue: stub },
         { provide: SlaNudgeService, useValue: slaStub },
         { provide: PipelineService, useValue: pipelineStub },
-        { provide: InterviewTemplatesService, useValue: templatesStub }
+        { provide: InterviewTemplatesService, useValue: templatesStub },
+        { provide: BillingService, useValue: billingStub },
+        { provide: AuthService, useValue: { member$: of(null) } }
       ]
     });
     return TestBed.createComponent(SchedulingComponent);
@@ -430,6 +443,44 @@ describe('SchedulingComponent', () => {
       (pickers[1].componentInstance as SearchPickerComponent).valueChange.emit('tmpl1');
       expect(fixture.componentInstance.candidateId).toBe('cand1');
       expect(fixture.componentInstance.templateId).toBe('tmpl1');
+    });
+  });
+
+  // ---- 032 T9: SLA nudge panel FREE-plan upgrade prompt ----
+
+  describe('plan gate on the SLA nudge panel (032 FR-013/FR-016)', () => {
+    it('TEAM plan: no upgrade prompt in the SLA panel', () => {
+      const fixture = setupFixture({}, {}, { getEntitlement: () => of(teamEntitlement) });
+      fixture.componentInstance.candidateId = 'cand1';
+      const el = fixture.nativeElement as HTMLElement;
+      attachToBody(el);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.plan()).toBe('TEAM');
+      expect(el.querySelector('.sla-nudge-panel app-upgrade-prompt')).toBeNull();
+      detachFromBody(el);
+    });
+
+    it('FREE plan: shows the upgrade prompt at the top of the SLA nudge panel', () => {
+      const fixture = setupFixture({}, {}, { getEntitlement: () => of(freeEntitlement) });
+      fixture.componentInstance.candidateId = 'cand1';
+      const el = fixture.nativeElement as HTMLElement;
+      attachToBody(el);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.plan()).toBe('FREE');
+      const panel = el.querySelector('.sla-nudge-panel') as HTMLElement;
+      expect(panel.querySelector('app-upgrade-prompt')).not.toBeNull();
+      detachFromBody(el);
+    });
+
+    it('a failed entitlement load leaves plan() null and shows no upgrade prompt', () => {
+      const fixture = setupFixture({}, {}, { getEntitlement: () => throwError(() => ({ status: 500 })) });
+      fixture.componentInstance.candidateId = 'cand1';
+      const el = fixture.nativeElement as HTMLElement;
+      attachToBody(el);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.plan()).toBeNull();
+      expect(el.querySelector('.sla-nudge-panel app-upgrade-prompt')).toBeNull();
+      detachFromBody(el);
     });
   });
 });

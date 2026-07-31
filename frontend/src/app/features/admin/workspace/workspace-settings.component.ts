@@ -2,20 +2,27 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { WorkspaceConfig, WorkspaceService } from './workspace.service';
+import { BillingService } from '../billing/billing.service';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton.component';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../../shared/ui/toast.service';
+import { UpgradePromptComponent } from '../../../shared/ui/upgrade-prompt.component';
 
 /**
  * Admin workspace settings (F03 US2-US5). Operational settings, branding (colour + logo upload),
- * email domain + provider credential (write-only), and template-lock governance. Admin-only route;
- * the server is the security boundary (this screen is convenience + defense-in-depth).
+ * email domain + provider credential (write-only), template-lock governance, and (032 T9) F23
+ * no-show defense cascade timing. Admin-only route; the server is the security boundary (this
+ * screen is convenience + defense-in-depth).
+ *
+ * 032 T9: no-show defense is a Team-plan feature (FR-013), but unlike ATS integrations the timing
+ * fields stay visible and editable on a FREE workspace — only cascade INITIATION is gated
+ * server-side, so an admin can pre-configure the settings before upgrading and lose nothing.
  */
 @Component({
   selector: 'app-workspace-settings',
   standalone: true,
-  imports: [ReactiveFormsModule, PageHeaderComponent, SkeletonComponent],
+  imports: [ReactiveFormsModule, PageHeaderComponent, SkeletonComponent, UpgradePromptComponent],
   template: `
     <main class="settings">
       <app-page-header
@@ -55,6 +62,24 @@ import { ToastService } from '../../../shared/ui/toast.service';
             <input class="input" id="ret" type="number" formControlName="retentionPeriodDays" min="30" max="3650" />
           </div>
           <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.save">Save</button>
+        </form>
+      </section>
+
+      <section>
+        <h2 i18n="@@workspace.settings.noshow">No-show defense</h2>
+        @if (plan() === 'FREE') {
+          <app-upgrade-prompt featureLabel="No-show defense" i18n-featureLabel="@@upgrade.noshow" />
+        }
+        <form [formGroup]="noShow" (ngSubmit)="saveNoShow()">
+          <div class="field">
+            <label for="leadTime" i18n="@@workspace.settings.noshow.leadTime">Confirmation lead time (hours)</label>
+            <input class="input" id="leadTime" type="number" formControlName="confirmationLeadTimeHours" min="1" />
+          </div>
+          <div class="field">
+            <label for="escDeadline" i18n="@@workspace.settings.noshow.escalation">Escalation deadline (hours)</label>
+            <input class="input" id="escDeadline" type="number" formControlName="escalationDeadlineHours" min="1" />
+          </div>
+          <button type="submit" class="btn btn--primary" i18n="@@workspace.settings.noshow.save">Save no-show settings</button>
         </form>
       </section>
 
@@ -128,11 +153,14 @@ import { ToastService } from '../../../shared/ui/toast.service';
 export class WorkspaceSettingsComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly workspace = inject(WorkspaceService);
+  private readonly billing = inject(BillingService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
 
   readonly config = signal<WorkspaceConfig | null>(null);
   readonly logoError = signal<string>('');
+  /** 032: null until the entitlement load resolves; a load failure leaves it null (never blocks the screen). */
+  readonly plan = signal<'FREE' | 'TEAM' | null>(null);
 
   readonly lockLabel = $localize`:@@workspace.settings.lockBtn:Lock`;
   readonly unlockLabel = $localize`:@@workspace.settings.unlockBtn:Unlock`;
@@ -144,11 +172,21 @@ export class WorkspaceSettingsComponent implements OnInit {
   readonly branding = this.fb.nonNullable.group({ brandColor: [''] });
   readonly email = this.fb.nonNullable.group({ sendingDomain: [''], credential: [''] });
   readonly lockForm = this.fb.nonNullable.group({ key: ['', Validators.required] });
+  /** F23 no-show defense cascade timing, expressed as whole hours (null = workspace uses the global
+   *  default). Stays enabled on FREE — settings are retained/editable; only initiation is gated. */
+  readonly noShow = this.fb.group({
+    confirmationLeadTimeHours: this.fb.control<number | null>(null),
+    escalationDeadlineHours: this.fb.control<number | null>(null)
+  });
 
   ngOnInit(): void {
     this.workspace.getConfig().subscribe({
       next: (c) => this.apply(c),
       error: () => this.toast.error($localize`:@@toast.workspace.loadFailed:Could not load workspace settings. Please try again.`)
+    });
+    this.billing.getEntitlement().subscribe({
+      next: (e) => this.plan.set(e.plan),
+      error: () => this.plan.set(null)
     });
   }
 
@@ -166,6 +204,21 @@ export class WorkspaceSettingsComponent implements OnInit {
       next: (c) => { this.config.set(c); this.toast.success($localize`:@@toast.workspace.opsSaved:Operational settings saved.`); },
       error: (e: HttpErrorResponse) => this.toast.error(this.errorMessage(e,
         $localize`:@@toast.workspace.opsSaveFailed:Could not save the operational settings. Please try again.`))
+    });
+  }
+
+  /** 032/F23: saves the no-show cascade timing, converted from hours to ISO-8601 Duration. Enabled
+   *  regardless of plan — the fields stay editable on FREE (config is retained; only cascade
+   *  initiation is gated server-side). */
+  saveNoShow(): void {
+    const v = this.noShow.getRawValue();
+    this.workspace.patchConfig({
+      confirmationLeadTime: this.durationFromHours(v.confirmationLeadTimeHours),
+      unconfirmedEscalationDeadline: this.durationFromHours(v.escalationDeadlineHours)
+    }).subscribe({
+      next: (c) => { this.config.set(c); this.toast.success($localize`:@@toast.workspace.noShowSaved:No-show defense settings saved.`); },
+      error: (e: HttpErrorResponse) => this.toast.error(this.errorMessage(e,
+        $localize`:@@toast.workspace.noShowSaveFailed:Could not save the no-show defense settings. Please try again.`))
     });
   }
 
@@ -286,6 +339,22 @@ export class WorkspaceSettingsComponent implements OnInit {
     });
     this.branding.patchValue({ brandColor: c.brandColor ?? '' });
     this.email.patchValue({ sendingDomain: c.emailSendingDomain ?? '' });
+    this.noShow.patchValue({
+      confirmationLeadTimeHours: this.hoursFromDuration(c.confirmationLeadTime),
+      escalationDeadlineHours: this.hoursFromDuration(c.unconfirmedEscalationDeadline)
+    });
+  }
+
+  /** Parses a whole-hours ISO-8601 Duration (e.g. "PT24H") back to a plain number for the form.
+   *  null (or any shape this simple hours-only field doesn't cover) means "use the global default". */
+  private hoursFromDuration(iso: string | null): number | null {
+    if (!iso) { return null; }
+    const match = /^PT(\d+)H$/.exec(iso);
+    return match ? Number(match[1]) : null;
+  }
+
+  private durationFromHours(hours: number | null | undefined): string | null {
+    return hours === null || hours === undefined || Number.isNaN(hours) ? null : `PT${hours}H`;
   }
 
   private errorMessage(e: HttpErrorResponse | undefined, generic: string): string {

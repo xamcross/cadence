@@ -103,7 +103,7 @@ class PipelineLogPiiScanTest extends PipelineItBase {
             assertThat(bulkJson).doesNotContain(NAME_SENTINEL).doesNotContain(STAGE_SENTINEL);
 
             // logs across compose + timeline + bulk
-            for (ILoggingEvent e : appender.list) {
+            for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
                 assertThat(e.getFormattedMessage()).doesNotContain(NAME_SENTINEL).doesNotContain(STAGE_SENTINEL);
             }
 

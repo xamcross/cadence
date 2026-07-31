@@ -32,6 +32,7 @@ class AtsLeverConnectIT extends AtsItBase {
 
     @Test
     void badLeverCredentialIsNotStored() {
+        seedTeamEntitlement(WS); // 032 T7: connect() gates on ATS_INTEGRATIONS before the credential check
         leverStub.program("GET", "/v1/opportunities", 401);
         assertThatThrownBy(() -> connectionService.connect(WS, AtsProvider.LEVER, "bad-key"))
             .isInstanceOf(AtsExceptions.VerificationFailedException.class);

@@ -112,7 +112,7 @@ public class AtsConnectionController {
 
     private AtsDtos.HealthResponse toHealth(AtsConnectionService.Health h) {
         return new AtsDtos.HealthResponse(h.provider(), h.status(), h.credentialSet(), h.lastVerifiedAt(),
-            h.lastSyncAt(), h.degraded(), h.deadLetterCount());
+            h.lastSyncAt(), h.degraded(), h.deadLetterCount(), h.pausedForPlan());
     }
 
     private AtsDtos.DeadLetterEntry toEntry(AtsWriteBack w) {

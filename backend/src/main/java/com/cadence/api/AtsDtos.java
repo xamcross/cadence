@@ -16,7 +16,8 @@ public final class AtsDtos {
     public record ConnectRequest(String apiKey) {}
 
     public record HealthResponse(AtsProvider provider, AtsConnectionStatus status, boolean credentialSet,
-                                 Instant lastVerifiedAt, Instant lastSyncAt, boolean degraded, long deadLetterCount) {}
+                                 Instant lastVerifiedAt, Instant lastSyncAt, boolean degraded, long deadLetterCount,
+                                 boolean pausedForPlan) {}
 
     public record SyncStatusResponse(Instant lastSyncAt, String lastOutcome, int processed, int created,
                                      int updated, int skipped) {}

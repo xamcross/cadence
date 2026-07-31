@@ -37,7 +37,7 @@ class SlaClassifyReuseTest {
         props.setAmberMarginDays(AMBER_MARGIN);
         props.setDefaultWindowDays(DEFAULT_WINDOW);
         // Every collaborator below is unused by classifyCandidate -> null is safe (the constructor only assigns).
-        return new SlaNudgeService(null, null, null, null, null, null, null, null, null, null, null, props, null);
+        return new SlaNudgeService(null, null, null, null, null, null, null, null, null, null, null, props, null, null);
     }
 
     private static Method staticClassify() throws Exception {

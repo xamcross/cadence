@@ -15,8 +15,10 @@ import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog.service';
 import { ToastService } from '../../shared/ui/toast.service';
 import { PickerOption, SearchPickerComponent } from '../../shared/ui/search-picker.component';
+import { UpgradePromptComponent } from '../../shared/ui/upgrade-prompt.component';
 import { PipelineService } from '../pipeline/pipeline.service';
 import { InterviewTemplatesService } from '../interview-templates/interview-templates.service';
+import { BillingService } from '../admin/billing/billing.service';
 
 /**
  * F13 recruiter "Send scheduling link" surface (§II demonstrable leg). Minimal by design — the full
@@ -26,7 +28,7 @@ import { InterviewTemplatesService } from '../interview-templates/interview-temp
 @Component({
   selector: 'app-scheduling',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, SearchPickerComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, SearchPickerComponent, UpgradePromptComponent],
   template: `
     <section class="scheduling">
       <app-page-header
@@ -134,6 +136,9 @@ import { InterviewTemplatesService } from '../interview-templates/interview-temp
            queued holding-message draft; the recruiter previews and approves (one consent-gated send) or dismisses.
            Internal screen (Lighthouse/WCAG N/A — F50/F51 precedent). No auto-send. -->
       <div class="sla-nudge-panel" *ngIf="candidateId">
+        @if (plan() === 'FREE') {
+          <app-upgrade-prompt featureLabel="SLA nudges" i18n-featureLabel="@@upgrade.sla" />
+        }
         <h2 i18n="@@sla.panel.title">Communication SLA</h2>
         <button type="button" class="btn btn--ghost btn--sm" (click)="loadSla()" i18n="@@sla.panel.load">Check SLA status</button>
         <ng-container *ngIf="sla() as s">
@@ -170,11 +175,15 @@ export class SchedulingComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly pipelineApi = inject(PipelineService);
   private readonly templatesApi = inject(InterviewTemplatesService);
+  private readonly billing = inject(BillingService);
 
   // F31 SLA nudge panel state.
   readonly sla = signal<CandidateSla | null>(null);
   readonly draftPreview = signal<DraftPreview | null>(null);
   readonly slaBusy = signal(false);
+
+  /** 032: null until the entitlement load resolves; a load failure leaves it null (never blocks the screen). */
+  readonly plan = signal<'FREE' | 'TEAM' | null>(null);
 
   // Workbench overhaul phase 5: picker options for the candidate + interview-template combobox fields.
   readonly candidateOpts = signal<readonly PickerOption[]>([]);
@@ -206,6 +215,10 @@ export class SchedulingComponent implements OnInit {
     this.templatesApi.list().subscribe({
       next: (l) => this.templateOpts.set(l.templates.map((t) => ({ id: t.id, label: t.name }))),
       error: () => this.templateOpts.set([])
+    });
+    this.billing.getEntitlement().subscribe({
+      next: (e) => this.plan.set(e.plan),
+      error: () => this.plan.set(null)
     });
   }
 

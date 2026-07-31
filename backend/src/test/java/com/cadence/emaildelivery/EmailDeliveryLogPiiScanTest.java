@@ -85,7 +85,7 @@ class EmailDeliveryLogPiiScanTest extends EmailDeliveryItBase {
 
             // ---- assertions ----
             boolean loggedFail = false, loggedBounce = false;
-            for (ILoggingEvent e : appender.list) {
+            for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
                 String t = text(e);
                 assertThat(t).doesNotContain(BODY).doesNotContain(RECIPIENT).doesNotContain(WEBHOOK_SECRET);
                 if (t.contains("render error")) loggedFail = true;

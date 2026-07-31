@@ -11,6 +11,7 @@ import com.cadence.domain.CandidateEventType;
 import com.cadence.domain.CandidateStatusOutcome;
 import com.cadence.domain.EmailMessageType;
 import com.cadence.domain.ErasureState;
+import com.cadence.domain.GatedFeature;
 import com.cadence.domain.RecruiterNotificationType;
 import com.cadence.domain.RenderedMessage;
 import com.cadence.domain.SlaDraftStatus;
@@ -70,13 +71,14 @@ public class SlaNudgeService implements SlaDraftInvalidator {
     private final ObjectProvider<CandidateStatusService> statusLinkProvider;
     private final SlaProperties props;
     private final java.time.Clock clock;
+    private final EntitlementService entitlements;
 
     public SlaNudgeService(SlaNudgeDraftRepository drafts, MongoTemplate mongo, CandidateRepository candidates,
                            ContactPermissionGate gate, EmailDispatchService dispatch, EmailTemplateService templates,
                            RecruiterNotificationService notifications, CandidateAuditService audit,
                            CandidateActivityService activity, WorkspaceConfigRepository configs,
                            @Lazy ObjectProvider<CandidateStatusService> statusLinkProvider,
-                           SlaProperties props, java.time.Clock clock) {
+                           SlaProperties props, java.time.Clock clock, EntitlementService entitlements) {
         this.drafts = drafts;
         this.mongo = mongo;
         this.candidates = candidates;
@@ -90,6 +92,7 @@ public class SlaNudgeService implements SlaDraftInvalidator {
         this.statusLinkProvider = statusLinkProvider;
         this.props = props;
         this.clock = clock;
+        this.entitlements = entitlements;
     }
 
     // ===================================== classification (US2) ==========================================
@@ -195,6 +198,9 @@ public class SlaNudgeService implements SlaDraftInvalidator {
             return;
         }
         String ws = cfg.getWorkspaceId();
+        if (!entitlements.hasFeature(ws, GatedFeature.SLA_NUDGES)) {
+            return; // 032 T7 placement 5: a FREE workspace does not INITIATE new drafts; approve() stays ungated.
+        }
         int window = effectiveWindowDays(cfg);
         Instant breachCutoff = now.minus(Duration.ofDays(window));
         List<Candidate> breaching = candidates.findByWorkspaceIdAndErasureStateAndLastContactAtBefore(

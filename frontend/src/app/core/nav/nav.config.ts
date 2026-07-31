@@ -46,7 +46,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         desc: $localize`:@@launch.workspace.desc:Branding, time zone, retention, and SLAs.` },
       { path: '/admin/ats', roles: ['ADMIN'],
         label: $localize`:@@launch.ats:ATS integration`,
-        desc: $localize`:@@launch.ats.desc:Connect Greenhouse or Lever and sync status.` }
+        desc: $localize`:@@launch.ats.desc:Connect Greenhouse or Lever and sync status.` },
+      { path: '/admin/billing', roles: ['ADMIN'],
+        label: $localize`:@@launch.billing:Billing & plan`,
+        desc: $localize`:@@launch.billing.desc:Your plan, upgrades, and the customer portal.` }
     ]
   },
   {

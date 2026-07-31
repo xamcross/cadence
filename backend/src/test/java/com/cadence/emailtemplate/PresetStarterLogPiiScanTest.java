@@ -64,7 +64,7 @@ class PresetStarterLogPiiScanTest extends EmailTemplateItBase {
                 .andExpect(status().isOk());
 
             boolean ranThePath = false;
-            for (ILoggingEvent e : appender.list) {
+            for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
                 assertThat(text(e)).doesNotContain(SENT_NAME);
                 if (e.getFormattedMessage() != null && e.getFormattedMessage().contains("interview template created")) {
                     ranThePath = true;

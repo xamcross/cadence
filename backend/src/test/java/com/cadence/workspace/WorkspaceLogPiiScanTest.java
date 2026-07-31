@@ -66,7 +66,7 @@ class WorkspaceLogPiiScanTest extends WorkspaceItBase {
         doPut("/api/internal/workspace/email", c, "{\"sendingDomain\":\"bad domain!!\",\"credential\":\"" + SENTINEL + "\"}");
 
         StringBuilder sb = new StringBuilder();
-        for (ILoggingEvent e : appender.list) {
+        for (ILoggingEvent e : new java.util.ArrayList<>(appender.list)) { // snapshot: async threads may still append (CME guard)
             sb.append(e.getFormattedMessage()).append('\n');
             if (e.getArgumentArray() != null) {
                 sb.append(Arrays.toString(e.getArgumentArray())).append('\n');
