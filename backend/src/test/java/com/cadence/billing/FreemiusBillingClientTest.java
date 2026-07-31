@@ -98,6 +98,15 @@ class FreemiusBillingClientTest {
     }
 
     @Test
+    void fetchLicense_toleratesSingleLCancelledSpelling() {
+        // Freemius docs use is_cancelled and is_canceled interchangeably; a missed flag would
+        // read a cancelled license as ACTIVE, so the adapter accepts either spelling.
+        stub.programLicense("780", "{\"id\":\"780\",\"plan_id\":\"2002\",\"user_id\":\"55\","
+            + "\"expiration\":null,\"is_canceled\":true}");
+        assertThat(client.fetchLicense("780").cancelled()).isTrue();
+    }
+
+    @Test
     void checkoutUrl_isHosted_withEncodedEmail_andReturnUrl() {
         String url = client.checkoutUrl("admin+x@corp.test");
         assertThat(url).startsWith("https://checkout.example.test/product/1001/plan/2002/?");

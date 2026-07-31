@@ -50,6 +50,33 @@ class BillingWebhookIT extends BillingItBase {
     }
 
     @Test
+    void rejectedWebhook_logsPiiFreeWarn() throws Exception {
+        // A misconfigured FREEMIUS_WEBHOOK_SECRET must not fail 100% silently (live-promotion
+        // pre-flight): one fixed warn line, never the secret/signature/body.
+        ch.qos.logback.classic.Logger controllerLogger = (ch.qos.logback.classic.Logger)
+            org.slf4j.LoggerFactory.getLogger(com.cadence.api.FreemiusWebhookController.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+            new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        controllerLogger.addAppender(appender);
+        try {
+            String body = event("E-log", "license.cancelled", "L1");
+            mvc.perform(post(PATH).contentType(APPLICATION_JSON)
+                    .header("X-Signature", "deadbeef").content(body))
+                .andExpect(status().isUnauthorized());
+            assertThat(appender.list)
+                .anySatisfy(e -> {
+                    assertThat(e.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+                    assertThat(e.getFormattedMessage()).contains("rejected");
+                    assertThat(e.getFormattedMessage()).doesNotContain("deadbeef");
+                    assertThat(e.getFormattedMessage()).doesNotContain("SENTINEL");
+                });
+        } finally {
+            controllerLogger.detachAppender(appender);
+        }
+    }
+
+    @Test
     void boundLicenseEvent_refetchesTruth_andUpdatesEntitlement() throws Exception {
         seedTeam(WS, "L1", Instant.now(clock).plus(Duration.ofDays(30)));
         stub.programLicense("L1", "{\"id\":\"L1\",\"plan_id\":\"2002\",\"user_id\":\"55\","

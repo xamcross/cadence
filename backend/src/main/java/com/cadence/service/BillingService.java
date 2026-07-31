@@ -71,6 +71,12 @@ public class BillingService {
     }
 
     public String checkoutUrl(String workspaceId, String actorMemberId) {
+        if (props.getProductId() == null || props.getProductId().isBlank()
+            || props.getTeamPlanId() == null || props.getTeamPlanId().isBlank()) {
+            // Missing FREEMIUS_* secrets: fail closed as a clean 503 rather than redirecting the
+            // admin to a broken checkout URL (live-promotion pre-flight).
+            throw new BillingExceptions.ClaimUnavailableException();
+        }
         String adminEmail = members.findById(actorMemberId)
             .map(m -> m.getEmail()) // converter-decrypted; goes into the checkout URL only, never logged
             .orElseThrow(() -> new BillingExceptions.ClaimUnavailableException());

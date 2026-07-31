@@ -96,7 +96,9 @@ public class FreemiusBillingClient implements BillingProvider {
             root.path("plan_id").asText(null),
             root.path("user_id").asText(null),
             expiresAt,
-            root.path("is_cancelled").asBoolean(false));
+            // Freemius docs use is_cancelled and is_canceled interchangeably; a missed flag would
+            // read a cancelled license as ACTIVE, so accept either spelling (fail-safe).
+            root.path("is_cancelled").asBoolean(false) || root.path("is_canceled").asBoolean(false));
     }
 
     /** Run one HTTP attempt, normalising failures to {@link BillingApiException} (never logging the body). */

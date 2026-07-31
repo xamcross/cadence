@@ -37,6 +37,8 @@ import java.util.HexFormat;
 @RestController
 public class FreemiusWebhookController {
 
+    private static final org.slf4j.Logger log =
+        org.slf4j.LoggerFactory.getLogger(FreemiusWebhookController.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String HMAC_ALG = "HmacSHA256";
     private static final String SIGNATURE_HEADER = "X-Signature";
@@ -59,6 +61,9 @@ public class FreemiusWebhookController {
     public ResponseEntity<Void> receive(@RequestBody(required = false) String rawBody,
                                         @RequestHeader(value = SIGNATURE_HEADER, required = false) String signature) {
         if (rawBody == null || !signatureValid(rawBody, signature)) {
+            // Fixed message only -- never the secret, signature, or body (the EmailWebhookController
+            // pattern). Without this line a misconfigured FREEMIUS_WEBHOOK_SECRET fails 100% silently.
+            log.warn("billing webhook rejected -- invalid signature");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         JsonNode root;
