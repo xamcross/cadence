@@ -15,8 +15,16 @@ Extract four values: **Product ID**, **Team Plan ID**, **API bearer token**, **S
 2. Under **Plans/Pricing**, create one paid plan named **Team**; set its monthly/annual price
    there (prices live only in Freemius -- nothing in the app changes) and note its
    **Plan ID** (numeric).
-3. In the checkout/redirect settings, whitelist the return URL:
-   `https://cadenceapp.cc/admin/billing`.
+3. Configure the after-purchase redirect: **Plans -> Customization** -> enable the
+   **"Redirect Checkout to a custom URL"** toggle -> enter `https://cadenceapp.cc/admin/billing`.
+   (SaaS-type products only; HTTPS required; no separate whitelist page exists -- this toggle IS
+   the redirect config. The URL must not itself server-redirect or Freemius's redirect signature
+   validation fails; the SPA's Cloudflare `/* -> /index.html 200` catch-all is a rewrite, which
+   is fine.) Verified against the hosted-checkout docs 2026-07-31: the redirect carries
+   `license_id` (plus `user_id`, `plan_id`, `signature`, ...) as query params -- confirming the
+   claim-on-return assumption. NOTE: hosted checkout does NOT honor a `return_url` query param on
+   the checkout link; the `return_url` our adapter appends is harmlessly ignored and the dashboard
+   toggle is the load-bearing config (optionally drop the param at promotion).
 4. Under **Webhooks**, register `https://cadenceapp.cc/api/webhooks/billing/freemius` and
    subscribe to the license events: `license.created`, `license.updated`, `license.extended`,
    `license.shortened`, `license.cancelled`, `license.expired`, `license.plan.changed`.
@@ -32,8 +40,10 @@ Four assumptions were pinned by the in-test stub and must be confirmed against r
 using its sandbox/test-purchase mode:
 
 1. **Return redirect param.** The SPA claims from `?license_id=...` on `/admin/billing`
-   (`billing.component.ts`). Do a sandbox checkout and inspect the actual redirect query
-   params. A different param name is a one-line frontend fix.
+   (`billing.component.ts`). Docs-verified 2026-07-31: the hosted-checkout redirect does carry
+   `license_id`. Sandbox still confirms it end-to-end (and that the extra params -- `signature`
+   etc. -- don't disturb the claim flow; the app ignores them, trusting only its own server-side
+   license verification).
 2. **License GET.** Run against the sandbox license and diff the JSON against the adapter's
    explicit-field parsing (`FreemiusBillingClient.parseLicense`):
 
