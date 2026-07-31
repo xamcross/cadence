@@ -62,11 +62,19 @@ using its sandbox/test-purchase mode:
    so on the first sandbox event, `GET /v1/products/{pid}/events/{eventId}.json` settles it in
    one call. The controller reads `id`, `type`, `objects.license.id` with a top-level
    `license_id` fallback.
-4. **`license.deleted` / refund behavior (new sandbox question).** If a deleted/refunded
-   license makes the GET return 404, the webhook currently answers 503 (retry loop) because the
-   re-fetch fails; the nightly sweep isolates the row but never downgrades it. In sandbox:
-   refund the test purchase and observe -- if GET 404s permanently, decide the handling
-   (ack + explicit downgrade on 404 is the likely fix) in the promotion follow-up PR.
+4. **`license.deleted` / refund behavior — PROBED IN PRODUCTION 2026-07-31.** Findings:
+   - **Refund with "keep license" fires NO `license.*` event at all** (only
+     `subscription.cancelled` + `payment.refund`) -- the entitlement stays ACTIVE until the
+     license's own expiration. Correct per our model (license is the sole truth).
+   - **Dashboard license cancel** fires `license.cancelled`, cuts `expiration` to NOW, sets
+     `is_cancelled=true`, and the license **stays fetchable (GET 200, no 404)**. The webhook
+     cascade re-fetched truth and downgraded the workspace to Free (EXPIRED wins over
+     CANCELLED, as coded). Verified end-to-end: ledger row `eventId 1405624963` outcome
+     `processed`, entitlement `EXPIRED`, Billing page renders Free again.
+   - The 404/retry-loop edge therefore applies **only to an explicit dashboard Delete**,
+     which was deliberately NOT probed against prod (it would create a live retry loop).
+   **Deferred fast-follow:** ack-on-404 (treat license GET 404 as downgrade-to-Free + 2xx ack)
+   in the promotion follow-up PR.
 5. **Divergences** get fixed in a small follow-up PR -- that IS the promotion review.
 
 **Pre-flight code items: DONE 2026-07-31** (commit c5e2bff): webhook signature rejection now
@@ -99,18 +107,22 @@ return URL will build correctly); no `FREEMIUS_*` secrets exist yet, as expected
    `CLOUDFLARE_API_TOKEN` secret -- use the local script.)
 5. No Cloudflare changes: the webhook lives under `/api/`, already proxied to Fly.
 
-## 4. Production smoke test
+## 4. Production smoke test — EXECUTED 2026-07-31, ALL GREEN
 
-1. From a real workspace's **Billing** page, run a **sandbox-mode** checkout -> return ->
-   page flips to Team; `workspaceEntitlements` has the row.
-2. Cancel the sandbox subscription in the Freemius customer portal -> webhook lands:
-   entitlement status becomes CANCELLED (Billing page, or the `BILLING_ENTITLEMENT_UPDATED`
-   row in `authAuditLog`).
+Full lifecycle verified in production with sandbox license `2007773`:
+
+1. Claim via Billing page recovery form -> **Team ACTIVE** (ends 2027-08-01); ATS gate
+   opened; DB row `{"plan":"TEAM","status":"ACTIVE","fsLicenseId":"2007773"}`. DONE.
+2. Refund executed (keep-license variant): fired `subscription.cancelled` + `payment.refund`
+   only -- **no license event**, entitlement correctly stayed ACTIVE. Then dashboard license
+   cancel -> `license.cancelled` webhook -> ledger row processed -> re-fetch pulled
+   `is_cancelled=true` + expiration cut to now -> entitlement **EXPIRED** -> Billing page
+   renders **Free plan** again. DONE (see section 2 item 4 for the full findings).
 3. Next morning: `schedulerCheckpoints` shows a completed `billing-entitlement-reconcile`
-   run (04:00 UTC nightly).
-4. Recovery path once: paste the sandbox license ID into "Already purchased?" from a DIFFERENT
-   Free workspace and confirm the typed `license_already_bound` refusal.
-5. Clean up: refund/void the sandbox purchase in the dashboard.
+   run (04:00 UTC nightly). PENDING -- check after 2026-08-01 04:00Z.
+4. Recovery-refusal path (`license_already_bound` from a second workspace): NOT run --
+   requires a second Free workspace; optional.
+5. Cleanup DONE: sandbox purchase refunded, subscription cancelled, license cancelled.
 
 ## Reference — what the app consumes
 
