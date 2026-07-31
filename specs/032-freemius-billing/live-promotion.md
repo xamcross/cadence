@@ -44,28 +44,37 @@ using its sandbox/test-purchase mode:
    `license_id`. Sandbox still confirms it end-to-end (and that the extra params -- `signature`
    etc. -- don't disturb the claim flow; the app ignores them, trusting only its own server-side
    license verification).
-2. **License GET.** Run against the sandbox license and diff the JSON against the adapter's
-   explicit-field parsing (`FreemiusBillingClient.parseLicense`):
+2. **License GET.** Docs-verified 2026-07-31: endpoint path
+   `GET /products/{product_id}/licenses/{license_id}.json` confirmed by the API reference;
+   `expiration` format `Y-m-d H:i:s` with null for lifetime confirmed; cancellation flag
+   confirmed, and since the docs use `is_cancelled`/`is_canceled` interchangeably the adapter
+   now accepts BOTH spellings (fail-safe). Sandbox still runs the curl as an end-to-end check:
 
    ```bash
    curl -H "Authorization: Bearer <token>" \
      "https://api.freemius.com/v1/products/<productId>/licenses/<licenseId>.json"
    ```
 
-   Expected fields: `id`, `plan_id`, `user_id`, `expiration` (UTC `"yyyy-MM-dd HH:mm:ss"` or
-   null for lifetime), `is_cancelled`.
-3. **Webhook shape.** Capture one sandbox delivery and confirm: signature header `X-Signature`
-   containing hex HMAC-SHA256 of the raw body, and payload fields `id`, `type`, license id at
-   `objects.license.id` (the controller also falls back to a top-level `license_id`).
-4. **Divergences** get fixed in a small follow-up PR -- that IS the promotion review.
+3. **Webhook shape.** Docs-verified 2026-07-31: signature header `x-signature`, HMAC-SHA256
+   HEX of the raw body with the product secret key, timing-safe compare -- exactly what the
+   controller implements. The PAYLOAD field names remain the one true sandbox unknown (the docs
+   defer to "fetch the event via API; the API schema is identical to the webhook payload") --
+   so on the first sandbox event, `GET /v1/products/{pid}/events/{eventId}.json` settles it in
+   one call. The controller reads `id`, `type`, `objects.license.id` with a top-level
+   `license_id` fallback.
+4. **`license.deleted` / refund behavior (new sandbox question).** If a deleted/refunded
+   license makes the GET return 404, the webhook currently answers 503 (retry loop) because the
+   re-fetch fails; the nightly sweep isolates the row but never downgrades it. In sandbox:
+   refund the test purchase and observe -- if GET 404s permanently, decide the handling
+   (ack + explicit downgrade on 404 is the likely fix) in the promotion follow-up PR.
+5. **Divergences** get fixed in a small follow-up PR -- that IS the promotion review.
 
-**Recommended pre-flight code items before this step** (deferred minors from the final review):
+**Pre-flight code items: DONE 2026-07-31** (commit c5e2bff): webhook signature rejection now
+logs a fixed PII-free warn; `checkoutUrl` fails closed 503 `billing_unavailable` on blank
+product/plan ids; license parser tolerates both cancellation-flag spellings.
 
-- Add the PII-free warn log on webhook signature rejection (`FreemiusWebhookController`) --
-  today a wrong/blank secret produces 100% silent 401s, and this is the one debugging aid
-  wanted during sandbox verification.
-- Optionally fail closed in `BillingService.checkoutUrl` when `productId`/`teamPlanId` are
-  blank (currently builds a broken checkout URL on operator misconfig).
+**Fly state checked 2026-07-31**: `SPA_BASE_URL` is deployed on `cadence--mlohw` (checkout
+return URL will build correctly); no `FREEMIUS_*` secrets exist yet, as expected.
 
 ## 3. Merge, set secrets, deploy
 
